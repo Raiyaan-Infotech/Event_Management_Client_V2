@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowLeft, faPenToSquare, faShareNodes, faDownload, faTrash,
-    faCalendarDays, faLocationDot, faHeart, faClock, faGlobe,
+    faCalendarDays, faLocationDot, faHeart, faGlobe,
     faLock, faEyeSlash, faUsers, faSquareCheck, faComments, faQrcode,
-    faLayerGroup, faPalette, faImages, faClockRotateLeft, faCircleInfo,
+    faLayerGroup, faPalette, faClockRotateLeft, faCircleInfo,
     faTriangleExclamation, faArrowRight, faCircleCheck, faXmark, faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -34,6 +34,10 @@ import { useParticipantStats, useParticipants } from "@/hooks/use-guests";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
+import { AgendaPanel } from "./agenda-panel";
+import { FamilyPanel } from "./family-panel";
+import { GalleryPanel } from "./gallery-panel";
+import { SettingsPanel } from "./settings-panel";
 
 /**
  * Event Details — the View Event screen.
@@ -45,9 +49,11 @@ import { useDateFormatter } from '@/hooks/use-client-settings';
  * changes the code — which is correct, the code encodes when the event is.
  *
  * ── WHAT EACH TAB ACTUALLY HAS ───────────────────────────────────────────────
- * Overview, Event Information, Schedule, Venue and RSVPs read real data.
- * Gallery and Activity Log have no table behind them and say so. Messages is
- * ON HOLD by decision, not by oversight — see the tab body.
+ * Overview, Event Information, Schedule (with the Agenda), Venue, Gallery,
+ * Family, RSVPs and Settings (Organizer Contact, Participants, RSVP) read and
+ * write real data — the same endpoints the mobile app uses. Activity Log has no
+ * table behind it and says so. Messages is ON HOLD by decision, not by
+ * oversight — see the tab body.
  */
 
 const TABS = [
@@ -56,7 +62,9 @@ const TABS = [
     { value: "schedule", label: "Schedule" },
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Gallery" },
+    { value: "family", label: "Family" },
     { value: "rsvps", label: "RSVPs" },
+    { value: "settings", label: "Settings" },
     { value: "messages", label: "Messages" },
     { value: "activity", label: "Activity Log" },
 ] as const;
@@ -470,18 +478,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         <Row label="Time Zone" value={event.timezone || "—"} />
                     </Panel>
 
-                    <Panel title="Programme">
-                        {/* A multi-session agenda would need its own table. Said
-                            plainly rather than shown as an empty timeline. */}
-                        <div className="flex flex-col items-center gap-2 py-8 text-center">
-                            <FontAwesomeIcon icon={faClock} className="!size-[22px] text-muted-foreground/40" />
-                            <p className="text-[12.5px] font-semibold text-foreground">Single session</p>
-                            <p className="max-w-[280px] text-[11.5px] text-muted-foreground">
-                                This event runs as one block. A multi-session programme (mehendi, sangeet,
-                                reception) is not part of the event record yet.
-                            </p>
-                        </div>
-                    </Panel>
+                    <AgendaPanel event={event} />
                 </div>
             )}
 
@@ -510,20 +507,14 @@ export function EventDetail({ eventId }: { eventId: number }) {
             )}
 
             {/* ── Gallery ─────────────────────────────────────────────────── */}
-            {tab === "gallery" && (
-                <Panel title="Gallery">
-                    <div className="flex flex-col items-center gap-2 py-10 text-center">
-                        <FontAwesomeIcon icon={faImages} className="!size-[24px] text-muted-foreground/40" />
-                        <p className="text-[13px] font-semibold text-foreground">No gallery yet</p>
-                        <p className="max-w-[360px] text-[12px] text-muted-foreground">
-                            Photo uploads are not part of this portal yet. The invitation artwork above comes
-                            from the template you chose, not from an upload.
-                        </p>
-                    </div>
-                </Panel>
-            )}
+            {tab === "gallery" && <GalleryPanel eventId={event.id} />}
 
-            {/* ── RSVPs ───────────────────────────────────────────────────── */}
+            {/* ── Family ──────────────────────────────────────────────────── */}
+            {tab === "family" && <FamilyPanel event={event} />}
+
+            {/* ── Settings ────────────────────────────────────────────────── */}
+            {tab === "settings" && <SettingsPanel event={event} />}
+
             {tab === "rsvps" && (
                 <div className="flex flex-col gap-5">
                     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

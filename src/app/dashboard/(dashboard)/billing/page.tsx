@@ -64,9 +64,10 @@ import { api } from '@/lib/api-client';
  * strings typed here, so these unlock when the backend stops reporting them —
  * nobody has to remember to come back and edit this file.
  *
- * The one that matters most: STORAGE has a known ceiling (the plan's
- * `storage_gb`) and NOTHING measures the numerator. A progress bar there would
- * look precise and be invented, so the ceiling is shown and the usage is not.
+ * STORAGE is measured from the account's gallery (the bytes of every photo and
+ * video, in the plan's own unit), so it shows a real figure against the plan's
+ * ceiling. It does not count cover, invitation, splash, agenda or contact
+ * pictures — the same rule the gallery upload enforces.
  */
 
 const STATUS_STYLE: Record<BillingStatus, { label: string; className: string }> = {

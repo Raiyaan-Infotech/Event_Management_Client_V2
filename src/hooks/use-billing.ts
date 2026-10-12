@@ -102,11 +102,12 @@ export interface BillingUsage {
     guests: UsageMetric & { per_event_limit: number | null };
     messages: UsageMetric;
     /**
-     * The ceiling is known; nothing measures the numerator. `limit` + `unit` is
-     * the plan's setting as the admin entered it ("500 MB"); `limit_gb` is the
-     * same ceiling in GB.
+     * Measured from the account's gallery. `used` and `limit` are both in
+     * `unit` (the plan's own, "500 MB"); `used_gb` / `limit_gb` are the same
+     * figures in GB.
      */
     storage: {
+        used?: number | null;
         used_gb: number | null;
         limit_gb: number | null;
         limit: number | null;

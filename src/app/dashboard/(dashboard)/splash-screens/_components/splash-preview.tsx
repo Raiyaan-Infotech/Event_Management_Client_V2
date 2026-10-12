@@ -1,147 +1,107 @@
 'use client';
 
-import { Smartphone, Music } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import type { BackgroundType, ButtonStyle } from '@/hooks/use-splash-screens';
+import { InvitationCard } from '@/components/common/invitation-card';
+import { eventCustomImage, resolveArtwork } from '@/lib/event-templates';
+import { useEventOptions } from '@/hooks/use-client-portal';
+import type { ClientEvent } from '@/hooks/use-client-events';
+import { SPLASH_HIDDEN_KEYS } from '@/hooks/use-splash-screens';
 
 /**
- * The phone-frame renderer, shared by the editor (live, as you type) and the
- * list's "View" dialog (read-only, from a saved row).
+ * The splash as a guest sees it: the event's invitation, drawn with the
+ * splash's own Primary / Secondary colour and section switches.
  *
- * ⚠ Illustrative, not pixel-accurate: this is CSS mirroring the real fields,
- * not a frame from the mobile app's own renderer — that renderer does not
- * exist yet either. See the splash-screens module header for why.
- *
- * One shared shape rather than two copies of this logic: the form's live
- * state and a saved `SplashScreen` row differ only in which fields are
- * allowed to be empty, so both are normalised to this interface at the call
- * site instead of the rendering logic being written twice and drifting.
+ * Same renderer the portal already uses for the invitation itself
+ * ([InvitationCard]), so this is the real design and not a CSS imitation. The QR
+ * code, Organizer and Contact are forced off — they never appear on a splash,
+ * and the app draws it the same way.
  */
-export interface SplashPreviewData {
-    main_title: string;
-    sub_title: string | null;
-    event_name: string;
-    tagline: string | null;
-    background_type: BackgroundType;
-    background_url: string | null;
-    background_config: Record<string, unknown> | null;
-    button_text: string;
-    button_style: ButtonStyle;
-    button_color: string | null;
-    show_tagline: boolean;
-    sound_enabled: boolean;
-    loader_enabled: boolean;
-    animation_enabled: boolean;
+export interface SplashLook {
+    themeId: string | null;
+    primary: string | null;
+    secondary: string | null;
+    /** Section on/off; null = the invitation's own. */
+    components: Record<string, boolean | number> | null;
+    order: string[] | null;
 }
 
-/** Just the phone, no card chrome — for embedding in a "View" dialog at a larger size. */
-export function SplashPreviewFrame({ data, className }: { data: SplashPreviewData; className?: string }) {
-    const cfg = data.background_config ?? {};
+/** The phone-frame renderer, shared by the editor (live) and the list's View dialog. */
+export function SplashPreviewFrame({
+    event, look, className,
+}: { event: ClientEvent | null | undefined; look: SplashLook; className?: string }) {
+    const { data: opts, isLoading } = useEventOptions();
 
-    const backgroundStyle: React.CSSProperties = (() => {
-        switch (data.background_type) {
-            case 'solid_color':
-                return { backgroundColor: String(cfg.color || '#E91E63') };
-            case 'gradient':
-                return {
-                    background: `${cfg.gradient_type === 'radial' ? 'radial-gradient' : 'linear-gradient'}(135deg, ${cfg.color_1 || '#6A11CB'}, ${cfg.color_2 || '#FF2575'})`,
-                };
-            case 'image':
-            case 'couple_photo':
-                return data.background_url
-                    ? { backgroundImage: `url(${data.background_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                    : { backgroundColor: '#1a1a1a' };
-            case 'video':
-                // The <video> element itself renders on top when a URL exists;
-                // this is only the fallback shown while it has none.
-                return { backgroundColor: '#1a1a1a' };
-            case 'logo':
-                return { backgroundColor: '#faf7f2' };
-            default:
-                return { backgroundColor: '#1a1a1a' };
-        }
-    })();
+    if (!event || isLoading) {
+        return <Skeleton className={cn('mx-auto aspect-[9/19] w-full max-w-[240px] rounded-[28px]', className)} />;
+    }
 
-    const overlayOpacity = Number(cfg.overlay ?? 0) / 100;
-    const buttonClasses = cn(
-        'mt-4 rounded-full px-5 py-2 text-[12px] font-semibold',
-        data.button_style === 'filled' && 'text-white',
-        data.button_style === 'outline' && 'border-2 bg-transparent',
-        data.button_style === 'text' && 'bg-transparent',
-    );
+    const artwork = resolveArtwork(look.themeId ?? event.theme_id, opts?.templates, eventCustomImage(event));
+
+    // The invitation's own switches, with the splash's on top and the three
+    // sections that never show on a splash forced off.
+    const base = (look.components ?? event.components ?? {}) as Record<string, boolean | number>;
+    const components: Record<string, boolean | number> = { ...base };
+    for (const key of SPLASH_HIDDEN_KEYS) components[key] = false;
 
     return (
-        <div className={cn('relative overflow-hidden rounded-[24px] border-4 border-black bg-black shadow-lg', className)}>
-            <div className="relative flex h-full flex-col items-center justify-center gap-2 p-5 text-center" style={backgroundStyle}>
-                {/* A real video plays here — this is the one case the preview is
-                    not just a static swatch, because a moving background is the
-                    entire point of choosing this type. Muted, so autoplay is
-                    allowed without a click; looped, since a splash has no
-                    natural "end". */}
-                {data.background_type === 'video' && data.background_url && (
-                    <video
-                        src={data.background_url}
-                        className="absolute inset-0 h-full w-full object-cover"
-                        autoPlay muted loop playsInline
-                    />
-                )}
-                {overlayOpacity > 0 && (
-                    <div className="absolute inset-0 bg-black" style={{ opacity: overlayOpacity }} />
-                )}
-                {data.background_type === 'logo' && data.background_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                        src={data.background_url} alt=""
-                        className="relative z-10 mb-2 object-contain"
-                        style={{ width: `${Number(cfg.size ?? 60)}%` }}
-                    />
-                )}
-                <div className="relative z-10 flex flex-col items-center gap-1.5 text-white">
-                    <p className="text-[15px] font-black tracking-wide uppercase">{data.main_title || "YOU'RE INVITED"}</p>
-                    {data.sub_title && <p className="text-[9px] uppercase opacity-80">{data.sub_title}</p>}
-                    <p className="text-[16px] font-semibold italic" style={{ fontFamily: 'Georgia, serif' }}>
-                        {data.event_name || 'Event Name'}
-                    </p>
-                    {data.show_tagline && data.tagline && (
-                        <p className="mt-1 text-[10px] opacity-85">{data.tagline}</p>
-                    )}
-                    <button
-                        type="button"
-                        className={buttonClasses}
-                        style={{
-                            backgroundColor: data.button_style === 'filled' ? (data.button_color || '#E91E63') : 'transparent',
-                            borderColor: data.button_color || '#E91E63',
-                            color: data.button_style === 'filled' ? '#fff' : (data.button_color || '#E91E63'),
+        <div
+            className={cn(
+                'relative mx-auto aspect-[9/19] w-full max-w-[240px] overflow-hidden rounded-[28px] border-[6px] border-foreground/80 bg-background shadow-md',
+                className,
+            )}
+        >
+            <div className="absolute inset-0 grid place-items-center overflow-hidden p-2">
+                {artwork.kind === 'template' ? (
+                    <InvitationCard
+                        template={{
+                            ...artwork.template,
+                            secondary_color: look.secondary || artwork.template.secondary_color,
                         }}
-                    >
-                        {data.button_text || 'Enter Invitation'}
-                    </button>
-                </div>
+                        componentsOverride={components}
+                        orderOverride={look.order ?? event.component_order}
+                        className="w-full max-w-none shadow-none"
+                        data={{
+                            name: event.name,
+                            hostOne: event.host_one,
+                            hostTwo: event.host_two,
+                            tagline: event.tagline,
+                            description: event.description,
+                            startDate: event.start_date,
+                            startTime: event.start_time,
+                            endTime: event.end_time,
+                            venueName: event.venue_name,
+                            venueAddress: event.venue_address,
+                            footerNote: event.footer_note,
+                            primaryColor: look.primary || event.primary_color,
+                        }}
+                    />
+                ) : (
+                    <p className="px-4 text-center text-[12px] text-muted-foreground">
+                        This event&apos;s invitation template is no longer available, so the splash cannot be previewed.
+                    </p>
+                )}
             </div>
         </div>
     );
 }
 
-/** The frame plus the editor's card chrome and status badges. */
-export function SplashPreviewCard({ data }: { data: SplashPreviewData }) {
+/** The editor's preview card: a title and the phone. */
+export function SplashPreviewCard({
+    event, look,
+}: { event: ClientEvent | null | undefined; look: SplashLook }) {
     return (
         <Card className="py-0">
-            <CardContent className="p-5">
-                <div className="mb-3 flex items-center gap-2">
-                    <Smartphone className="size-4 text-muted-foreground" />
-                    <p className="text-[13px] font-bold">Splash Preview</p>
+            <CardContent className="flex flex-col gap-3 p-4">
+                <div className="flex items-center gap-2 text-[12.5px] font-semibold">
+                    <Smartphone className="size-4 text-primary" /> Live preview
                 </div>
-                <p className="mb-4 text-[11.5px] text-muted-foreground">This is how your splash screen will look.</p>
-
-                <SplashPreviewFrame data={data} className="mx-auto aspect-[9/19] w-full max-w-[220px]" />
-
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
-                    {data.sound_enabled && <Badge variant="secondary" className="gap-1 text-[10px]"><Music className="size-3" /> Sound</Badge>}
-                    {data.loader_enabled && <Badge variant="secondary" className="text-[10px]">Loader</Badge>}
-                    {data.animation_enabled && <Badge variant="secondary" className="text-[10px]">Animated (app only)</Badge>}
-                </div>
+                <SplashPreviewFrame event={event} look={look} />
+                <p className="text-center text-[11.5px] text-muted-foreground">
+                    The splash is the event&apos;s invitation. The QR code, Organizer and Contact never show on it.
+                </p>
             </CardContent>
         </Card>
     );

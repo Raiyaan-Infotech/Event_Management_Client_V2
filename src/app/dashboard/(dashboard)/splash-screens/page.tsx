@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-    Sparkles, Plus, Search, Pencil, Trash2, MoreVertical, Image as ImageIcon,
-    Video, Palette, Layers, Heart, Music, Eye,
+    Sparkles, Plus, Search, Pencil, Trash2, MoreVertical, Eye,
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,23 +19,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import {
-    useSplashScreens, useDeleteSplashScreen, type SplashScreen, type BackgroundType,
+    useSplashScreens, useDeleteSplashScreen, type SplashScreen,
 } from '@/hooks/use-splash-screens';
+import { useClientEvent } from '@/hooks/use-client-events';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 import { SplashPreviewFrame } from './_components/splash-preview';
 
 /**
  * Splash Screens.
  *
- * ── ⚠ NOT TIED TO AN EVENT YET, DELIBERATELY ────────────────────────────────
- * Each row is a standalone saved config — "Event Name" is a field someone
- * typed, not a link to a real event on this account. Linking one to a real
- * event is a later phase. See the backend model header for the full reasoning.
- *
- * ── WHAT THIS ACTUALLY IS ────────────────────────────────────────────────────
- * The MOBILE APP's own splash/loading screen shown when a guest opens an
- * event — not a web page. Nothing here is shown to a guest today; this
- * screen only builds and saves the configuration.
+ * The splash is the event's own invitation, drawn with the splash's Primary and
+ * Secondary colour and its own section switches (rebuilt to match the mobile
+ * app, session 57 §756). One splash per event; `status` decides whether guests
+ * actually see it. The old background / sound / animation / button design is
+ * gone — those columns were dropped.
  */
 
 const PAGE_SIZE = 12;
@@ -179,15 +175,10 @@ export default function SplashScreensPage() {
                     <DialogHeader>
                         <DialogTitle>{viewing?.name}</DialogTitle>
                         <DialogDescription>
-                            {viewing?.event_name} · {viewing && BG_LABEL[viewing.background_type]}
+                            {viewing?.event_name} · {viewing?.status === 'active' ? 'Active' : 'Draft'}
                         </DialogDescription>
                     </DialogHeader>
-                    {viewing && (
-                        <SplashPreviewFrame
-                            data={viewing}
-                            className="mx-auto aspect-[9/19] w-full max-w-[240px]"
-                        />
-                    )}
+                    {viewing && <ViewPreview splash={viewing} />}
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setViewing(null)}>Close</Button>
                         {viewing && (
@@ -204,44 +195,33 @@ export default function SplashScreensPage() {
     );
 }
 
-const BG_ICON: Record<BackgroundType, React.ComponentType<{ className?: string }>> = {
-    image: ImageIcon,
-    video: Video,
-    solid_color: Palette,
-    gradient: Layers,
-    logo: Sparkles,
-    couple_photo: Heart,
-};
-
-const BG_LABEL: Record<BackgroundType, string> = {
-    image: 'Image', video: 'Video', solid_color: 'Solid Color',
-    gradient: 'Gradient', logo: 'Logo', couple_photo: 'Couple Photo',
-};
+/** The View dialog: the real invitation, drawn with the splash's own look. */
+function ViewPreview({ splash }: { splash: SplashScreen }) {
+    const event = useClientEvent(splash.event_id);
+    return (
+        <SplashPreviewFrame
+            event={event.data}
+            look={{
+                themeId: splash.theme_id,
+                primary: splash.primary_color,
+                secondary: splash.secondary_color,
+                components: splash.components,
+                order: splash.component_order,
+            }}
+            className="aspect-[9/19] max-w-[240px]"
+        />
+    );
+}
 
 function SplashCard({
     splash, onView, onDelete,
 }: { splash: SplashScreen; onView: () => void; onDelete: () => void }) {
     const fmt = useDateFormatter();
-    const Icon = BG_ICON[splash.background_type];
-
-    // A best-effort swatch, not a pixel-accurate preview — the full render
-    // lives in the editor's own preview panel. This just gives the list
-    // something more useful than an icon to scan by.
-    const swatchStyle: React.CSSProperties = (() => {
-        const cfg = (splash.background_config ?? {}) as Record<string, unknown>;
-        if (splash.background_type === 'solid_color') {
-            return { backgroundColor: String(cfg.color || '#E91E63') };
-        }
-        if (splash.background_type === 'gradient') {
-            const c1 = String(cfg.color_1 || '#6A11CB');
-            const c2 = String(cfg.color_2 || '#FF2575');
-            return { backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})` };
-        }
-        if ((splash.background_type === 'image' || splash.background_type === 'couple_photo') && splash.background_url) {
-            return { backgroundImage: `url(${splash.background_url})`, backgroundSize: 'cover', backgroundPosition: 'center' };
-        }
-        return { backgroundColor: 'var(--muted)' };
-    })();
+    const primary = splash.primary_color || '#8B1E3F';
+    const secondary = splash.secondary_color || '#D97706';
+    const shown = splash.components
+        ? Object.entries(splash.components).filter(([k, v]) => (v === true || v === 1) && !['event_qr_code', 'organizer', 'contact_details'].includes(k)).length
+        : null;
 
     return (
         <Card className="overflow-hidden py-0">
@@ -250,12 +230,10 @@ function SplashCard({
                 onClick={onView}
                 aria-label={`View ${splash.name}`}
                 className="group relative flex h-32 w-full items-center justify-center text-white"
-                style={swatchStyle}
+                style={{ backgroundImage: `linear-gradient(135deg, ${primary}, ${secondary})` }}
             >
-                <div className="absolute inset-0 bg-black/25" />
-                <Icon className="relative size-8 opacity-90 transition-opacity group-hover:opacity-0" />
-                {/* Revealed on hover — pointer-events is fine here since the
-                    whole swatch is already the click target underneath it. */}
+                <Sparkles className="relative size-8 opacity-90 transition-opacity group-hover:opacity-0" />
+                {/* Revealed on hover — the whole swatch is already the click target. */}
                 <span className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                     <Eye className="size-6" />
                 </span>
@@ -292,12 +270,10 @@ function SplashCard({
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10.5px]">{BG_LABEL[splash.background_type]}</Badge>
-                    {splash.sound_enabled && (
-                        <Badge variant="outline" className="gap-1 text-[10.5px]"><Music className="size-3" /> Sound</Badge>
-                    )}
-                    {splash.animation_enabled && (
-                        <Badge variant="outline" className="text-[10.5px]">Animated</Badge>
+                    <span className="size-4 rounded-full border" style={{ backgroundColor: primary }} title="Primary colour" />
+                    <span className="size-4 rounded-full border" style={{ backgroundColor: secondary }} title="Secondary colour" />
+                    {shown !== null && (
+                        <Badge variant="outline" className="text-[10.5px]">{shown} section{shown === 1 ? '' : 's'} shown</Badge>
                     )}
                 </div>
 
