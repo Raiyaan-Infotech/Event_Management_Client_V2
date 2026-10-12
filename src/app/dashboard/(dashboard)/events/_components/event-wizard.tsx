@@ -177,11 +177,25 @@ interface FormState {
     status: string;
     theme_id: string;
     primary_color: string;
+    /** The invitation's secondary colour (accents and details); "" = follow the template. */
+    secondary_color: string;
+    /** How the invitation draws its QR code: 0 classic, 1 rounded, 2 heart. */
+    qr_style: number;
     /** Stored URL of the event's own photo; "" = none. See CoverImageField. */
     cover_image: string;
     /** The host's own picture for a custom-type template. "" = the template's own. */
     custom_image: string;
 }
+
+/** The app's own secondary swatches (Create Event, Card Settings). */
+const SECONDARY_SWATCHES = ["#D97706", "#8B5CF6", "#EC4899", "#06B6D4", "#10B981"];
+
+/** `events.qr_style`: 0 classic, 1 rounded, 2 heart, the same three the app offers. */
+const QR_STYLES = [
+    { value: 0, label: "Classic" },
+    { value: 1, label: "Rounded" },
+    { value: 2, label: "Heart" },
+] as const;
 
 const EMPTY: FormState = {
     category_id: "",
@@ -196,6 +210,7 @@ const EMPTY: FormState = {
     // Blank, not a hardcoded slug: the theme catalogue is whatever the client's
     // PLAN grants, so nothing can be preselected until those templates load.
     theme_id: "", primary_color: PRIMARY_SWATCHES[0],
+    secondary_color: "", qr_style: 0,
     cover_image: "",
     custom_image: "",
 };
@@ -416,6 +431,8 @@ export function EventWizard({
             status: row.status ?? "upcoming",
             theme_id: row.theme_id || "",
             primary_color: row.primary_color || PRIMARY_SWATCHES[0],
+            secondary_color: row.secondary_color ?? "",
+            qr_style: row.qr_style ?? 0,
             cover_image: row.cover_image ?? "",
             custom_image: row.custom_image ?? "",
         });
@@ -627,8 +644,13 @@ export function EventWizard({
         // one — which is correct, and is why the token is read from `created`
         // rather than from the form.
         qrToken: created?.qr_token,
-        qrStyle: created?.qr_style,
+        qrStyle: form.qr_style,
     };
+
+    // The card drawn with the event's own secondary colour on top of the template's.
+    const cardTemplate = artwork.kind === "template"
+        ? { ...artwork.template, secondary_color: form.secondary_color || artwork.template.secondary_color }
+        : null;
 
     /**
      * What the template says, before any override — the baseline the toggles
@@ -894,6 +916,9 @@ export function EventWizard({
                 menu_order: orderedMenuRows.map((m) => m.id),
                 theme_id: form.theme_id,
                 primary_color: form.primary_color,
+                // "" → null: follow the template's own secondary colour.
+                secondary_color: form.secondary_color || null,
+                qr_style: form.qr_style,
                 // "" → null, so removing the photo in edit mode clears it.
                 cover_image: form.cover_image || null,
                 // Sent whatever the template's type, so switching away from a
@@ -1610,6 +1635,9 @@ export function EventWizard({
                                                     type="button"
                                                     onClick={() => {
                                                         setField("theme_id", t.code);
+                                                        // A new template starts on ITS secondary colour again (as the app
+                                                        // does); the host can pick their own after.
+                                                        setField("secondary_color", "");
                                                         // The template's own accent becomes the
                                                         // starting primary colour, so the card
                                                         // on step 5 does not immediately clash
@@ -1770,6 +1798,83 @@ export function EventWizard({
                                 </div>
                                 </div>
 
+                                {/* Secondary Colour: the accents and details. "Follow template"
+                                    clears it so the template's own secondary colour is used. */}
+                                {artwork.kind === "template" && (
+                                    <>
+                                        <p className="mb-1 mt-6 text-[12.5px] font-semibold text-foreground">Secondary Colour</p>
+                                        <p className="mb-3 text-[12px] text-muted-foreground">
+                                            Used for the accents and details of your invitation.
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {SECONDARY_SWATCHES.map((c) => (
+                                                <button
+                                                    key={c}
+                                                    type="button"
+                                                    onClick={() => setField("secondary_color", c)}
+                                                    aria-label={`Secondary colour ${c}`}
+                                                    aria-pressed={form.secondary_color.toLowerCase() === c.toLowerCase()}
+                                                    style={{ backgroundColor: c }}
+                                                    className={cn(
+                                                        "grid h-8 w-8 place-items-center rounded-full ring-offset-2 ring-offset-card transition-shadow",
+                                                        form.secondary_color.toLowerCase() === c.toLowerCase() && "ring-2 ring-foreground/40"
+                                                    )}
+                                                >
+                                                    {form.secondary_color.toLowerCase() === c.toLowerCase() && (
+                                                        <FontAwesomeIcon icon={faCheck} className="!size-[11px] text-white" />
+                                                    )}
+                                                </button>
+                                            ))}
+                                            <label className="relative h-8 w-8 cursor-pointer overflow-hidden rounded-full border border-border">
+                                                <span
+                                                    className="absolute inset-0"
+                                                    style={{ background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)" }}
+                                                />
+                                                <input
+                                                    type="color"
+                                                    value={/^#[0-9a-fA-F]{6}$/.test(form.secondary_color) ? form.secondary_color : "#D97706"}
+                                                    onChange={(e) => setField("secondary_color", e.target.value)}
+                                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                                    aria-label="Custom secondary colour"
+                                                />
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setField("secondary_color", "")}
+                                                disabled={!form.secondary_color}
+                                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-[12.5px] font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                <FontAwesomeIcon icon={faRotateLeft} className="!size-[11px]" />
+                                                Follow template
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* QR Code Style: how the invitation draws its QR code. */}
+                                <p className="mb-1 mt-6 text-[12.5px] font-semibold text-foreground">QR Code Style</p>
+                                <p className="mb-3 text-[12px] text-muted-foreground">
+                                    The look of the QR code on your invitation. It scans the same in every style.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {QR_STYLES.map((q) => (
+                                        <button
+                                            key={q.value}
+                                            type="button"
+                                            onClick={() => setField("qr_style", q.value)}
+                                            aria-pressed={form.qr_style === q.value}
+                                            className={cn(
+                                                "rounded-lg border px-4 py-2 text-[12.5px] font-medium transition",
+                                                form.qr_style === q.value
+                                                    ? "border-primary bg-primary/10 text-primary"
+                                                    : "border-border bg-card text-foreground hover:bg-muted"
+                                            )}
+                                        >
+                                            {q.label}
+                                        </button>
+                                    ))}
+                                </div>
+
                             </div>
                         )}
 
@@ -1915,7 +2020,7 @@ export function EventWizard({
                                     */}
                                     {artwork.kind === "template" ? (
                                         <InvitationCard
-                                            template={artwork.template}
+                                            template={cardTemplate ?? artwork.template}
                                             // Whatever step 4 was left showing — so the
                                             // preview and the toggles cannot disagree.
                                             componentsOverride={
@@ -2041,8 +2146,8 @@ export function EventWizard({
                                         <div ref={qrWrapRef} id="event-qr" className="w-full rounded-md border border-border p-4">
                                             <p className="mb-1 text-left text-[13px] font-bold text-foreground">Event QR Code</p>
                                             <p className="mb-4 text-left text-[11.5px] text-muted-foreground">
-                                                Print this on your invitation. The code carries your event details in
-                                                encrypted form &mdash; only this app can read it back.
+                                                Print this on your invitation. The code carries only your event&apos;s
+                                                encrypted id &mdash; only this app can read it back, and it stays the same when you edit the event.
                                             </p>
                                             <EventQr
                                                 token={created?.qr_token}
@@ -2132,7 +2237,7 @@ export function EventWizard({
                                         <div ref={exportCardRef} className="flex w-full justify-center rounded-md border border-border/50 bg-background p-4">
                                             {artwork.kind === "template" ? (
                                                 <InvitationCard
-                                                    template={artwork.template}
+                                                    template={cardTemplate ?? artwork.template}
                                                     componentsOverride={
                                                         compOverride
                                                             ? Object.fromEntries(

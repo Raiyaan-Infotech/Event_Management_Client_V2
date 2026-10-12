@@ -51,7 +51,18 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const PRIMARY_SWATCHES = ['#8B1E3F', '#E91E63', '#2457D6', '#22C55E', '#F59E0B'];
 const SECONDARY_SWATCHES = ['#D97706', '#8B5CF6', '#EC4899', '#06B6D4', '#10B981'];
 
-const SWITCH_KEYS = SPLASH_SWITCHES.map((s) => s.key);
+
+/**
+ * Every section the invitation has. The splash row must carry ALL of them: the
+ * app uses a saved `components` map as it stands, so a key left out (event
+ * photos, decoration) is drawn as hidden. The six with a switch come from the
+ * form; the rest keep the invitation's own value; the QR code, Organizer and
+ * Contact are forced off.
+ */
+const ALL_COMPONENT_KEYS = [
+    'event_title', 'host_names', 'date_time', 'venue', 'event_qr_code', 'organizer',
+    'event_photos', 'contact_details', 'invitation_message', 'footer_note', 'decoration_elements',
+] as const;
 
 export function SplashForm({ splashId }: { splashId?: number }) {
     const isEdit = !!splashId;
@@ -162,7 +173,7 @@ function invitationDefaults(event: ClientEvent, templates: Templates) {
 
     const baseComponents = (event.components ?? template?.components ?? {}) as Record<string, boolean | number>;
     const components: Record<string, boolean> = {};
-    for (const key of SWITCH_KEYS) {
+    for (const key of ALL_COMPONENT_KEYS) {
         const v = baseComponents[key];
         components[key] = v === undefined || v === null ? true : v === true || v === 1;
     }
@@ -187,7 +198,7 @@ function SplashEditor({
     const [components, setComponents] = useState<Record<string, boolean>>(() => {
         const saved = splash?.components;
         const out: Record<string, boolean> = {};
-        for (const key of SWITCH_KEYS) {
+        for (const key of ALL_COMPONENT_KEYS) {
             out[key] = saved && key in saved ? saved[key] === true || saved[key] === 1 : base.components[key];
         }
         return out;
@@ -221,9 +232,11 @@ function SplashEditor({
             theme_id: event.theme_id,
             primary_color: primary,
             secondary_color: secondary,
+            // All eleven sections: the form's switches plus the invitation's own
+            // photos / decoration; the three that never show are forced off (the
+            // server forces them off as well).
             components: {
                 ...components,
-                // Never on a splash — the server forces these off as well.
                 ...Object.fromEntries(SPLASH_HIDDEN_KEYS.map((k) => [k, false])),
             },
             component_order: base.order,

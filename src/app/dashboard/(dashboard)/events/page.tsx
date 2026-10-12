@@ -794,8 +794,8 @@ function MyEventsContent() {
                             Event QR Code
                         </DialogTitle>
                         <DialogDescription className="break-words">
-                            &ldquo;{qrFor?.name}&rdquo; &mdash; the code carries your event details in
-                            encrypted form, so only this app can read it back.
+                            &ldquo;{qrFor?.name}&rdquo; &mdash; the code carries only your event&apos;s
+                            encrypted id, so only this app can read it back — and it stays the same when you edit the event.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-center py-2">

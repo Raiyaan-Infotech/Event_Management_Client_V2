@@ -96,6 +96,8 @@ export interface ClientEvent {
     disabled_app_menu_ids?: number[];
     theme_id: string | null;
     primary_color: string | null;
+    /** The event's own secondary colour; null = follow the template. */
+    secondary_color?: string | null;
     /**
      * The event's own photo — shown on the mobile app's event card and at the
      * top of the event screen. Null falls back to the template artwork. Not part
@@ -156,6 +158,8 @@ export interface EventPayload {
     disabled_app_menu_ids?: number[];
     theme_id?: string | null;
     primary_color?: string | null;
+    secondary_color?: string | null;
+    qr_style?: number;
     cover_image?: string | null;
     custom_image?: string | null;
     venue_landmark?: string | null;
