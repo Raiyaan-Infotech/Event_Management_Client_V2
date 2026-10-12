@@ -533,7 +533,6 @@ function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
                                 <TableHead className="min-w-[160px]">Venue</TableHead>
                                 <TableHead className="min-w-[130px]">Invitation</TableHead>
                                 <TableHead className="min-w-[120px]">Response</TableHead>
-                                <TableHead className="min-w-[120px]">Group</TableHead>
                                 <TableHead className="min-w-[90px] text-end">Open</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -572,9 +571,6 @@ function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
                                         <Badge variant="ghost" className={RESPONSE_STYLE[l.response_type]}>
                                             {RESPONSE_LABEL[l.response_type]}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell className="max-w-[150px] text-[12px] break-words">
-                                        {l.group?.name ?? '—'}
                                     </TableCell>
                                     <TableCell className="text-end">
                                         <Button asChild size="icon" variant="ghost" className="size-8">

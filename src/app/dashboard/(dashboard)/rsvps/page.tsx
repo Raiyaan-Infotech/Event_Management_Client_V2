@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
     Users, CircleCheck, CircleHelp, CircleX, Mail, Search, X, Download,
     ChevronLeft, ChevronRight, Eye, MoreVertical, Pencil, Send, Trash2,
-    Loader2, AlertTriangle, UsersRound,
+    Loader2, AlertTriangle,
     UserRound,
 } from 'lucide-react';
 
@@ -29,12 +29,11 @@ import {
 } from '@/components/ui/dialog';
 
 import {
-    useRsvps, useResetResponse, fetchExportRows,
+    useRsvps, useResetResponse, fetchExportRows, useRsvpRelationOptions,
     BUCKET_LABEL, BUCKET_STYLE, formatDate, formatTime,
     type Rsvp, type RsvpBucket, type RsvpParams,
 } from '@/hooks/use-rsvps';
 import { useComposer } from '@/hooks/use-messages';
-import { useAllGuestGroups } from '@/hooks/use-guests';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 
 /**
@@ -74,7 +73,8 @@ const EXPORT_COLUMNS = [
     { key: 'email', label: 'Email' },
     { key: 'mobile', label: 'Phone' },
     { key: 'event', label: 'Event' },
-    { key: 'group', label: 'Group' },
+    { key: 'side', label: 'Side' },
+    { key: 'relationship', label: 'Relationship' },
     { key: 'status', label: 'RSVP Status', always: true },
     { key: 'party_size', label: 'Number of Guests' },
     { key: 'responded_at', label: 'Response Date' },
@@ -86,7 +86,8 @@ const EXPORT_COLUMNS = [
 
 export default function RsvpsPage() {
     const [eventId, setEventId] = useState<string>('all');
-    const [groupId, setGroupId] = useState<string>('all');
+    const [side, setSide] = useState<'all' | 'groom' | 'bride'>('all');
+    const [relation, setRelation] = useState<string>('all');
     const [status, setStatus] = useState<RsvpBucket | 'all'>('all');
     const [search, setSearch] = useState('');
     const [from, setFrom] = useState('');
@@ -118,16 +119,17 @@ export default function RsvpsPage() {
     // Reuses the composer payload — it already serves the client's events with
     // a guest count on each, which is exactly what this filter needs.
     const { data: composer } = useComposer();
-    const { data: groups } = useAllGuestGroups();
+    const { data: relations } = useRsvpRelationOptions(eventId === 'all' ? undefined : eventId);
 
     const params: RsvpParams = useMemo(() => ({
         event_id: eventId === 'all' ? undefined : eventId,
-        group_id: groupId === 'all' ? undefined : groupId,
+        side: side === 'all' ? undefined : side,
+        relationship: relation === 'all' ? undefined : relation,
         status,
         search: debounced,
         from: from || undefined,
         to: to || undefined,
-    }), [eventId, groupId, status, debounced, from, to]);
+    }), [eventId, side, relation, status, debounced, from, to]);
 
     const { data, isLoading, isFetching } = useRsvps({ ...params, page, limit: Number(limit) });
     const reset = useResetResponse(() => { setConfirmReset(null); setReason(''); setAcknowledged(false); });
@@ -135,12 +137,12 @@ export default function RsvpsPage() {
     const rsvps = data?.rsvps ?? [];
     const stats = data?.stats;
     const pagination = data?.pagination;
-    const filtered = eventId !== 'all' || groupId !== 'all' || status !== 'all'
+    const filtered = eventId !== 'all' || side !== 'all' || relation !== 'all' || status !== 'all'
         || !!debounced || !!from || !!to;
 
     const onFilter = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
     const clearAll = () => {
-        setEventId('all'); setGroupId('all'); setStatus('all');
+        setEventId('all'); setSide('all'); setRelation('all'); setStatus('all');
         setSearch(''); setDebounced(''); setFrom(''); setTo(''); setPage(1);
     };
 
@@ -286,13 +288,33 @@ export default function RsvpsPage() {
                             </SelectContent>
                         </Select>
 
-                        <Select value={groupId} onValueChange={onFilter(setGroupId)}>
-                            <SelectTrigger className="h-9 w-[150px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <Select
+                            value={side}
+                            onValueChange={(v) => {
+                                onFilter(setSide)(v as 'all' | 'groom' | 'bride');
+                                // A relation of the other side does not carry over.
+                                setRelation('all');
+                            }}
+                        >
+                            <SelectTrigger className="h-9 w-[140px] text-[12.5px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Groups</SelectItem>
-                                {(groups ?? []).map((g) => (
-                                    <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
-                                ))}
+                                <SelectItem value="all">Groom &amp; Bride</SelectItem>
+                                <SelectItem value="groom">Groom&apos;s Side</SelectItem>
+                                <SelectItem value="bride">Bride&apos;s Side</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={relation} onValueChange={onFilter(setRelation)}>
+                            <SelectTrigger className="h-9 w-[160px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Relations</SelectItem>
+                                {(relations ?? [])
+                                    // That side's relations only, like the app's form.
+                                    .filter((r) => side === 'all'
+                                        || !(side === 'groom' ? r.name.toLowerCase().startsWith('bride') : r.name.toLowerCase().startsWith('groom')))
+                                    .map((r) => (
+                                        <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
 
@@ -333,7 +355,7 @@ export default function RsvpsPage() {
                                         <TableRow>
                                             <TableHead className="min-w-[220px]">Guest</TableHead>
                                             <TableHead className="min-w-[170px]">Event</TableHead>
-                                            <TableHead className="min-w-[120px]">Group</TableHead>
+                                            <TableHead className="min-w-[140px]">Side &amp; Relationship</TableHead>
                                             <TableHead className="min-w-[120px]">Status</TableHead>
                                             <TableHead className="min-w-[110px] text-end">No. of Guests</TableHead>
                                             <TableHead className="min-w-[150px]">Response Date</TableHead>
@@ -523,14 +545,12 @@ function Row({ rsvp: r, fmt, onReset }: {
                     </p>
                 ) : null}
             </TableCell>
-            <TableCell className="max-w-[150px] text-[12px] break-words">
-                {r.group ? (
-                    <Link
-                        href={`/dashboard/rsvps/groups/${r.group.id}${r.event ? `?event_id=${r.event.id}` : ''}`}
-                        className="inline-block py-1.5 hover:underline"
-                    >
-                        {r.group.name}
-                    </Link>
+            <TableCell className="max-w-[160px] text-[12px] break-words">
+                {r.rsvp_side || r.guest.relationship ? (
+                    <>
+                        {r.rsvp_side ? <p className="font-medium">{r.rsvp_side === 'bride' ? "Bride's side" : "Groom's side"}</p> : null}
+                        {r.guest.relationship ? <p className="text-[11px] text-muted-foreground">{r.guest.relationship}</p> : null}
+                    </>
                 ) : <span className="text-muted-foreground">—</span>}
             </TableCell>
             <TableCell>
@@ -588,13 +608,6 @@ function Row({ rsvp: r, fmt, onReset }: {
                                     <Send className="size-3.5" /> Send reminder
                                 </Link>
                             </DropdownMenuItem>
-                            {r.group ? (
-                                <DropdownMenuItem asChild>
-                                    <Link href={`/dashboard/rsvps/groups/${r.group.id}${r.event ? `?event_id=${r.event.id}` : ''}`}>
-                                        <UsersRound className="size-3.5" /> View group
-                                    </Link>
-                                </DropdownMenuItem>
-                            ) : null}
                             {/* Clear, never Delete. The guest is not going anywhere. */}
                             <DropdownMenuItem variant="destructive" onClick={onReset}>
                                 <Trash2 className="size-3.5" /> Clear response
@@ -622,7 +635,7 @@ function ExportDialog({ open, onOpenChange, params, fmt }: {
     fmt: (v: string | null | undefined, withTime?: boolean) => string;
 }) {
     const [columns, setColumns] = useState<string[]>(
-        EXPORT_COLUMNS.filter((c) => c.always || ['email', 'mobile', 'event', 'group', 'party_size', 'responded_at'].includes(c.key))
+        EXPORT_COLUMNS.filter((c) => c.always || ['email', 'mobile', 'event', 'side', 'relationship', 'party_size', 'responded_at'].includes(c.key))
             .map((c) => c.key),
     );
     const [busy, setBusy] = useState(false);
@@ -646,7 +659,8 @@ function ExportDialog({ open, onOpenChange, params, fmt }: {
                     case 'email': return r.guest.email ?? '';
                     case 'mobile': return r.guest.mobile ? `${r.guest.dial_code ?? ''} ${r.guest.mobile}`.trim() : '';
                     case 'event': return r.event?.name ?? '';
-                    case 'group': return r.group?.name ?? '';
+                    case 'side': return r.rsvp_side === 'bride' ? "Bride's side" : r.rsvp_side === 'groom' ? "Groom's side" : '';
+                    case 'relationship': return r.guest.relationship ?? '';
                     case 'status': return BUCKET_LABEL[r.bucket];
                     case 'party_size': return r.party_size;
                     case 'responded_at': return r.responded_at ? fmt(r.responded_at, true) : '';

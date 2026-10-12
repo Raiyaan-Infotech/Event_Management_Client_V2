@@ -16,16 +16,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 
 import {
     useRsvp, useUpdateRsvp, RESPONSE_OPTIONS,
     BUCKET_LABEL, BUCKET_STYLE, formatDate, formatTime,
     type ResponseType, type RsvpDetail,
 } from '@/hooks/use-rsvps';
-import { useAllGuestGroups } from '@/hooks/use-guests';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 
 /**
@@ -123,7 +119,6 @@ function EditForm({ rsvpId, data, resetting, onReset }: {
     onReset: () => void;
 }) {
     const router = useRouter();
-    const { data: groups } = useAllGuestGroups();
     const fmt = useDateFormatter();
     const update = useUpdateRsvp(() => router.push(`/dashboard/rsvps/${rsvpId}`));
 
@@ -132,7 +127,6 @@ function EditForm({ rsvpId, data, resetting, onReset }: {
 
     const [response, setResponse] = useState<ResponseType>(r.response_type);
     const [partySize, setPartySize] = useState(r.party_size);
-    const [groupId, setGroupId] = useState<string>(r.group ? String(r.group.id) : 'none');
     const [meal, setMeal] = useState(r.dietary_preference ?? '');
     const [requirements, setRequirements] = useState(r.special_requirements ?? '');
     const [notes, setNotes] = useState(r.notes ?? '');
@@ -147,7 +141,6 @@ function EditForm({ rsvpId, data, resetting, onReset }: {
             id: rsvpId,
             response_type: response,
             party_size: partySize,
-            group_id: groupId === 'none' ? null : Number(groupId),
             dietary_preference: meal.trim() || null,
             special_requirements: requirements.trim() || null,
             notes: notes.trim() || null,
@@ -325,19 +318,6 @@ function EditForm({ rsvpId, data, resetting, onReset }: {
                                     </Button>
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">Including the guest.</p>
-                            </div>
-
-                            <div className="flex min-w-0 flex-col gap-1.5">
-                                <Label className="text-[12px]">Group</Label>
-                                <Select value={groupId} onValueChange={setGroupId}>
-                                    <SelectTrigger className="w-full text-[12.5px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">No group</SelectItem>
-                                        {(groups ?? []).map((gr) => (
-                                            <SelectItem key={gr.id} value={String(gr.id)}>{gr.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>

@@ -159,16 +159,6 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                         <Badge variant="ghost" className={`mt-1 ${BUCKET_STYLE[r.bucket]}`}>
                             {BUCKET_LABEL[r.bucket]}
                         </Badge>
-                        {r.group ? (
-                            <p className="mt-1.5 text-[11px] break-words text-muted-foreground">
-                                <Link
-                                    href={`/dashboard/rsvps/groups/${r.group.id}${r.event ? `?event_id=${r.event.id}` : ''}`}
-                                    className="hover:underline"
-                                >
-                                    {r.group.name}
-                                </Link>
-                            </p>
-                        ) : null}
                     </div>
                 </CardContent>
             </Card>
@@ -183,7 +173,8 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                                 <Field label="Full name" value={g.name} />
                                 <Field label="Email" value={g.email} breakAll />
                                 <Field label="Phone" value={g.mobile ? `${g.dial_code ?? ''} ${g.mobile}`.trim() : null} />
-                                <Field label="Group" value={r.group?.name ?? null} />
+                                <Field label="Side" value={r.rsvp_side === 'bride' ? "Bride's side" : r.rsvp_side === 'groom' ? "Groom's side" : null} />
+                                <Field label="Relationship" value={g.relationship ?? null} />
                                 <Field label="Table" value={g.table_number} />
                                 <Field label="No. of guests" value={String(r.party_size)} />
                                 {g.company ? <Field label="Company" value={g.company} /> : null}

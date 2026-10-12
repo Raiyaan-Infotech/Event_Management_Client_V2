@@ -60,17 +60,20 @@ export interface Rsvp {
         city: string | null;
         state: string | null;
         country: string | null;
+        /** The admin's relation name ("Father") — asked with the side. */
+        relationship?: string | null;
     };
     event: {
         id: number; name: string; start_date: string | null; start_time: string | null;
         venue_name: string | null; venue_address: string | null;
     } | null;
-    group: { id: number; name: string; color: string | null } | null;
 
     rsvp_status: string;
     response_type: ResponseType;
     bucket: RsvpBucket;
     party_size: number;
+    /** Groom's or Bride's side — asked when the participant is added or answers. */
+    rsvp_side?: 'groom' | 'bride' | null;
     dietary_preference: string | null;
     special_requirements: string | null;
     plus_one: boolean;
@@ -132,26 +135,12 @@ export interface RsvpDetail {
     unavailable: Record<string, string>;
 }
 
-export interface GroupDetail {
-    group: {
-        id: number; name: string; color: string | null; description: string | null;
-        visibility: string; is_default: boolean; created_at: string;
-    };
-    event: { id: number; name: string; start_date: string | null; start_time: string | null; venue_name: string | null } | null;
-    stats: {
-        total_members: number; heads: number;
-        accepted: number; accepted_pct: number;
-        maybe: number; maybe_pct: number;
-        declined: number; declined_pct: number;
-        no_response: number; no_response_pct: number;
-    };
-    members: Rsvp[];
-    activity: { guest_id: number; phone_book_guest_id: number | null; name: string; bucket: RsvpBucket; at: string }[];
-}
-
 export interface RsvpParams {
     event_id?: number | string;
-    group_id?: number | string;
+    /** Groom's or Bride's side. */
+    side?: 'groom' | 'bride';
+    /** A relation's name ("Father"), as the participant was added with it. */
+    relationship?: string;
     status?: RsvpBucket | 'all';
     search?: string;
     from?: string;
@@ -170,13 +159,15 @@ export function useRsvps(params: RsvpParams = {}) {
     return useQuery({
         queryKey: [
             ...KEY, 'list',
-            params.event_id ?? 'all', params.group_id ?? 'all', params.status ?? 'all',
+            params.event_id ?? 'all', params.status ?? 'all',
+            params.side ?? 'all', params.relationship ?? 'all',
             params.search ?? '', params.from ?? '', params.to ?? '',
             params.page ?? 1, params.limit ?? 10,
         ],
         queryFn: () => api.get<RsvpList>('/client/rsvps', {
             event_id: params.event_id,
-            group_id: params.group_id,
+            side: params.side,
+            relationship: params.relationship,
             status: params.status,
             search: params.search || undefined,
             from: params.from || undefined,
@@ -200,44 +191,11 @@ export function useRsvp(id: number | null) {
     });
 }
 
-export function useRsvpGroup(id: number | null, eventId?: number | string) {
-    return useQuery({
-        queryKey: [...KEY, 'group', id, eventId ?? 'all'],
-        queryFn: () => api.get<GroupDetail>(`/client/rsvps/groups/${id}`, { event_id: eventId }),
-        enabled: id !== null && Number.isFinite(id),
-        staleTime: 30 * 1000,
-    });
-}
-
 /* ── Mutations ────────────────────────────────────────────────────────────── */
-
-function useRsvpMutation<TArgs>(
-    fn: (args: TArgs) => Promise<unknown>,
-    messages: { success?: string; failure: string },
-) {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: fn,
-        onSuccess: () => {
-            if (messages.success) toast.success(messages.success);
-            /*
-              `guests` too: an RSVP and a guest are the SAME ROW seen two ways,
-              so changing one here must not leave the Guests screen showing the
-              old answer.
-            */
-            for (const key of [KEY, ['guests'], ['notifications']]) {
-                qc.invalidateQueries({ queryKey: key, refetchType: 'all' });
-            }
-        },
-        onError: (error) =>
-            toast.error(error instanceof ApiError ? error.message : messages.failure),
-    });
-}
 
 export interface RsvpUpdate {
     response_type?: ResponseType;
     party_size?: number;
-    group_id?: number | null;
     dietary_preference?: string | null;
     special_requirements?: string | null;
     notes?: string | null;
@@ -286,13 +244,6 @@ export function useResetResponse(onDone?: () => void) {
     });
 }
 
-export function useMoveToGroup() {
-    return useRsvpMutation<{ id: number; group_id: number | null }>(
-        ({ id, group_id }) => api.put(`/client/rsvps/${id}/group`, { group_id }),
-        { success: 'Guest moved', failure: 'Could not move that guest.' },
-    );
-}
-
 /* ── Export ───────────────────────────────────────────────────────────────── */
 
 export interface ExportResult {
@@ -306,7 +257,8 @@ export interface ExportResult {
 export function fetchExportRows(params: RsvpParams) {
     return api.get<ExportResult>('/client/rsvps/export', {
         event_id: params.event_id,
-        group_id: params.group_id,
+        side: params.side,
+        relationship: params.relationship,
         status: params.status,
         search: params.search || undefined,
         from: params.from || undefined,
@@ -362,4 +314,31 @@ export function formatTime(value: string | null | undefined) {
     const h = Number(m[1]);
     const h12 = h % 12 === 0 ? 12 : h % 12;
     return `${String(h12).padStart(2, '0')}:${m[2]} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+/**
+ * The relation names for the Relationship filter — the admin's list for the
+ * chosen event's category, or the default list when "All Events" is chosen.
+ * Names repeat across categories, so each is listed once.
+ */
+export function useRsvpRelationOptions(eventId?: string) {
+    return useQuery({
+        queryKey: [...KEY, 'relations', eventId ?? 'all'],
+        queryFn: () => api
+            .get<{ relationship_options: { id: number; name: string }[] }>(
+                '/client/guests/form-options',
+                { event_id: eventId },
+            )
+            .then((r) => {
+                const seen = new Set<string>();
+                return (r.relationship_options ?? []).filter((o) => {
+                    const key = o.name.trim().toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            }),
+        staleTime: 5 * 60 * 1000,
+        retry: false,
+    });
 }

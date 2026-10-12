@@ -113,7 +113,6 @@ export interface LinkedEvent {
     party_size: number;
     accommodation: Accommodation;
     dietary_preference: string | null;
-    group: { id: number; name: string } | null;
     event: {
         id: number; name: string; start_date: string;
         start_time: string | null; venue_name: string | null;
