@@ -38,7 +38,6 @@ import { AgendaPanel } from "./agenda-panel";
 import { FamilyPanel } from "./family-panel";
 import { GalleryPanel } from "./gallery-panel";
 import { SettingsPanel } from "./settings-panel";
-import { useRegenerateEventQr } from "@/hooks/use-event-modules";
 
 /**
  * Event Details — the View Event screen.
@@ -120,8 +119,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
     const [tab, setTab] = useState<TabValue>("overview");
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
-    const [confirmRegenerate, setConfirmRegenerate] = useState(false);
-    const regenerateQr = useRegenerateEventQr(eventId);
     // The QR inside the dialog, captured on demand by its Download button.
     const dialogQrRef = useRef<HTMLDivElement>(null);
     const [savingQr, setSavingQr] = useState(false);
@@ -674,40 +671,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
                             {savingQr ? "Preparing…" : "Download QR Code"}
                         </Button>
                     )}
-                    <Button
-                        variant="ghost"
-                        className="h-9 w-full rounded-md text-[12px] font-medium text-muted-foreground"
-                        onClick={() => setConfirmRegenerate(true)}
-                    >
-                        Regenerate QR code
-                    </Button>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Regenerate QR confirm ───────────────────────────────────── */}
-            <Dialog open={confirmRegenerate} onOpenChange={(v) => { if (!regenerateQr.isPending) setConfirmRegenerate(v); }}>
-                <DialogContent className="sm:max-w-[460px]">
-                    <DialogHeader>
-                        <DialogTitle>Regenerate the QR code?</DialogTitle>
-                        <DialogDescription>
-                            You get a new code, and the <strong>old one stops working</strong> — a printed or shared
-                            invitation with the old QR will no longer admit anyone. Download the invitation again
-                            after this and share the new one. Use it only if the old code was shared by mistake.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" className="h-10 rounded-md text-[13px]" disabled={regenerateQr.isPending}
-                            onClick={() => setConfirmRegenerate(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            className="h-10 rounded-md text-[13px]"
-                            disabled={regenerateQr.isPending}
-                            onClick={() => regenerateQr.mutate(undefined, { onSuccess: () => setConfirmRegenerate(false) })}
-                        >
-                            {regenerateQr.isPending ? "Regenerating…" : "Regenerate"}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

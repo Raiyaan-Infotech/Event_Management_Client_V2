@@ -480,22 +480,3 @@ export function relationSuitsSide(name: string, side: 'groom' | 'bride' | null):
     if (side === 'bride' && n.startsWith('groom')) return false;
     return true;
 }
-
-/* ── Event QR ──────────────────────────────────────────────────────────────── */
-
-/**
- * Replace the event's QR code. The code is bound to the event id and is made
- * once (editing the event never changes it); this is the one thing that does,
- * and the OLD code stops working — so the caller confirms first.
- */
-export function useRegenerateEventQr(eventId: number) {
-    const qc = useQueryClient();
-    return useMutation({
-        mutationFn: () => api.post(`/client/events/${eventId}/qr/regenerate`),
-        onSuccess: () => {
-            toast.success('New QR code ready. The old code no longer works.');
-            qc.invalidateQueries({ queryKey: ['client', 'events'], refetchType: 'all' });
-        },
-        onError: (e) => report(e, 'Could not regenerate the QR code'),
-    });
-}
