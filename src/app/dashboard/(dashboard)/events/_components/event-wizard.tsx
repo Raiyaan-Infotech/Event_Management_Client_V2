@@ -206,7 +206,7 @@ const EMPTY: FormState = {
     venue_landmark: "", venue_map_link: "", venue_image: "", venue_lat: "", venue_lng: "",
     ceremony_title: "", ceremony_venue: "", ceremony_description: "",
     organizer: "", contact_phone: "", contact_email: "", footer_note: "",
-    privacy: "private", status: "upcoming",
+    privacy: "public", status: "upcoming",
     // Blank, not a hardcoded slug: the theme catalogue is whatever the client's
     // PLAN grants, so nothing can be preselected until those templates load.
     theme_id: "", primary_color: PRIMARY_SWATCHES[0],
@@ -427,7 +427,7 @@ export function EventWizard({
             contact_phone: row.contact_phone ?? "",
             contact_email: row.contact_email ?? "",
             footer_note: row.footer_note ?? "",
-            privacy: row.privacy ?? "private",
+            privacy: row.privacy ?? "public",
             status: row.status ?? "upcoming",
             theme_id: row.theme_id || "",
             primary_color: row.primary_color || PRIMARY_SWATCHES[0],

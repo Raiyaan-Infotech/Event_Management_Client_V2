@@ -30,7 +30,8 @@ import { EventQr } from "@/components/common/event-qr";
 import { InvitationDownload } from "@/components/common/invitation-download";
 import { downloadQrAsPng, fileSlug } from "@/lib/export-invitation";
 import { useClientEvent, useDeleteEvent, type DerivedStatus } from "@/hooks/use-client-events";
-import { useParticipantStats, useParticipants } from "@/hooks/use-guests";
+import { useParticipantCapacity, useParticipantStats, useParticipants } from "@/hooks/use-guests";
+import { PlanUsageBar } from "@/components/common/plan-usage-bar";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
@@ -128,6 +129,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
     // The people attending THIS event — participants, not the phone book (§581).
     const rsvp = useParticipantStats(eventId);
     const guests = useParticipants({ event_id: eventId, limit: 8 });
+    const participantCap = useParticipantCapacity(eventId);
 
     if (query.isLoading) {
         return (
@@ -517,6 +519,17 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
             {tab === "rsvps" && (
                 <div className="flex flex-col gap-5">
+                    {participantCap.data?.limit != null && (
+                        <Card className="min-w-0 border border-border py-0 shadow-none">
+                            <CardContent className="p-4">
+                                <PlanUsageBar
+                                    label="Participants on this event (plan's Max RSVP per event)"
+                                    used={participantCap.data.used}
+                                    limit={participantCap.data.limit}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
                     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                         <MiniTile label="Accepted" value={rsvp.data?.accepted ?? 0} icon={faCircleCheck} color="#22C55E" />
                         <MiniTile label="Pending" value={rsvp.data?.pending ?? 0} icon={faMinus} color="#F59E0B" />

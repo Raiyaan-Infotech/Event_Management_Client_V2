@@ -257,6 +257,26 @@ export function useParticipantStats(eventId?: number | null) {
     });
 }
 
+export interface ParticipantCapacity {
+    /** Participants allowed on ONE event (plan's Max RSVP per event); null = unlimited. */
+    limit: number | null;
+    used: number;
+    full: boolean;
+}
+
+/**
+ * One event's participants against the plan's Max RSVP per event — the same
+ * count QR registration and the app's Add Participant refuse at.
+ */
+export function useParticipantCapacity(eventId?: number | null) {
+    return useQuery({
+        queryKey: [...PARTICIPANT_KEY, 'capacity', eventId ?? null],
+        queryFn: () => api.get<ParticipantCapacity>('/client/participants/capacity', { event_id: eventId }),
+        enabled: !!eventId,
+        retry: false,
+    });
+}
+
 export interface GuestCapacity {
     /** Guests allowed IN TOTAL on the host's current plan; null = unlimited. */
     limit: number | null;

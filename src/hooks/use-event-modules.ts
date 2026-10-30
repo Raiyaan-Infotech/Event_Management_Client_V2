@@ -247,6 +247,9 @@ export interface GalleryCategory {
     id: number;
     name: string;
     description: string | null;
+    /** What the host chose; null = none (the list then shows the first photo). */
+    cover_image?: string | null;
+    /** What a list draws: the chosen cover, else the first photo. */
     cover_url: string | null;
     is_default: boolean;
     item_count: number;
@@ -255,7 +258,7 @@ export interface GalleryCategory {
 export interface GalleryUsage {
     photos: { used: number; limit: number | null };
     videos: { used: number; limit: number | null };
-    storage: { used_mb: number; limit_mb: number | null };
+    storage: { used_mb: number; limit_mb: number | null; used_bytes?: number; limit_bytes?: number | null };
     max_image_bytes: number;
     max_video_bytes: number;
 }
@@ -314,10 +317,35 @@ export function useDeleteGalleryItem(eventId: number) {
     });
 }
 
+/**
+ * New order for the items sent (usually one category's). They take back the
+ * slots they already held, so other categories do not move in "All".
+ */
+export function useReorderGallery(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (ids: number[]) => api.put(`/client/events/${eventId}/gallery/reorder`, { ids }),
+        onSuccess: () => invalidate(qc, eventId, 'gallery'),
+        onError: (e) => report(e, 'Could not save the new order'),
+    });
+}
+
+/** Stores a category cover image and returns its URL — saved with the category. */
+export function useUploadGalleryCover(eventId: number) {
+    return useMutation({
+        mutationFn: (file: File) => {
+            const form = new FormData();
+            form.append('file', file);
+            return api.post<{ url: string }>(`/client/events/${eventId}/gallery/categories/cover`, form);
+        },
+        onError: (e) => report(e, 'Could not upload that image'),
+    });
+}
+
 export function useSaveGalleryCategory(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null } }) => (id
+        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null; cover_image?: string | null } }) => (id
             ? api.put(`/client/gallery/categories/${id}`, data)
             : api.post(`/client/events/${eventId}/gallery/categories`, data)),
         onSuccess: (_r, v) => {

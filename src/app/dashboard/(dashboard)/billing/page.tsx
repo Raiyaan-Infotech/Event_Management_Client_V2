@@ -7,7 +7,7 @@ import {
     Calendar, Users, Mail, HardDrive, CheckCircle2, AlertTriangle, Crown,
     Headphones, ArrowRight, Loader2, Info, Clock, RotateCcw,
     FileText, Receipt, Search, CreditCard, Plus, Pencil, MapPin, Lock,
-    Download, X, ChevronLeft, ChevronRight, MoreVertical, Eye,
+    Download, X, ChevronLeft, ChevronRight, MoreVertical, Eye, UserCheck,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
@@ -157,6 +157,33 @@ function UsageTile({ icon: Icon, label, metric, unit, tint, perEventLimit }: {
                             : 'No limit set on your plan'}
                 </span>
             )}
+        </div>
+    );
+}
+
+/**
+ * Max RSVP per event. A PER-EVENT ceiling, so there is no account total to put
+ * against it — the tile states the allowance; each event's own RSVPs tab shows
+ * its "used / limit" bar.
+ */
+function RsvpLimitTile({ limit }: { limit: number | null }) {
+    return (
+        <div className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-2">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                    <UserCheck className="size-4" />
+                </span>
+                <span className="min-w-0 text-[12.5px] font-medium text-muted-foreground">RSVPs per Event</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold tabular-nums">
+                    {limit === null ? '∞' : limit.toLocaleString('en-IN')}
+                </span>
+                <span className="text-xs text-muted-foreground">participants</span>
+            </div>
+            <span className="text-[11px] break-words text-muted-foreground">
+                {limit === null ? 'No limit set on your plan' : 'Allowed on each event — see the event’s RSVPs tab'}
+            </span>
         </div>
     );
 }
@@ -461,7 +488,7 @@ function BillingScreen() {
                                             {formatDate(data?.usage.period_start)} – {formatDate(data?.usage.period_end)}
                                         </span>
                                     </div>
-                                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0 xl:divide-x xl:divide-border">
+                                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5 xl:gap-0 xl:divide-x xl:divide-border">
                                         <div className="xl:pr-6">
                                             <UsageTile
                                                 icon={Calendar} label="Events" tint="bg-violet-500/15 text-violet-600 dark:text-violet-400"
@@ -480,6 +507,9 @@ function BillingScreen() {
                                                 icon={Mail} label="Messages Sent" tint="bg-amber-500/15 text-amber-600 dark:text-amber-400"
                                                 metric={data!.usage.messages}
                                             />
+                                        </div>
+                                        <div className="xl:px-6">
+                                            <RsvpLimitTile limit={data!.usage.rsvps?.limit ?? null} />
                                         </div>
                                         <div className="xl:pl-6">
                                             <UsageTile

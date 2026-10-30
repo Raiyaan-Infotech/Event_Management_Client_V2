@@ -205,8 +205,8 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
     return (
         <Section title="Organizer Contact">
             <p className="mb-3 text-[12px] text-muted-foreground">
-                The contact card guests see in the app&apos;s Contact / Organizer section.
-                Address and description are stored as the event&apos;s venue address and description, so changing them here changes those too.
+                The contact card guests see in the app&apos;s Contact Person section.
+                The role, contact time, languages and responsibilities are edited in the mobile app.
             </p>
             <div className="flex flex-col items-center gap-2 pb-3">
                 <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-full" aria-label="Choose a photo">
@@ -253,8 +253,8 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
                     <Input value={address} maxLength={500} onChange={(e) => setAddress(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <Label className="text-[12.5px]">Description</Label>
-                    <Textarea value={description} rows={3} onChange={(e) => setDescription(e.target.value)} />
+                    <Label className="text-[12.5px]">About Contact Person</Label>
+                    <Textarea value={description} rows={3} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
                 </div>
             </div>
             <div className={cn("mt-4 flex justify-end")}>
