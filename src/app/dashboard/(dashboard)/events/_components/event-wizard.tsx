@@ -46,6 +46,7 @@ import {
 } from "@/hooks/use-client-events";
 import { PRIMARY_SWATCHES } from "@/lib/event-themes";
 import { HomeTemplatePicker } from "./home-template-picker";
+import { VenueMapPicker } from "@/components/common/venue-map-picker";
 import {
     resolveArtwork,
     suitsScope,
@@ -1420,6 +1421,26 @@ export function EventWizard({
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
                             <div className="grid max-w-3xl gap-5">
+                                {/* Venue pin on a Google map, as in the app. Fills
+                                    lat/lng, and name / address / map link only when
+                                    those are still empty — never overwrites typing. */}
+                                <Field label="Venue Location">
+                                    <VenueMapPicker
+                                        lat={form.venue_lat}
+                                        lng={form.venue_lng}
+                                        onPick={(lat, lng, place) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                venue_lat: lat.toFixed(6),
+                                                venue_lng: lng.toFixed(6),
+                                                venue_name: prev.venue_name || (place?.name ?? "").slice(0, 255),
+                                                venue_address: prev.venue_address || (place?.address ?? "").slice(0, 500),
+                                                venue_map_link: prev.venue_map_link || `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`,
+                                            }))
+                                        }
+                                        onClear={() => setForm((prev) => ({ ...prev, venue_lat: "", venue_lng: "" }))}
+                                    />
+                                </Field>
                                 <Field label="Venue Name">
                                     <Input
                                         value={form.venue_name}
