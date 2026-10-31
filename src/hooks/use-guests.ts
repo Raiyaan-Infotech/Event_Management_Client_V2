@@ -29,7 +29,24 @@ export type InviteSource = 'whatsapp' | 'email' | 'sms' | 'manual' | 'import';
  * The Guests (phone book) tabs. RSVP tabs live on the RSVP screen now — a
  * contact has no RSVP; a participant of one event does (§581).
  */
-export type GuestTab = 'all' | 'imported' | 'joined' | 'not_joined';
+export type GuestTab = 'all' | 'imported' | 'joined' | 'not_joined' | GuestStatus;
+
+/**
+ * A guest's status for THEIR event (V2: guests are event-based, as in the app).
+ * Computed by the server, never stored:
+ *   added      not invited yet          invited   invitation sent < 24h ago
+ *   pending    sent 24h+ ago / Maybe    confirmed joined and said Yes
+ *   declined   answered No
+ */
+export type GuestStatus = 'added' | 'invited' | 'pending' | 'confirmed' | 'declined';
+
+export const GUEST_STATUS_LABELS: Record<GuestStatus, string> = {
+    added: 'Not Invited',
+    invited: 'Invited',
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    declined: 'Declined',
+};
 
 /** The participant list's tabs — the stored RSVP statuses. */
 export type ParticipantTab = 'all' | 'accepted' | 'pending' | 'declined' | 'not_responded' | 'joined';
@@ -90,6 +107,10 @@ export interface Guest {
 
     created_at: string;
     group?: { id: number; name: string; color: string | null } | null;
+    /** The event this guest belongs to, and their status there. */
+    event_id?: number | null;
+    status?: GuestStatus | null;
+    invited_at?: string | null;
 }
 
 /**
@@ -124,6 +145,8 @@ export interface GuestStats {
     /** Guests in the phone book. */
     total_guests: number;
     total_rows: number;
+    /** Per-status counts for the selected event. */
+    statuses?: Partial<Record<GuestStatus, number>>;
 }
 
 /** The RSVP tiles for participants — one event, or all of them. */
@@ -141,6 +164,8 @@ export interface ParticipantStats {
 }
 
 export interface GuestListParams {
+    /** The event whose guests to list (V2: guests are event-based). */
+    event_id?: number | null;
     status?: GuestTab;
     /** 0 means "ungrouped" and is a real filter, not a falsy blank. */
     group_id?: number | string | null;
@@ -160,6 +185,8 @@ export interface ParticipantListParams {
 
 /** A phone-book guest — person fields only (§581). */
 export interface GuestPayload {
+    /** The event the guest is added to (create). */
+    event_id?: number | null;
     group_id?: number | null;
     title?: string | null;
     date_of_birth?: string | null;
@@ -198,6 +225,7 @@ export function useGuests(params: GuestListParams = {}) {
         queryKey: [...KEY, 'list', params],
         queryFn: (): Promise<ListResult<Guest>> =>
             api.getList<Guest>(ENDPOINT, {
+                event_id: params.event_id || undefined,
                 status: params.status && params.status !== 'all' ? params.status : undefined,
                 // Sent as a string so `0` (ungrouped) survives the falsy check
                 // in buildUrl, which drops empty values.
@@ -212,10 +240,10 @@ export function useGuests(params: GuestListParams = {}) {
     });
 }
 
-export function useGuestStats() {
+export function useGuestStats(eventId?: number | null) {
     return useQuery({
-        queryKey: [...KEY, 'stats'],
-        queryFn: () => api.get<GuestStats>(`${ENDPOINT}/stats`),
+        queryKey: [...KEY, 'stats', eventId ?? null],
+        queryFn: () => api.get<GuestStats>(`${ENDPOINT}/stats`, { event_id: eventId || undefined }),
         retry: false,
     });
 }
@@ -361,8 +389,8 @@ export function useDeleteGuest() {
 
 export interface BulkAction {
     guest_ids: number[];
-    /** RSVP status is per event — it is changed on the RSVP screen, not here. */
-    action: 'delete' | 'group';
+    /** `invite` stamps the invitation as sent (Invited, then Pending after 24h). */
+    action: 'delete' | 'group' | 'invite';
     value?: string | number | null;
 }
 
@@ -529,6 +557,7 @@ export function useExportGuests() {
     return useMutation({
         mutationFn: (params: GuestListParams = {}) => {
             const query = new URLSearchParams();
+            if (params.event_id) query.set('event_id', String(params.event_id));
             if (params.status && params.status !== 'all') query.set('status', params.status);
             if (params.group_id !== undefined && params.group_id !== null && params.group_id !== '') {
                 query.set('group_id', String(params.group_id));

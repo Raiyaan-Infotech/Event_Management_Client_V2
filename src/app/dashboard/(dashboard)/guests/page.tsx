@@ -54,6 +54,8 @@ import {
     type Guest, type GuestTab,
 } from "@/hooks/use-guests";
 import { ApiError } from "@/lib/api-client";
+import { useClientEvents } from "@/hooks/use-client-events";
+import { GUEST_STATUS_LABELS, type GuestStatus } from "@/hooks/use-guests";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 
@@ -64,19 +66,27 @@ import { useDateFormatter } from '@/hooks/use-client-settings';
  * "coming soon" catch-all, which is why the sidebar entry appeared to do
  * nothing.
  *
- * ── A GUEST IS NOT AN INVITATION (§581) ─────────────────────────────────────
- * This is the client's PHONE BOOK: the people they know, in groups. An
- * invitation is shared with them; sharing writes nothing. Somebody becomes a
- * participant of an event only by scanning its QR — that side, with RSVPs,
- * party size and tables, is the RSVP screen (`/client/participants`).
+ * ── GUESTS ARE PER EVENT (V2, 2026-10-31) ───────────────────────────────────
+ * Same as the mobile app: pick an event, and its guests show with their status
+ * there — Not Invited, Invited, Pending, Confirmed, Declined (computed by the
+ * server from the invitation time and the guest's RSVP). New and imported
+ * guests go to the selected event (?event= on the Add / Import pages).
  */
+
+const STATUS_ORDER: GuestStatus[] = ["added", "invited", "pending", "confirmed", "declined"];
 
 const TABS: { label: string; value: GuestTab }[] = [
     { label: "All Guests", value: "all" },
-    { label: "Joined an event", value: "joined" },
-    { label: "Not joined yet", value: "not_joined" },
-    { label: "Imported", value: "imported" },
+    ...STATUS_ORDER.map((st) => ({ label: GUEST_STATUS_LABELS[st], value: st as GuestTab })),
 ];
+
+const STATUS_PILL: Record<GuestStatus, string> = {
+    added: "bg-muted text-muted-foreground",
+    invited: "bg-info/15 text-info",
+    pending: "bg-warning/15 text-warning",
+    confirmed: "bg-success/15 text-success",
+    declined: "bg-destructive/10 text-destructive",
+};
 
 const PAGE_SIZE = 8;
 
@@ -93,6 +103,17 @@ export default function GuestsPage() {
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
     const [tab, setTab] = useState<GuestTab>("all");
+    // The event whose guests are shown. From ?event= when given, else the first.
+    const [eventId, setEventId] = useState<string>("");
+    const events = useClientEvents({ status: "all", limit: 100 });
+    const eventRows = useMemo(() => events.data?.data ?? [], [events.data]);
+    useEffect(() => {
+        if (eventId || eventRows.length === 0) return;
+        const wanted = new URLSearchParams(window.location.search).get("event");
+        const found = eventRows.find((e) => String(e.id) === wanted);
+        setEventId(String((found ?? eventRows[0]).id));
+    }, [eventRows, eventId]);
+    const eventNum = eventId ? Number(eventId) : null;
     const [groupId, setGroupId] = useState("all");
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -109,18 +130,19 @@ export default function GuestsPage() {
     // Any filter change resets the page AND the selection — keeping a selection
     // across a filter change means bulk-deleting rows that are no longer on
     // screen, which is the worst possible surprise.
-    useEffect(() => { setPage(1); setSelected([]); }, [tab, groupId, debouncedSearch]);
+    useEffect(() => { setPage(1); setSelected([]); }, [tab, groupId, debouncedSearch, eventId]);
 
     const params = useMemo(() => ({
+        event_id: eventNum,
         status: tab,
         group_id: groupId === "all" ? null : groupId,
         search: debouncedSearch || undefined,
         page,
         limit: PAGE_SIZE,
-    }), [tab, groupId, debouncedSearch, page]);
+    }), [eventNum, tab, groupId, debouncedSearch, page]);
 
     const guests = useGuests(params);
-    const stats = useGuestStats();
+    const stats = useGuestStats(eventNum);
     const groups = useAllGuestGroups();
 
     const remove = useDeleteGuest();
@@ -151,25 +173,54 @@ export default function GuestsPage() {
     };
 
     const s = stats.data;
+    const count = (st: GuestStatus) => s?.statuses?.[st] ?? 0;
     const tiles = [
-        { label: "Total Guests", value: s?.total_guests ?? 0, caption: "In your guest list", icon: faUsers, color: "#7C5AED", bg: "bg-[#7C5AED]/10" },
-        { label: "In a Group", value: s?.grouped ?? 0, caption: `${s?.grouped_pct ?? 0}%`, icon: faPeopleGroup, color: "#22C55E", bg: "bg-[#22C55E]/10" },
-        { label: "Ungrouped", value: s?.ungrouped ?? 0, caption: `${s?.ungrouped_pct ?? 0}%`, icon: faClock, color: "#F59E0B", bg: "bg-[#F59E0B]/10" },
-        { label: "Imported", value: s?.imported ?? 0, caption: "From a CSV file", icon: faFileImport, color: "#EC4899", bg: "bg-[#EC4899]/10" },
-        { label: "Joined an event", value: s?.joined ?? 0, caption: `${s?.joined_pct ?? 0}%`, icon: faUserClock, color: "#3B82F6", bg: "bg-[#3B82F6]/10" },
+        { label: "Total Guests", value: s?.total_guests ?? 0, caption: "In this event", icon: faUsers, color: "#7C5AED", bg: "bg-[#7C5AED]/10" },
+        { label: "Invited", value: count("invited"), caption: "Invitation sent", icon: faPaperPlane, color: "#3B82F6", bg: "bg-[#3B82F6]/10" },
+        { label: "Pending", value: count("pending"), caption: "Waiting for a reply", icon: faClock, color: "#F59E0B", bg: "bg-[#F59E0B]/10" },
+        { label: "Confirmed", value: count("confirmed"), caption: "Joined and said Yes", icon: faUserClock, color: "#22C55E", bg: "bg-[#22C55E]/10" },
+        { label: "Declined", value: count("declined"), caption: "Said No", icon: faPeopleGroup, color: "#EF4444", bg: "bg-[#EF4444]/10" },
     ];
+    const withEvent = (href: string) => (eventId ? `${href}?event=${eventId}` : href);
 
     const activeFilters = groupId !== "all" ? 1 : 0;
 
     return (
         <div className="flex flex-col gap-5">
             {/* ── Header ──────────────────────────────────────────────────── */}
-            <div className="min-w-0">
-                <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Guests</h1>
-                <p className="mt-1 text-[13.5px] text-muted-foreground">
-                    Your contacts, organised in groups. Share event invitations with them.
-                </p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                    <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Guests</h1>
+                    <p className="mt-1 text-[13.5px] text-muted-foreground">
+                        Guests are added to one event, and their status follows the invitation and their RSVP.
+                    </p>
+                </div>
+                {/* The event whose guests are shown — as in the app. */}
+                <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-[12.5px] font-medium text-muted-foreground">Event</span>
+                    <Select value={eventId} onValueChange={setEventId} disabled={eventRows.length === 0}>
+                        <SelectTrigger className="h-10 w-full rounded-md text-[13px] lg:w-[260px]">
+                            <SelectValue placeholder={events.isLoading ? "Loading events..." : "No events yet"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {eventRows.map((e) => (
+                                <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
+
+            {!events.isLoading && eventRows.length === 0 && (
+                <Card className="border border-border py-0 shadow-none">
+                    <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                        <p className="text-[13px] text-muted-foreground">Guests belong to an event. Create an event first.</p>
+                        <Button asChild size="sm" className="h-8 text-[12px]">
+                            <Link href="/dashboard/events/create">Create Event</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
 
             {authError && (
                 <Card className="border-warning/40 bg-warning/10 py-0 shadow-none">
@@ -296,6 +347,7 @@ export default function GuestsPage() {
                                         className="h-auto rounded-none px-4 py-3 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
                                     >
                                         {t.label}
+                                        {s ? ` (${t.value === "all" ? s.total_guests ?? 0 : count(t.value as GuestStatus)})` : ""}
                                     </TabsTrigger>
                                 ))}
                             </TabsList>
@@ -326,6 +378,16 @@ export default function GuestsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <Button
+                                variant="ghost" size="sm"
+                                onClick={() => bulk.mutate(
+                                    { guest_ids: selected, action: "invite" },
+                                    { onSuccess: () => setSelected([]) }
+                                )}
+                                className="h-8 text-[12px] text-primary hover:text-primary"
+                            >
+                                Mark as Invited
+                            </Button>
                             <Button
                                 variant="ghost" size="sm"
                                 onClick={() => setBulkDelete(true)}
@@ -378,10 +440,10 @@ export default function GuestsPage() {
                                 {!debouncedSearch && activeFilters === 0 && tab === "all" && (
                                     <div className="mt-2 flex flex-wrap justify-center gap-2">
                                         <Button asChild size="sm" className="h-8 text-[12px]">
-                                            <Link href="/dashboard/guests/add">Add Guest</Link>
+                                            <Link href={withEvent("/dashboard/guests/add")}>Add Guest</Link>
                                         </Button>
                                         <Button asChild variant="outline" size="sm" className="h-8 text-[12px]">
-                                            <Link href="/dashboard/guests/import">Import Guests</Link>
+                                            <Link href={withEvent("/dashboard/guests/import")}>Import Guests</Link>
                                         </Button>
                                     </div>
                                 )}
@@ -400,7 +462,7 @@ export default function GuestsPage() {
                                             </th>
                                             <th className="py-3 text-left font-medium">Guest</th>
                                             <th className="py-3 text-left font-medium">Group</th>
-                                            <th className="py-3 text-left font-medium">Events joined</th>
+                                            <th className="py-3 text-left font-medium">Status</th>
                                             <th className="py-3 text-left font-medium">Added On</th>
                                             <th className="py-3 pr-4 text-right font-medium">Actions</th>
                                         </tr>
@@ -463,8 +525,14 @@ export default function GuestsPage() {
                                                         )}
                                                     </td>
 
-                                                    <td className="py-3 pr-3 align-top text-[12px] text-foreground">
-                                                        {guest.events_joined > 0 ? guest.events_joined : <span className="text-muted-foreground">—</span>}
+                                                    <td className="py-3 pr-3 align-top">
+                                                        {guest.status ? (
+                                                            <span className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", STATUS_PILL[guest.status])}>
+                                                                {GUEST_STATUS_LABELS[guest.status]}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[12px] text-muted-foreground">—</span>
+                                                        )}
                                                     </td>
 
                                                     <td className="py-3 pr-3 align-top text-[12px] text-muted-foreground">
@@ -580,8 +648,8 @@ export default function GuestsPage() {
                             <p className="mb-3 text-[13px] font-bold text-foreground">Quick Actions</p>
                             <ul className="flex flex-col">
                                 {[
-                                    { label: "Add Guest", href: "/dashboard/guests/add", icon: faUserPlus },
-                                    { label: "Import Guests", href: "/dashboard/guests/import", icon: faFileImport },
+                                    { label: "Add Guest", href: withEvent("/dashboard/guests/add"), icon: faUserPlus },
+                                    { label: "Import Guests", href: withEvent("/dashboard/guests/import"), icon: faFileImport },
                                     { label: "Manage Groups", href: "/dashboard/guests/groups", icon: faPeopleGroup },
                                     { label: "Send Message to Guests", href: "/dashboard/messages/send", icon: faPaperPlane },
                                 ].map((action) => (

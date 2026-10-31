@@ -93,6 +93,9 @@ export default function ImportGuestsPage() {
 
 function ImportGuests() {
     const router = useRouter();
+    // V2: guests belong to an event — the Guests list passes it as ?event=.
+    const importEventId = () =>
+        typeof window === "undefined" ? null : Number(new URLSearchParams(window.location.search).get("event")) || null;
     const qc = useQueryClient();
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -109,7 +112,7 @@ function ImportGuests() {
 
     const analyse = useMutation({
         mutationFn: (body: { content: string }) =>
-            api.post<PreviewResult>("/client/guests/import/preview", body),
+            api.post<PreviewResult>("/client/guests/import/preview", { ...body, event_id: importEventId() }),
         onSuccess: (data) => { setPreview(data); setStep(3); },
         onError: (e) => {
             toast.error(e instanceof Error ? e.message : "Could not read that file.");
@@ -118,7 +121,7 @@ function ImportGuests() {
 
     const commit = useMutation({
         mutationFn: (body: { content: string; create_groups: boolean }) =>
-            api.post<CommitResult>("/client/guests/import", body),
+            api.post<CommitResult>("/client/guests/import", { ...body, event_id: importEventId() }),
         onSuccess: (data) => {
             setResult(data);
             setStep(4);

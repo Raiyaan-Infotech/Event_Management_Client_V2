@@ -93,7 +93,15 @@ export function GuestForm({ guestId }: { guestId?: number }) {
     const groups = useAllGuestGroups();
     const existing = useGuest(guestId ?? null);
 
-    const create = useCreateGuest(() => router.push("/dashboard/guests"));
+    // The event the guest is added to — the Guests list passes it as ?event=.
+    const eventParam = () => {
+        if (typeof window === "undefined") return null;
+        return Number(new URLSearchParams(window.location.search).get("event")) || null;
+    };
+    const create = useCreateGuest(() => {
+        const ev = eventParam();
+        router.push(ev ? `/dashboard/guests?event=${ev}` : "/dashboard/guests");
+    });
     const update = useUpdateGuest(() => router.push("/dashboard/guests"));
     const saving = create.isPending || update.isPending;
 
@@ -228,7 +236,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
         };
 
         if (isEdit && guestId) update.mutate({ id: guestId, data: payload });
-        else create.mutate(payload);
+        else create.mutate({ ...payload, event_id: eventParam() });
     };
 
     if (isEdit && existing.isLoading) {

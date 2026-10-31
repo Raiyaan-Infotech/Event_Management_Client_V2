@@ -101,14 +101,52 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
  * cannot buy more than the UI shows.
  */
 
+/**
+ * Same order as the mobile app's Create Event (V2, 2026-10-31). The invitation
+ * design steps were taken out — the invitation becomes its own module later.
+ */
 const STEPS = [
-    "Event Basics",
-    "Event Details & Time",
-    "Event Menus",
-    "Design & Theme",
-    "Preview Invitation",
+    "Event Type",
+    "Basic Details",
+    "Date & Time",
+    "Venue",
+    "Menus",
+    "Settings",
+    "Organizer Settings",
+    "Review",
     "Event Created",
 ] as const;
+
+/** Step numbers, so nothing below depends on a bare 5 or 6. */
+const S_TYPE = 1;
+const S_BASIC = 2;
+const S_DATE = 3;
+const S_VENUE = 4;
+const S_MENUS = 5;
+const S_SETTINGS = 6;
+const S_ORGANIZER = 7;
+const S_REVIEW = 8;
+const S_CREATED = 9;
+/** The invitation pages — reachable only from Edit Event → Invitation Card. */
+const S_DESIGN = 10;
+const S_PREVIEW = 11;
+
+/**
+ * Edit Event sections, as in the mobile app's Edit Event hub: each opens on its
+ * own with Cancel / Save, and the save is the same full update.
+ */
+export type EditSectionKey = "basic" | "date" | "venue" | "menus" | "organizer" | "invitation";
+
+const SECTION_PAGES: Record<EditSectionKey, { title: string; subtitle: string; pages: number[] }> = {
+    basic: { title: "Basic Details", subtitle: "Update title, hosts and photo.", pages: [S_BASIC] },
+    date: { title: "Date & Time", subtitle: "Edit event date and time.", pages: [S_DATE] },
+    venue: { title: "Venue", subtitle: "Edit venue details and map location.", pages: [S_VENUE] },
+    menus: { title: "Event App Menu", subtitle: "Manage app menus and features.", pages: [S_MENUS] },
+    organizer: { title: "Organizer Settings", subtitle: "Hosted by, contact and footer note.", pages: [S_ORGANIZER] },
+    invitation: { title: "Invitation Card", subtitle: "Choose template, card settings and colour.", pages: [S_DESIGN, S_PREVIEW] },
+};
+
+export const EDIT_SECTION_KEYS = Object.keys(SECTION_PAGES) as EditSectionKey[];
 
 // Themes and swatches live in lib/event-themes.ts because the dashboard cards
 // render an event's artwork from the same list. They were two copies before,
@@ -260,8 +298,11 @@ const COMPONENT_SWITCHES: { label: string; keys: ComponentKey[] }[] = [
 export function EventWizard({
     eventId,
     initialThemeId,
+    section,
 }: {
     eventId?: number;
+    /** Edit one section (Edit Event hub) instead of the whole wizard. */
+    section?: EditSectionKey;
     /**
      * Preselected template code, from `/dashboard/events/create?theme=<code>` —
      * what "Use Template" on the Templates screen hands over. It cannot be
@@ -278,7 +319,10 @@ export function EventWizard({
     /** Set by "Save as Draft" on that question: leave once the save lands. */
     const exitAfterSave = useRef(false);
 
-    const [step, setStep] = useState(1);
+    const sectionPages = section ? SECTION_PAGES[section].pages : null;
+    const [step, setStep] = useState(sectionPages ? sectionPages[0] : 1);
+    const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
+    const hubHref = eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events";
     const [form, setForm] = useState<FormState>(EMPTY);
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     /** One dialog, driven by whatever needs confirming: a date, or the save. */
@@ -348,11 +392,15 @@ export function EventWizard({
             return;
         }
         setCreated(event);
-        setStep(6);
+        setStep(S_CREATED);
     });
     const updateEvent = useUpdateEvent((event) => {
+        if (section) {
+            router.push(`/dashboard/events/${event.id}/edit`);
+            return;
+        }
         setCreated(event);
-        setStep(6);
+        setStep(S_CREATED);
     });
     const saving = createEvent.isPending || updateEvent.isPending;
 
@@ -368,7 +416,7 @@ export function EventWizard({
     const uploadInvitation = useUploadInvitationImage();
     const uploadedFor = useRef<string | null>(null);
     useEffect(() => {
-        if (step !== 6 || !created?.id) return;
+        if (step !== S_CREATED || !created?.id) return;
         const key = `${created.id}:${created.updated_at ?? ""}`;
         if (uploadedFor.current === key) return;
         uploadedFor.current = key;
@@ -535,6 +583,8 @@ export function EventWizard({
     const categoryRows = opts?.categories ?? [];
 
     const selectedCategory = categoryRows.find((c) => String(c.id) === form.category_id);
+    /** Wedding-type events name a couple (Groom / Bride), as the mobile app does. */
+    const isCouple = /wedding|marriage|engage|nikah/i.test(selectedCategory?.name ?? "");
     /**
      * The admin-authored templates on offer for THIS event.
      *
@@ -803,22 +853,25 @@ export function EventWizard({
 
     const validate = (target: number) => {
         const next: Record<string, boolean> = {};
-        if (target > 1) {
+        // Whole wizard: every step before `target`. One section: its page only.
+        const need = (s: number) => (sectionPages ? step === s : target > s);
+        if (need(S_TYPE)) {
             if (!form.category_id) next.category_id = true;
         }
-        if (target > 2) {
+        if (need(S_BASIC)) {
             if (!form.name.trim()) next.name = true;
+            if (!form.cover_image) next.cover_image = true;
+        }
+        if (need(S_DATE)) {
             if (!form.start_date) next.start_date = true;
             if (!form.end_date) next.end_date = true;
             if (!form.start_time) next.start_time = true;
             if (!form.end_time) next.end_time = true;
-            if (!form.cover_image) next.cover_image = true;
         }
-        if (target > 4) {
+        if (need(S_DESIGN)) {
             if (isCustomTemplate && !form.custom_image) {
                 next.custom_image = true;
-                // The upload control shows while Custom is being browsed —
-                // the filters may have been left on another type.
+                // The upload control shows while Custom is being browsed.
                 setDesignFilter(ALL_STYLES);
                 setStyleFilter("custom");
             }
@@ -837,7 +890,7 @@ export function EventWizard({
          * two, and catching it here saves a round trip that would land the user
          * back on a step they had already left.
          */
-        if (target > 2) {
+        if (need(S_ORGANIZER)) {
             const phone = form.contact_phone.trim();
             const email = form.contact_email.trim();
             if (phone && !/^[\d\s+()-]{6,30}$/.test(phone)) {
@@ -956,8 +1009,8 @@ export function EventWizard({
      */
     const started = !!form.category_id || step > 1;
     const askExit = () => {
-        if (isEdit || !started || step === 6) {
-            router.push("/dashboard/events");
+        if (isEdit || !started || step === S_CREATED) {
+            router.push(isEdit ? hubHref : "/dashboard/events");
             return;
         }
         setExitOpen(true);
@@ -977,10 +1030,20 @@ export function EventWizard({
     const goNext = () => {
         if (!validate(step + 1)) return;
 
+        // One section: Next between its pages, Save on the last (as in the app).
+        if (sectionPages) {
+            if (pageIndex < sectionPages.length - 1) {
+                setStep(sectionPages[pageIndex + 1]);
+                return;
+            }
+            submitEvent();
+            return;
+        }
+
         // The review screen is the last chance to change anything — and on a new
         // event the date cannot be changed at all afterwards — so it asks before
         // it saves rather than acting on a single click.
-        if (step === 5) {
+        if (step === S_REVIEW) {
             if (saving) return;
             setConfirm({
                 title: isEdit ? "Save these changes?" : "Create this event?",
@@ -1038,12 +1101,14 @@ export function EventWizard({
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-                            {isEdit ? "Edit Event" : "Create New Event"}
+                            {section ? `Edit ${SECTION_PAGES[section].title}` : isEdit ? "Edit Event" : "Create New Event"}
                         </h1>
                         <p className="mt-1 text-[13.5px] text-muted-foreground">
-                            {isEdit
-                                ? "Update your event. Changes are saved on the last step."
-                                : "Follow the steps below to create your perfect event."}
+                            {section
+                                ? form.name || "Update this part of your event."
+                                : isEdit
+                                    ? "Update your event. Changes are saved on the last step."
+                                    : "Follow the steps below to create your perfect event."}
                         </p>
                     </div>
                     <Button
@@ -1074,7 +1139,8 @@ export function EventWizard({
                 )}
             </div>
 
-            {/* Stepper */}
+            {/* Stepper — whole wizard only; a single section has none. */}
+            {!section && (
             <div className="overflow-x-auto">
                 <ol className="flex min-w-[680px] items-start">
                     {STEPS.map((label, i) => {
@@ -1126,16 +1192,31 @@ export function EventWizard({
                     })}
                 </ol>
             </div>
+            )}
 
             <Card className="border border-border shadow-none py-0">
                 <CardContent className="p-6">
-                    <p className="text-[12px] font-medium text-muted-foreground">Step {step}</p>
-                    <h2 className="mt-0.5 text-[17px] font-bold text-primary">{STEPS[step - 1]}</h2>
-                    <p className="mt-1 text-[13px] text-muted-foreground">{SUBTITLES[step - 1]}</p>
+                    {section ? (
+                        <>
+                            {sectionPages && sectionPages.length > 1 && (
+                                <p className="text-[12px] font-medium text-muted-foreground">
+                                    Page {pageIndex + 1} of {sectionPages.length}
+                                </p>
+                            )}
+                            <h2 className="mt-0.5 text-[17px] font-bold text-primary">{SECTION_PAGES[section].title}</h2>
+                            <p className="mt-1 text-[13px] text-muted-foreground">{SECTION_PAGES[section].subtitle}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-[12px] font-medium text-muted-foreground">Step {step}</p>
+                            <h2 className="mt-0.5 text-[17px] font-bold text-primary">{STEPS[step - 1]}</h2>
+                            <p className="mt-1 text-[13px] text-muted-foreground">{SUBTITLES[step - 1]}</p>
+                        </>
+                    )}
 
                     <div className="mt-6">
                         {/* ── Step 1 — real taxonomy ─────────────────────────── */}
-                        {step === 1 && (
+                        {step === S_TYPE && (
                             // Full card width, not capped: three selects in a row
                             // need the room, and any max-w leaves a dead gutter
                             // down the right of a wide card.
@@ -1206,305 +1287,272 @@ export function EventWizard({
                         )}
 
                         {/* ── Step 2 ─────────────────────────────────────────── */}
-                        {step === 2 && (
-                            /*
-                              Two PANELS side by side, not two columns of fields.
-
-                              The step asks for two different kinds of thing: what
-                              the event IS (its name, hosts, when it happens) and
-                              what the INVITATION says (venue, organiser, contact,
-                              footer). Interleaving them across a plain two-column
-                              grid put unrelated fields next to each other and made
-                              the section rules meaningless — a heading spanning
-                              both columns still had the previous section's fields
-                              beside it.
-
-                              Each panel is a vertical stack, so reading down one
-                              column follows one subject. Pairs that genuinely
-                              belong together (start/end date, phone/email) nest as
-                              a two-column row INSIDE a panel.
-
-                              Stacks below `lg`, where two panels would leave each
-                              field about 300px wide.
-                            */
-                            <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
-
-                                {/* ── Panel 1 — the event itself ─────────────── */}
-                                <div className="flex min-w-0 flex-col gap-5">
-                                    <PanelHeading label="Event Details" />
-
-                                    <Field label="Event Name" required error={errors.name}>
-                                        <Input
-                                            value={form.name}
-                                            onChange={(e) => setField("name", e.target.value.slice(0, 100))}
-                                            placeholder="Please enter the event name"
-                                            className={cn("h-11 rounded-md", errors.name && "border-destructive")}
-                                        />
-                                        <Counter value={form.name.length} max={100} />
-                                    </Field>
-
-                                    <Field label="Tagline (Optional)">
-                                        <Input
-                                            value={form.tagline}
-                                            onChange={(e) => setField("tagline", e.target.value.slice(0, 100))}
-                                            placeholder="Please enter a tagline"
-                                            className="h-11 rounded-md"
-                                        />
-                                        <Counter value={form.tagline.length} max={100} />
-                                    </Field>
-
-                                    {/* Two fields, because the invitation prints them
-                                        on their own lines either side of an ampersand.
-                                        One "A & B" field would have to be split back
-                                        apart on a separator a single name can contain. */}
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <Field label="First Host Name (Optional)">
-                                            <Input
-                                                value={form.host_one}
-                                                onChange={(e) => setField("host_one", e.target.value.slice(0, 120))}
-                                                placeholder="Please enter the first host's name"
-                                                className="h-11 rounded-md"
-                                            />
-                                        </Field>
-                                        <Field label="Second Host Name (Optional)">
-                                            <Input
-                                                value={form.host_two}
-                                                onChange={(e) => setField("host_two", e.target.value.slice(0, 120))}
-                                                placeholder="Please enter the second host's name"
-                                                className="h-11 rounded-md"
-                                            />
-                                        </Field>
-                                    </div>
-
-                                    <Field label="Short Description (Optional)">
-                                        <Textarea
-                                            value={form.description}
-                                            onChange={(e) => setField("description", e.target.value.slice(0, 300))}
-                                            placeholder="Please enter a short description"
-                                            className="min-h-[90px] rounded-md"
-                                        />
-                                        <Counter value={form.description.length} max={300} />
-                                    </Field>
-
-                                    <CoverImageField
-                                        value={form.cover_image}
-                                        onChange={(url) => setField("cover_image", url)}
-                                        error={errors.cover_image}
+                        {/* ── Step 2 — Basic Details ─────────────────────────── */}
+                        {step === S_BASIC && (
+                            <div className="grid max-w-3xl gap-5">
+                                <Field label="Event Title" required error={errors.name}>
+                                    <Input
+                                        value={form.name}
+                                        onChange={(e) => setField("name", e.target.value.slice(0, 100))}
+                                        placeholder={isCouple ? "e.g. Arjun weds Priya" : "Please enter the event title"}
+                                        className={cn("h-11 rounded-md", errors.name && "border-destructive")}
                                     />
+                                    <Counter value={form.name.length} max={100} />
+                                </Field>
 
-                                    <SectionRule label="Ceremony & Date" />
-
-                                    {/* One ceremony per event, in this order: title,
-                                        the event's dates & times, venue, description.
-                                        It has no dates of its own. */}
-                                    <Field label="Ceremony Title">
+                                {/* Two fields: the app and the invitation print them
+                                    either side of an ampersand. */}
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field label={isCouple ? "Groom Name (Optional)" : "First Host (Optional)"}>
                                         <Input
-                                            value={form.ceremony_title}
-                                            onChange={(e) => setField("ceremony_title", e.target.value.slice(0, 150))}
-                                            placeholder="e.g. Haldi Ceremony"
+                                            value={form.host_one}
+                                            onChange={(e) => setField("host_one", e.target.value.slice(0, 120))}
+                                            placeholder={isCouple ? "Groom's name" : "First host's name"}
                                             className="h-11 rounded-md"
                                         />
                                     </Field>
-
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <Field label="Start Date" required error={errors.start_date}
-                                            hint={isEdit ? "The event date cannot be changed after it is created." : undefined}>
-                                            <IconInput icon={faCalendarDays} type="date" value={form.start_date}
-                                                disabled={isEdit}
-                                                onChange={(v) => confirmDate("start_date", v)} invalid={errors.start_date} />
-                                        </Field>
-                                        <Field label="End Date" required error={errors.end_date}>
-                                            <IconInput icon={faCalendarDays} type="date" value={form.end_date}
-                                                disabled={isEdit}
-                                                onChange={(v) => confirmDate("end_date", v)} invalid={errors.end_date} />
-                                        </Field>
-                                        <Field label="Start Time" required error={errors.start_time}>
-                                            <IconInput icon={faClock} type="time" value={form.start_time}
-                                                onChange={(v) => setField("start_time", v)} invalid={errors.start_time} />
-                                        </Field>
-                                        <Field label="End Time" required error={errors.end_time}>
-                                            <IconInput icon={faClock} type="time" value={form.end_time}
-                                                onChange={(v) => setField("end_time", v)} invalid={errors.end_time} />
-                                        </Field>
-                                    </div>
-
-                                    <Field label="Time Zone">
-                                        <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
-                                            <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {TIME_ZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </Field>
-
-                                    <Field label="Venue">
+                                    <Field label={isCouple ? "Bride Name (Optional)" : "Second Host (Optional)"}>
                                         <Input
-                                            value={form.ceremony_venue}
-                                            onChange={(e) => setField("ceremony_venue", e.target.value.slice(0, 255))}
-                                            placeholder="Leave blank for the main venue"
+                                            value={form.host_two}
+                                            onChange={(e) => setField("host_two", e.target.value.slice(0, 120))}
+                                            placeholder={isCouple ? "Bride's name" : "Second host's name"}
                                             className="h-11 rounded-md"
-                                        />
-                                    </Field>
-
-                                    <Field label="Description">
-                                        <Textarea
-                                            value={form.ceremony_description}
-                                            onChange={(e) => setField("ceremony_description", e.target.value.slice(0, 2000))}
-                                            placeholder="Please enter the ceremony description"
-                                            className="min-h-[90px] rounded-md"
                                         />
                                     </Field>
                                 </div>
 
-                                {/* ── Panel 2 — what the invitation says ─────── */}
-                                <div className="flex min-w-0 flex-col gap-5">
-                                    <PanelHeading label="Invitation Details" />
-
-                                    {/* The venue columns and the API have accepted
-                                        these all along — only the form was missing,
-                                        so every invitation printed "Venue to be
-                                        confirmed" with no way for anyone to fix it. */}
-                                    <Field label="Venue Name">
-                                        <Input
-                                            value={form.venue_name}
-                                            onChange={(e) => setField("venue_name", e.target.value.slice(0, 255))}
-                                            placeholder="Please enter the venue name"
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
-
-                                    <Field label="Venue Address">
-                                        <Textarea
-                                            value={form.venue_address}
-                                            onChange={(e) => setField("venue_address", e.target.value.slice(0, 500))}
-                                            placeholder="Please enter the venue address"
-                                            className="min-h-[90px] rounded-md"
-                                        />
-                                        <Counter value={form.venue_address.length} max={500} />
-                                    </Field>
-
-                                    <Field label="Landmark (Optional)">
-                                        <Input
-                                            value={form.venue_landmark}
-                                            onChange={(e) => setField("venue_landmark", e.target.value.slice(0, 255))}
-                                            placeholder="e.g. Near Marina Beach"
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
-
-                                    <Field label="Google Map Link (Optional)">
-                                        <Input
-                                            value={form.venue_map_link}
-                                            onChange={(e) => setField("venue_map_link", e.target.value.slice(0, 500))}
-                                            placeholder="https://maps.google.com/..."
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
-
-                                    {/* The app drops this pin by tapping its map; here it is typed. */}
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <Field label="Latitude (Optional)">
-                                            <Input
-                                                inputMode="decimal"
-                                                value={form.venue_lat}
-                                                onChange={(e) => setField("venue_lat", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
-                                                placeholder="13.0827"
-                                                className="h-11 rounded-md"
-                                            />
-                                        </Field>
-                                        <Field label="Longitude (Optional)">
-                                            <Input
-                                                inputMode="decimal"
-                                                value={form.venue_lng}
-                                                onChange={(e) => setField("venue_lng", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
-                                                placeholder="80.2707"
-                                                className="h-11 rounded-md"
-                                            />
-                                        </Field>
-                                    </div>
-
-                                    <CoverImageField
-                                        label="Venue Image (Optional)"
-                                        required={false}
-                                        hint="JPG, PNG or WEBP. A photo of the venue, shown to guests in the app."
-                                        value={form.venue_image}
-                                        onChange={(url) => setField("venue_image", url)}
+                                <Field label="Tagline (Optional)">
+                                    <Input
+                                        value={form.tagline}
+                                        onChange={(e) => setField("tagline", e.target.value.slice(0, 100))}
+                                        placeholder="Please enter a tagline"
+                                        className="h-11 rounded-md"
                                     />
+                                    <Counter value={form.tagline.length} max={100} />
+                                </Field>
 
-                                    {/* Each of these backs a component the template
-                                        can switch on. Left blank, the invitation
-                                        falls back to a placeholder — which is what
-                                        every event showed before these existed. */}
-                                    <Field label="Organizer / Hosted By">
-                                        <Input
-                                            value={form.organizer}
-                                            onChange={(e) => setField("organizer", e.target.value.slice(0, 200))}
-                                            placeholder="Please enter who is hosting this event"
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
+                                <Field label="Short Description (Optional)">
+                                    <Textarea
+                                        value={form.description}
+                                        onChange={(e) => setField("description", e.target.value.slice(0, 300))}
+                                        placeholder="Please enter a short description"
+                                        className="min-h-[90px] rounded-md"
+                                    />
+                                    <Counter value={form.description.length} max={300} />
+                                </Field>
 
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <Field label="Contact Number" error={errors.contact_phone}>
-                                            <Input
-                                                value={form.contact_phone}
-                                                onChange={(e) => setField("contact_phone", e.target.value.slice(0, 30))}
-                                                placeholder="Please enter a contact number"
-                                                inputMode="tel"
-                                                className={cn("h-11 rounded-md", errors.contact_phone && "border-destructive")}
-                                            />
-                                        </Field>
-                                        <Field label="Contact Email" error={errors.contact_email}>
-                                            <Input
-                                                value={form.contact_email}
-                                                onChange={(e) => setField("contact_email", e.target.value.slice(0, 150))}
-                                                placeholder="Please enter a contact email address"
-                                                inputMode="email"
-                                                className={cn("h-11 rounded-md", errors.contact_email && "border-destructive")}
-                                            />
-                                        </Field>
+                                {/* Event Status — the app's two cards. */}
+                                <Field label="Event Status" required>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {([
+                                            { value: "public", title: "Public", text: "Anyone with the link or QR" },
+                                            { value: "private", title: "Private", text: "Invite only" },
+                                        ] as const).map((o) => {
+                                            const active = form.privacy === o.value;
+                                            return (
+                                                <button
+                                                    key={o.value}
+                                                    type="button"
+                                                    onClick={() => setField("privacy", o.value)}
+                                                    aria-pressed={active}
+                                                    className={cn(
+                                                        "rounded-lg border p-3 text-left transition",
+                                                        active ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    <p className={cn("text-[13.5px] font-semibold", active ? "text-primary" : "text-foreground")}>{o.title}</p>
+                                                    <p className="mt-0.5 text-[12px] text-muted-foreground">{o.text}</p>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
+                                    <p className="mt-2 text-[11.5px] text-muted-foreground">
+                                        {form.privacy === "private"
+                                            ? "A guest is counted as a participant only after completing check-in at the event."
+                                            : "A guest is counted as a participant once they complete the RSVP."}
+                                    </p>
+                                </Field>
 
-                                    <Field label="Footer Note">
-                                        <Input
-                                            value={form.footer_note}
-                                            onChange={(e) => setField("footer_note", e.target.value.slice(0, 300))}
-                                            placeholder="Please enter a footer note"
-                                            className="h-11 rounded-md"
-                                        />
-                                        <Counter value={form.footer_note.length} max={300} />
+                                <CoverImageField
+                                    label="Upload Event Photo"
+                                    value={form.cover_image}
+                                    onChange={(url) => setField("cover_image", url)}
+                                    error={errors.cover_image}
+                                />
+                            </div>
+                        )}
+
+                        {/* ── Step 3 — Date & Time ───────────────────────────── */}
+                        {step === S_DATE && (
+                            <div className="grid max-w-3xl gap-5">
+                                <Field label="Event Time Zone">
+                                    <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
+                                        <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {TIME_ZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field label="Start Date" required error={errors.start_date}
+                                        hint={isEdit ? "The event date cannot be changed after it is created." : undefined}>
+                                        <IconInput icon={faCalendarDays} type="date" value={form.start_date}
+                                            disabled={isEdit}
+                                            onChange={(v) => confirmDate("start_date", v)} invalid={errors.start_date} />
                                     </Field>
-
-                                    <SectionRule label="Visibility" />
-
-                                    <div className="grid gap-5 sm:grid-cols-2">
-                                        <Field label="Event Privacy">
-                                            <Select value={form.privacy} onValueChange={(v) => setField("privacy", v)}>
-                                                <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="private">Private</SelectItem>
-                                                    <SelectItem value="public">Public</SelectItem>
-                                                    <SelectItem value="unlisted">Unlisted</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </Field>
-                                        <Field label="Event Status">
-                                            <Select value={form.status} onValueChange={(v) => setField("status", v)}>
-                                                <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                                                    <SelectItem value="draft">Draft</SelectItem>
-                                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </Field>
-                                    </div>
+                                    <Field label="End Date" required error={errors.end_date}>
+                                        <IconInput icon={faCalendarDays} type="date" value={form.end_date}
+                                            disabled={isEdit}
+                                            onChange={(v) => confirmDate("end_date", v)} invalid={errors.end_date} />
+                                    </Field>
+                                    <Field label="Start Time" required error={errors.start_time}>
+                                        <IconInput icon={faClock} type="time" value={form.start_time}
+                                            onChange={(v) => setField("start_time", v)} invalid={errors.start_time} />
+                                    </Field>
+                                    <Field label="End Time" required error={errors.end_time}>
+                                        <IconInput icon={faClock} type="time" value={form.end_time}
+                                            onChange={(v) => setField("end_time", v)} invalid={errors.end_time} />
+                                    </Field>
                                 </div>
                             </div>
                         )}
-                        {/* ── Step 3 — real event_menus ──────────────────────── */}
-                        {step === 3 && (
+
+                        {/* ── Step 4 — Venue ─────────────────────────────────── */}
+                        {step === S_VENUE && (
+                            <div className="grid max-w-3xl gap-5">
+                                <Field label="Venue Name">
+                                    <Input
+                                        value={form.venue_name}
+                                        onChange={(e) => setField("venue_name", e.target.value.slice(0, 255))}
+                                        placeholder="e.g. The Grand Palace"
+                                        className="h-11 rounded-md"
+                                    />
+                                </Field>
+                                <Field label="Address">
+                                    <Textarea
+                                        value={form.venue_address}
+                                        onChange={(e) => setField("venue_address", e.target.value.slice(0, 500))}
+                                        placeholder="Please enter the venue address"
+                                        className="min-h-[90px] rounded-md"
+                                    />
+                                    <Counter value={form.venue_address.length} max={500} />
+                                </Field>
+                                <Field label="Landmark (Optional)">
+                                    <Input
+                                        value={form.venue_landmark}
+                                        onChange={(e) => setField("venue_landmark", e.target.value.slice(0, 255))}
+                                        placeholder="e.g. Near Marina Beach"
+                                        className="h-11 rounded-md"
+                                    />
+                                </Field>
+                                <Field label="Google Map Link (Optional)">
+                                    <Input
+                                        value={form.venue_map_link}
+                                        onChange={(e) => setField("venue_map_link", e.target.value.slice(0, 500))}
+                                        placeholder="https://maps.google.com/..."
+                                        className="h-11 rounded-md"
+                                    />
+                                </Field>
+                                {/* The app drops this pin on its map; here it is typed. */}
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field label="Latitude (Optional)">
+                                        <Input
+                                            inputMode="decimal"
+                                            value={form.venue_lat}
+                                            onChange={(e) => setField("venue_lat", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
+                                            placeholder="13.0827"
+                                            className="h-11 rounded-md"
+                                        />
+                                    </Field>
+                                    <Field label="Longitude (Optional)">
+                                        <Input
+                                            inputMode="decimal"
+                                            value={form.venue_lng}
+                                            onChange={(e) => setField("venue_lng", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
+                                            placeholder="80.2707"
+                                            className="h-11 rounded-md"
+                                        />
+                                    </Field>
+                                </div>
+                                <CoverImageField
+                                    label="Venue Image (Optional)"
+                                    required={false}
+                                    hint="JPG, PNG or WEBP. A photo of the venue, shown to guests in the app."
+                                    value={form.venue_image}
+                                    onChange={(url) => setField("venue_image", url)}
+                                />
+                            </div>
+                        )}
+
+                        {/* ── Step 6 — Settings ──────────────────────────────── */}
+                        {step === S_SETTINGS && (
+                            <div className="grid max-w-3xl gap-4">
+                                <PanelHeading label="Guest Registration" />
+                                {/* Shown as in the app, where these are not saved yet
+                                    either — so they are marked rather than pretending. */}
+                                {[
+                                    "Allow new participants to RSVP",
+                                    "Require approval for participants",
+                                ].map((label, i) => (
+                                    <div key={label} className="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3">
+                                        <span className="text-[13.5px] font-medium text-foreground">{label}</span>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="rounded px-1.5 py-0 text-[10px] font-semibold uppercase">Soon</Badge>
+                                            <Switch checked={i === 0} disabled aria-label={label} />
+                                        </div>
+                                    </div>
+                                ))}
+                                <p className="text-[12px] text-muted-foreground">
+                                    These settings are coming soon. For now every event accepts RSVPs without approval.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* ── Step 7 — Organizer Settings ────────────────────── */}
+                        {step === S_ORGANIZER && (
+                            <div className="grid max-w-3xl gap-5">
+                                <Field label="Organizer / Hosted By">
+                                    <Input
+                                        value={form.organizer}
+                                        onChange={(e) => setField("organizer", e.target.value.slice(0, 200))}
+                                        placeholder="Please enter who is hosting this event"
+                                        className="h-11 rounded-md"
+                                    />
+                                </Field>
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field label="Contact Number" error={errors.contact_phone}>
+                                        <Input
+                                            value={form.contact_phone}
+                                            onChange={(e) => setField("contact_phone", e.target.value.slice(0, 30))}
+                                            placeholder="Please enter a contact number"
+                                            inputMode="tel"
+                                            className={cn("h-11 rounded-md", errors.contact_phone && "border-destructive")}
+                                        />
+                                    </Field>
+                                    <Field label="Contact Email" error={errors.contact_email}>
+                                        <Input
+                                            value={form.contact_email}
+                                            onChange={(e) => setField("contact_email", e.target.value.slice(0, 150))}
+                                            placeholder="Please enter a contact email address"
+                                            inputMode="email"
+                                            className={cn("h-11 rounded-md", errors.contact_email && "border-destructive")}
+                                        />
+                                    </Field>
+                                </div>
+                                <Field label="Footer Note">
+                                    <Input
+                                        value={form.footer_note}
+                                        onChange={(e) => setField("footer_note", e.target.value.slice(0, 300))}
+                                        placeholder="Please enter a footer note"
+                                        className="h-11 rounded-md"
+                                    />
+                                    <Counter value={form.footer_note.length} max={300} />
+                                </Field>
+                            </div>
+                        )}
+
+                        {/* ── Step 5 — Menus (real event_menus) ───────────────── */}
+                        {step === S_MENUS && (
                             <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
                                 {/*
                                   Every menu the plan grants, in two panels by the
@@ -1575,8 +1623,8 @@ export function EventWizard({
                             </div>
                         )}
 
-                        {/* ── Step 4 — presentational ────────────────────────── */}
-                        {step === 4 && (
+                        {/* ── Invitation Card page 1 (Edit Event only) — presentational ────────────────────────── */}
+                        {step === S_DESIGN && (
                             /*
                               Theme & Colour, and nothing else.
 
@@ -1909,7 +1957,7 @@ export function EventWizard({
                         )}
 
                         {/* ── Step 5 — what the invitation carries, beside it ── */}
-                        {step === 5 && (
+                        {step === S_PREVIEW && (
                             /*
                               Two panels: the component toggles on the left, the
                               invitation they build on the right. They were on
@@ -2120,8 +2168,71 @@ export function EventWizard({
                             </div>
                         )}
 
-                        {/* ── Step 6 ─────────────────────────────────────────── */}
-                        {step === 6 && (
+                        {/* ── Step 8 — Review ────────────────────────────────── */}
+                        {step === S_REVIEW && (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                {([
+                                    {
+                                        title: "Basic Details", go: S_BASIC, rows: [
+                                            ["Event Type", selectedCategory?.name ?? "—"],
+                                            ["Event Title", form.name || "—"],
+                                            [isCouple ? "Couple" : "Hosts", [form.host_one, form.host_two].filter((v) => v.trim()).join(" & ") || "—"],
+                                            ["Tagline", form.tagline || "—"],
+                                            ["Event Status", form.privacy === "private" ? "Private" : "Public"],
+                                            ["Event Photo", form.cover_image ? "Added" : "—"],
+                                        ],
+                                    },
+                                    {
+                                        title: "Date & Time", go: S_DATE, rows: [
+                                            ["Starts", [form.start_date ? formatDate(form.start_date) : "", form.start_time].filter(Boolean).join(", ") || "—"],
+                                            ["Ends", [form.end_date ? formatDate(form.end_date) : "", form.end_time].filter(Boolean).join(", ") || "—"],
+                                            ["Time Zone", form.timezone],
+                                        ],
+                                    },
+                                    {
+                                        title: "Venue", go: S_VENUE, rows: [
+                                            ["Venue", form.venue_name || "—"],
+                                            ["Address", form.venue_address || "—"],
+                                            ["Landmark", form.venue_landmark || "—"],
+                                        ],
+                                    },
+                                    {
+                                        title: "Menus", go: S_MENUS, rows: [
+                                            ["Menus on", String(menuRows.filter((m) => isDefaultMenu(m) || (menus[m.id] ?? true)).length)],
+                                        ],
+                                    },
+                                    {
+                                        title: "Organizer Settings", go: S_ORGANIZER, rows: [
+                                            ["Hosted By", form.organizer || "—"],
+                                            ["Contact Number", form.contact_phone || "—"],
+                                            ["Contact Email", form.contact_email || "—"],
+                                            ["Footer Note", form.footer_note || "—"],
+                                        ],
+                                    },
+                                ] as const).map((section) => (
+                                    <div key={section.title} className="min-w-0 rounded-lg border border-border p-4">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <p className="text-[13px] font-bold text-foreground">{section.title}</p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setStep(section.go)}
+                                                className="text-[12px] font-semibold text-primary hover:underline"
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+                                        <dl className="flex flex-col gap-1.5">
+                                            {section.rows.map(([label, value]) => (
+                                                <SummaryRow key={label} label={label} value={value} />
+                                            ))}
+                                        </dl>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* ── Step 9 — Event Created ─────────────────────────── */}
+                        {step === S_CREATED && (
                             <div className="flex flex-col gap-6">
                                 {/* ── Celebration Header ─────────────────────── */}
                                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 text-center">
@@ -2140,8 +2251,9 @@ export function EventWizard({
                                     </div>
                                 </div>
 
-                                <div className="grid gap-8 lg:grid-cols-2">
-                                    {/* ── Left Column: Summary & Actions ────── */}
+                                <div className="mx-auto w-full max-w-xl">
+                                    {/* The invitation preview / download left with the
+                                        invitation steps; it returns with that module. */}
                                     <div className="flex min-w-0 flex-col gap-4">
                                         {/* Event Quick Summary */}
                                         <div className="w-full rounded-md border border-border p-4 text-left">
@@ -2191,13 +2303,6 @@ export function EventWizard({
                                         {/* Download buttons */}
                                         <DownloadingOverlay busy={downloading} />
                                         <div className="flex w-full flex-col gap-2">
-                                            <DownloadFormatButton
-                                                target="invitation"
-                                                label="Download Invitation"
-                                                busy={downloading}
-                                                onPick={downloadInvitation}
-                                                variant="default"
-                                            />
                                             {!!created?.qr_token && (
                                                 <DownloadFormatButton
                                                     target="qr"
@@ -2255,81 +2360,30 @@ export function EventWizard({
                                         </Button>
                                     </div>
 
-                                    {/* ── Right Column: Live Event Invitation Card ── */}
-                                    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-muted/30 p-5">
-                                        <div className="w-full text-left">
-                                            <PanelHeading label="Event Invitation" />
-                                            <p className="mt-1 text-[12px] text-muted-foreground">
-                                                Your finalized invitation with embedded live event QR code.
-                                            </p>
-                                        </div>
-
-                                        <div ref={exportCardRef} className="flex w-full justify-center rounded-md border border-border/50 bg-background p-4">
-                                            {artwork.kind === "template" ? (
-                                                <InvitationCard
-                                                    template={cardTemplate ?? artwork.template}
-                                                    componentsOverride={
-                                                        compOverride
-                                                            ? Object.fromEntries(
-                                                                COMPONENT_KEYS.map((k) => [k, compOverride[k] ? 1 : 0])
-                                                            )
-                                                            : null
-                                                    }
-                                                    orderOverride={orderOverride}
-                                                    data={invitationData}
-                                                />
-                                            ) : (
-                                                <div
-                                                    className={cn(
-                                                        "w-full max-w-[280px] overflow-hidden rounded-md border border-border p-6 text-center shadow-sm bg-gradient-to-br",
-                                                        selectedTheme?.swatch
-                                                    )}
-                                                >
-                                                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-foreground/70">
-                                                        You&rsquo;re invited to
-                                                    </p>
-                                                    <p
-                                                        className="mt-2 text-[22px] font-bold leading-tight break-words"
-                                                        style={{ color: form.primary_color }}
-                                                    >
-                                                        {form.name || "Your Event Name"}
-                                                    </p>
-                                                    {form.tagline && (
-                                                        <p className="mt-1.5 text-[12px] text-foreground/70 break-words">{form.tagline}</p>
-                                                    )}
-                                                    <div className="my-4 flex items-center justify-center gap-3 border-y border-foreground/10 py-3">
-                                                        <span className="text-[26px] font-bold tabular-nums text-foreground">
-                                                            {form.start_date ? form.start_date.slice(8, 10) : "--"}
-                                                        </span>
-                                                        <span className="text-left text-[11px] font-semibold uppercase leading-tight text-foreground/70">
-                                                            {form.start_date ? form.start_date.slice(5, 7) : "--"}
-                                                            <br />
-                                                            {form.start_date ? form.start_date.slice(0, 4) : "----"}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[11.5px] text-foreground/70">
-                                                        {form.start_time || "--:--"} &ndash; {form.end_time || "--:--"}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Nav — hidden on the success step, which has its own action. */}
-                    {step < 6 && (
+                    {(step < S_CREATED || !!section) && (
                         <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
                             <Button
                                 variant="outline"
-                                onClick={() => setStep((s) => Math.max(1, s - 1))}
-                                disabled={step === 1 || saving}
+                                onClick={() => {
+                                    if (sectionPages) {
+                                        // First page: Cancel back to the hub.
+                                        if (pageIndex <= 0) router.push(hubHref);
+                                        else setStep(sectionPages[pageIndex - 1]);
+                                        return;
+                                    }
+                                    setStep((s) => Math.max(1, s - 1));
+                                }}
+                                disabled={(!sectionPages && step === 1) || saving}
                                 className="h-10 rounded-md text-[13px] font-medium"
                             >
                                 <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[12px]" />
-                                Back
+                                {sectionPages && pageIndex <= 0 ? "Cancel" : "Back"}
                             </Button>
                             <Button
                                 onClick={goNext}
@@ -2338,7 +2392,9 @@ export function EventWizard({
                             >
                                 {saving
                                     ? (isEdit ? "Saving Changes..." : "Creating Event...")
-                                    : step === 5
+                                    : sectionPages
+                                        ? (pageIndex < sectionPages.length - 1 ? "Next" : "Save")
+                                    : step === S_REVIEW
                                         ? (isEdit ? "Save Changes" : "Create Event")
                                         : "Next"}
                                 {!saving && (
@@ -2431,11 +2487,14 @@ export function EventWizard({
 const SUBTITLES_LAST = "Your event has been saved successfully.";
 
 const SUBTITLES = [
-    "Select the basic information for your event.",
-    "Add your event details and schedule.",
-    "Choose the menus to show in your event app.",
-    "Pick the invitation design your plan offers.",
-    "Choose what the invitation carries, and check it before publishing.",
+    "Choose the type of event you want to create.",
+    "Tell your guests what the event is.",
+    "When the event starts and ends.",
+    "Where the event takes place.",
+    "Choose the menus to show on the participant home.",
+    "How guests join and register.",
+    "Who is hosting, and how guests can reach you.",
+    "Check everything before you create the event.",
     SUBTITLES_LAST,
 ];
 

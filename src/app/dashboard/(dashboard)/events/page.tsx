@@ -194,7 +194,8 @@ function MyEventsContent() {
     });
 
     const remove = useDeleteEvent();
-    const duplicate = useDuplicateEvent((copy) => router.push(`/dashboard/events/${copy.id}/edit`));
+    // A copy is a draft, finished through the full Create Event steps.
+    const duplicate = useDuplicateEvent((copy) => router.push(`/dashboard/events/${copy.id}/edit?section=all`));
 
     const rows = events.data?.data ?? [];
     const pagination = events.data?.pagination;
@@ -594,7 +595,7 @@ function EventRow({
                                 <>
                                     <Separator className="my-2.5" />
                                     <Button asChild size="sm" className="h-8 w-full text-[12px]">
-                                        <Link href={`/dashboard/events/${event.id}/edit`}>Continue setup</Link>
+                                        <Link href={`/dashboard/events/${event.id}/edit${event.status === "draft" ? "?section=all" : ""}`}>Continue setup</Link>
                                     </Button>
                                 </>
                             )}

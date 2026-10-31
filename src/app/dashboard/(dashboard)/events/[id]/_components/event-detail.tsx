@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -118,6 +118,12 @@ export function EventDetail({ eventId }: { eventId: number }) {
     const fmt = useDateFormatter();
     const router = useRouter();
     const [tab, setTab] = useState<TabValue>("overview");
+    // `?tab=` opens a tab directly — how the Edit Event hub links to Agenda,
+    // Family, Gallery, RSVPs and Settings.
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).get("tab");
+        if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
+    }, []);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
     // The QR inside the dialog, captured on demand by its Download button.

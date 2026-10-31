@@ -17,6 +17,7 @@ import {
     faWandMagicSparkles,
     faClockRotateLeft,
     faSliders,
+    faListCheck,
 } from "@fortawesome/free-solid-svg-icons"
 
 /**
@@ -101,6 +102,8 @@ export const navMain = [
         ],
     },
     { title: "RSVPs", url: "/dashboard/rsvps", icon: faSquareCheck, section: "rsvp", items: [] },
+    // Per event, as in the app (2026-10-31).
+    { title: "Agenda", url: "/dashboard/agenda", icon: faListCheck, items: [] },
     { title: "Notifications", url: "/dashboard/notifications", icon: faBell, items: [] },
     /*
       Per-event on/off control over the ADMIN's notification templates — a

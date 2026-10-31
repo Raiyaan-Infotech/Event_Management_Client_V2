@@ -105,10 +105,6 @@ export default function RsvpsPage() {
     // `?event=` from the event page's "View all participants" link. Read once on
     // mount from the URL rather than useSearchParams, which would need a
     // Suspense boundary around the whole page.
-    useEffect(() => {
-        const fromUrl = new URLSearchParams(window.location.search).get('event');
-        if (fromUrl && /^\d+$/.test(fromUrl)) setEventId(fromUrl);
-    }, []);
 
     const [debounced, setDebounced] = useState('');
     useEffect(() => {
@@ -119,6 +115,17 @@ export default function RsvpsPage() {
     // Reuses the composer payload — it already serves the client's events with
     // a guest count on each, which is exactly what this filter needs.
     const { data: composer } = useComposer();
+
+    // V2: RSVPs are per event, as in the app — always one event selected:
+    // `?event=` (the event page's "View all participants" link) or the first.
+    useEffect(() => {
+        if (eventId !== 'all') return;
+        const list = composer?.events ?? [];
+        if (!list.length) return;
+        const fromUrl = new URLSearchParams(window.location.search).get('event');
+        const found = list.find((e) => String(e.id) === fromUrl);
+        setEventId(String((found ?? list[0]).id));
+    }, [composer, eventId]);
     const { data: relations } = useRsvpRelationOptions(eventId === 'all' ? undefined : eventId);
 
     const params: RsvpParams = useMemo(() => ({
@@ -137,12 +144,12 @@ export default function RsvpsPage() {
     const rsvps = data?.rsvps ?? [];
     const stats = data?.stats;
     const pagination = data?.pagination;
-    const filtered = eventId !== 'all' || side !== 'all' || relation !== 'all' || status !== 'all'
+    const filtered = side !== 'all' || relation !== 'all' || status !== 'all'
         || !!debounced || !!from || !!to;
 
     const onFilter = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
     const clearAll = () => {
-        setEventId('all'); setSide('all'); setRelation('all'); setStatus('all');
+        setSide('all'); setRelation('all'); setStatus('all');
         setSearch(''); setDebounced(''); setFrom(''); setTo(''); setPage(1);
     };
 
@@ -261,7 +268,6 @@ export default function RsvpsPage() {
                         <Select value={eventId} onValueChange={onFilter(setEventId)}>
                             <SelectTrigger className="h-9 w-[170px] text-[12.5px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Events</SelectItem>
                                 {(composer?.events ?? []).map((e) => (
                                     <SelectItem key={e.id} value={String(e.id)}>
                                         <span className="flex min-w-0 items-center gap-2">
