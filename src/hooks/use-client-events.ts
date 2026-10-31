@@ -128,6 +128,10 @@ export interface ClientEvent {
      * the backend can decrypt it.
      */
     qr_token: string | null;
+    /** List rows only: participants of this event, and how many answered Yes. */
+    guest_count?: number;
+    confirmed_count?: number;
+    pending_count?: number;
     qr_version: number;
     qr_issued_at: string | null;
     /** How the QR is drawn: 0 classic, 1 rounded, 2 heart. Set from the app. */
@@ -388,6 +392,47 @@ export function useCreateEvent(onDone?: (event: ClientEvent) => void) {
             onDone?.(event);
         },
         onError: (e) => reportError(e, 'create'),
+    });
+}
+
+/**
+ * The fields a copy carries over — the same set the wizard saves. Status is
+ * forced to draft and the name gets " (Copy)", so a duplicate never goes live
+ * by accident. No backend endpoint: it is a normal create, so the plan's limits
+ * and every validation apply exactly as for a new event.
+ */
+const DUPLICATE_FIELDS = [
+    'event_category_id', 'name', 'host_one', 'host_two', 'tagline', 'description',
+    'start_date', 'end_date', 'start_time', 'end_time', 'timezone',
+    'venue_name', 'venue_address', 'venue_landmark', 'venue_map_link', 'venue_image', 'venue_lat', 'venue_lng',
+    'menu_order', 'ceremony_title', 'ceremony_venue', 'ceremony_description',
+    'organizer', 'organizer_image', 'contact_phone', 'contact_email', 'footer_note',
+    'privacy', 'menu_ids', 'disabled_app_menu_ids',
+    'theme_id', 'home_screen_template_id', 'primary_color', 'secondary_color',
+    'cover_image', 'custom_image', 'components', 'component_order', 'qr_style',
+] as const;
+
+export function useDuplicateEvent(onDone?: (event: ClientEvent) => void) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const res = await api.get<{ event: ClientEvent } | ClientEvent>(`${ENDPOINT}/${id}`);
+            const source = ((res as { event?: ClientEvent }).event ?? res) as unknown as Record<string, unknown>;
+            const copy: Record<string, unknown> = {};
+            for (const field of DUPLICATE_FIELDS) {
+                if (source[field] !== undefined) copy[field] = source[field];
+            }
+            copy.name = `${String(source.name ?? 'Event')} (Copy)`.slice(0, 100);
+            copy.status = 'draft';
+            const created = await api.post<{ event: ClientEvent } | ClientEvent>(ENDPOINT, copy);
+            return (created as { event?: ClientEvent }).event ?? (created as ClientEvent);
+        },
+        onSuccess: (event) => {
+            toast.success('Event duplicated as a draft');
+            qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
+            onDone?.(event);
+        },
+        onError: (e) => reportError(e, 'duplicate'),
     });
 }
 

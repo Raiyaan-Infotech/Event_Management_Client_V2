@@ -190,7 +190,8 @@ export default function DashboardPage() {
             {
                 label: "RSVPs Received",
                 value: s?.rsvps_received ?? 0,
-                caption: s && !s.guests_available ? "Not available yet" : "Accepted",
+                // Received = every Yes and No answer; the caption says how many were Yes.
+                caption: s && !s.guests_available ? "Not available yet" : `${(s?.rsvp_going ?? 0).toLocaleString()} accepted`,
                 icon: faSquareCheck,
                 tint: "text-info",
                 bg: "bg-info/10",
