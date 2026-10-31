@@ -69,7 +69,7 @@ export const navMain = [
     { title: "Dashboard", url: "/dashboard", icon: faHouse, items: [] },
     { title: "My Events", url: "/dashboard/events", icon: faCalendarDays, items: [] },
     { title: "Templates", url: "/dashboard/templates", icon: faLayerGroup, items: [] },
-    { title: "Splash Screens", url: "/dashboard/splash-screens", icon: faWandMagicSparkles, section: "splash-screens", items: [] },
+    // Splash Screens removed from the web (2026-10-31) — it lives in the mobile app only.
     {
         title: "Guests",
         url: "/dashboard/guests",

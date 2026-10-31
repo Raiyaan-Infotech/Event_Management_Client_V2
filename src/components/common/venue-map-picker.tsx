@@ -3,13 +3,15 @@
 /**
  * Venue map — drop the event's pin on a Google map, as the mobile app does.
  *
- * Uses the SAME Google Maps key as the app (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY).
- * On the web that key needs, in Google Cloud:
- *   - Maps JavaScript API   to draw the map (without it Google shows
- *                           "This page didn't load Google Maps correctly")
- *   - Places API (New)      for the search box (optional — the map works without it)
- * Click the map or drag the pin to place it; "Use my current location" asks the
- * browser. The pin's coordinates go back through `onPick`.
+ * Key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (a WEB key: Maps JavaScript API, plus
+ * Places API (New) for the search box, plus Geocoding API for address lookup).
+ *
+ * Like the app, every pin (click, drag, search, current location):
+ *   1. reports its coordinates at once (`onPick`), and
+ *   2. is looked up for its place — venue name, address, landmark — and those
+ *      go to `onAddress`. Google's geocoder first; if the key does not allow
+ *      it, OpenStreetMap (Nominatim, no key) instead. Only the LATEST pin's
+ *      answer is used, so a slow lookup never overwrites a newer pin.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -51,17 +53,59 @@ function loadGoogleMaps(): Promise<G> {
 export interface PickedPlace {
     name?: string;
     address?: string;
+    landmark?: string;
+}
+
+const clean = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+
+/** A "name" that is really a plus code or a house number is not a venue name. */
+const looksLikeName = (v?: string) => !!v && !v.includes('+') && !/^[\d\s/,-]+$/.test(v);
+
+/** Google geocoder (needs Geocoding API on the key). */
+async function lookupGoogle(g: G, lat: number, lng: number): Promise<PickedPlace | null> {
+    const geocoder = new g.maps.Geocoder();
+    const { results } = await geocoder.geocode({ location: { lat, lng } });
+    const top = results?.[0];
+    if (!top) return null;
+    const comp = (type: string) =>
+        top.address_components?.find((c: G) => c.types?.includes(type))?.long_name as string | undefined;
+    const isPlace = (top.types ?? []).some((t: string) => ['establishment', 'point_of_interest', 'premise'].includes(t));
+    return {
+        name: isPlace ? clean(comp('premise') ?? comp('point_of_interest') ?? top.address_components?.[0]?.long_name) : undefined,
+        address: clean(top.formatted_address),
+        landmark: clean(comp('sublocality') ?? comp('sublocality_level_1') ?? comp('neighborhood') ?? comp('locality')),
+    };
+}
+
+/** OpenStreetMap fallback — no key. */
+async function lookupOsm(lat: number, lng: number): Promise<PickedPlace | null> {
+    const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`,
+        { headers: { Accept: 'application/json' } },
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    const a = d?.address ?? {};
+    return {
+        name: clean(d?.name),
+        address: clean(d?.display_name),
+        landmark: clean(a.suburb ?? a.neighbourhood ?? a.city_district ?? a.city ?? a.town ?? a.village),
+    };
 }
 
 export function VenueMapPicker({
     lat,
     lng,
     onPick,
+    onAddress,
     onClear,
 }: {
     lat: string;
     lng: string;
-    onPick: (lat: number, lng: number, place?: PickedPlace) => void;
+    /** The pin's coordinates, at once. */
+    onPick: (lat: number, lng: number) => void;
+    /** The pin's place, once looked up (venue name, address, landmark). */
+    onAddress?: (place: PickedPlace) => void;
     onClear: () => void;
 }) {
     const mapDiv = useRef<HTMLDivElement>(null);
@@ -70,26 +114,63 @@ export function VenueMapPicker({
     const markerRef = useRef<G>(null);
     const pickRef = useRef(onPick);
     pickRef.current = onPick;
+    const addressRef = useRef(onAddress);
+    addressRef.current = onAddress;
+    const lookupSeq = useRef(0);
 
     const [state, setState] = useState<'loading' | 'ready' | 'failed'>(KEY ? 'loading' : 'failed');
     const [locating, setLocating] = useState(false);
+    const [looking, setLooking] = useState(false);
 
     const hasPin = lat.trim() !== '' && lng.trim() !== '' && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng));
 
-    /** Puts (or moves) the pin; `notify` reports it to the form. */
-    const placePin = (g: G, position: { lat: number; lng: number }, notify: boolean, place?: PickedPlace) => {
+    /** Looks the pin up; only the latest pin's answer is passed on. */
+    const lookup = async (g: G | null, p: { lat: number; lng: number }, known?: PickedPlace) => {
+        const seq = ++lookupSeq.current;
+        setLooking(true);
+        let found: PickedPlace | null = null;
+        try {
+            if (g) found = await lookupGoogle(g, p.lat, p.lng);
+        } catch {
+            found = null; // key without Geocoding API — fall back below
+        }
+        if (!found) {
+            try {
+                found = await lookupOsm(p.lat, p.lng);
+            } catch {
+                found = null;
+            }
+        }
+        if (seq !== lookupSeq.current) return; // a newer pin is on the map
+        setLooking(false);
+        const name = known?.name ?? (looksLikeName(found?.name) ? found?.name : undefined);
+        const place: PickedPlace = {
+            name,
+            address: known?.address ?? found?.address,
+            landmark: found?.landmark,
+        };
+        if (place.name || place.address || place.landmark) addressRef.current?.(place);
+    };
+
+    /** Puts (or moves) the pin; `notify` reports it and looks it up. */
+    const placePin = (g: G, position: { lat: number; lng: number }, notify: boolean, known?: PickedPlace) => {
         const map = mapRef.current;
         if (!map) return;
         if (!markerRef.current) {
             markerRef.current = new g.maps.Marker({ map, position, draggable: true });
             markerRef.current.addListener('dragend', (e: G) => {
-                pickRef.current(e.latLng.lat(), e.latLng.lng());
+                const p = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+                pickRef.current(p.lat, p.lng);
+                void lookup(g, p);
             });
         } else {
             markerRef.current.setPosition(position);
             markerRef.current.setMap(map);
         }
-        if (notify) pickRef.current(position.lat, position.lng, place);
+        if (notify) {
+            pickRef.current(position.lat, position.lng);
+            void lookup(g, position, known);
+        }
     };
 
     // Map + search, once.
@@ -129,7 +210,8 @@ export function VenueMapPicker({
                             const pos = { lat: place.location.lat(), lng: place.location.lng() };
                             mapRef.current.setCenter(pos);
                             mapRef.current.setZoom(16);
-                            placePin(g, pos, true, { name: place.displayName, address: place.formattedAddress });
+                            // The searched name is a better venue name than the geocoder's.
+                            placePin(g, pos, true, { name: clean(place.displayName), address: clean(place.formattedAddress) });
                         } catch {
                             /* a failed lookup leaves the pin where it was */
                         }
@@ -167,6 +249,7 @@ export function VenueMapPicker({
                     placePin(g, p, true);
                 } else {
                     onPick(p.lat, p.lng);
+                    void lookup(null, p);
                 }
             },
             () => setLocating(false),
@@ -212,7 +295,11 @@ export function VenueMapPicker({
                 )}
                 <span className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
                     <FontAwesomeIcon icon={faLocationDot} className="!size-[11px] text-primary" />
-                    {hasPin ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : 'Click the map to drop the venue pin'}
+                    {looking
+                        ? 'Finding the address…'
+                        : hasPin
+                            ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
+                            : 'Click the map to drop the venue pin'}
                 </span>
             </div>
         </div>

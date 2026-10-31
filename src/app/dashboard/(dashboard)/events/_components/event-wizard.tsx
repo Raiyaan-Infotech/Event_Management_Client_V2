@@ -111,9 +111,9 @@ const STEPS = [
     "Basic Details",
     "Date & Time",
     "Venue",
+    "Mobile Splash Screen",
     "Menus",
-    "Settings",
-    "Organizer Settings",
+    "Organizer Details",
     "Review",
     "Event Created",
 ] as const;
@@ -123,14 +123,26 @@ const S_TYPE = 1;
 const S_BASIC = 2;
 const S_DATE = 3;
 const S_VENUE = 4;
-const S_MENUS = 5;
-const S_SETTINGS = 6;
+const S_SPLASH = 5;
+const S_MENUS = 6;
 const S_ORGANIZER = 7;
 const S_REVIEW = 8;
 const S_CREATED = 9;
 /** The invitation pages — reachable only from Edit Event → Invitation Card. */
-const S_DESIGN = 10;
-const S_PREVIEW = 11;
+const S_DESIGN = 10;        // Choose a Template Category
+const S_PREVIEW = 11;       // Preview (Save here)
+const S_TEMPLATES = 12;     // Choose a Template
+const S_CUSTOM_IMG = 13;    // Your Image — custom templates only
+const S_CARD_SETTINGS = 14; // Card Settings — opened from the Preview, as in the app
+
+/** The invitation pages' own titles (shown under the section title). */
+const PAGE_TITLES: Record<number, string> = {
+    [S_DESIGN]: "Choose a Template Category",
+    [S_TEMPLATES]: "Choose a Template",
+    [S_CUSTOM_IMG]: "Your Image",
+    [S_CARD_SETTINGS]: "Invitation Card Settings",
+    [S_PREVIEW]: "Preview",
+};
 
 /**
  * Edit Event sections, as in the mobile app's Edit Event hub: each opens on its
@@ -143,8 +155,8 @@ const SECTION_PAGES: Record<EditSectionKey, { title: string; subtitle: string; p
     date: { title: "Date & Time", subtitle: "Edit event date and time.", pages: [S_DATE] },
     venue: { title: "Venue", subtitle: "Edit venue details and map location.", pages: [S_VENUE] },
     menus: { title: "Event App Menu", subtitle: "Manage app menus and features.", pages: [S_MENUS] },
-    organizer: { title: "Organizer Settings", subtitle: "Hosted by, contact and footer note.", pages: [S_ORGANIZER] },
-    invitation: { title: "Invitation Card", subtitle: "Choose template, card settings and colour.", pages: [S_DESIGN, S_PREVIEW] },
+    organizer: { title: "Organizer Details", subtitle: "Hosted by, contact and footer note.", pages: [S_ORGANIZER] },
+    invitation: { title: "Invitation Card", subtitle: "Choose template, card settings and colour.", pages: [S_DESIGN, S_TEMPLATES, S_CUSTOM_IMG, S_PREVIEW] },
 };
 
 export const EDIT_SECTION_KEYS = Object.keys(SECTION_PAGES) as EditSectionKey[];
@@ -325,6 +337,8 @@ export function EventWizard({
     const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
     const hubHref = eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events";
     const [form, setForm] = useState<FormState>(EMPTY);
+    /** What the venue map last wrote into each field (see the Venue step). */
+    const mapFilled = useRef<Partial<Record<"venue_name" | "venue_address" | "venue_landmark", string>>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     /** One dialog, driven by whatever needs confirming: a date, or the save. */
     const [confirm, setConfirm] = useState<{
@@ -869,7 +883,7 @@ export function EventWizard({
             if (!form.start_time) next.start_time = true;
             if (!form.end_time) next.end_time = true;
         }
-        if (need(S_DESIGN)) {
+        if (need(S_CUSTOM_IMG)) {
             if (isCustomTemplate && !form.custom_image) {
                 next.custom_image = true;
                 // The upload control shows while Custom is being browsed.
@@ -1033,8 +1047,16 @@ export function EventWizard({
 
         // One section: Next between its pages, Save on the last (as in the app).
         if (sectionPages) {
+            // Card Settings is a side page of the Preview: Done goes back to it.
+            if (step === S_CARD_SETTINGS) {
+                setStep(S_PREVIEW);
+                return;
+            }
             if (pageIndex < sectionPages.length - 1) {
-                setStep(sectionPages[pageIndex + 1]);
+                let next = sectionPages[pageIndex + 1];
+                // "Your Image" is only for a custom template (as in the app).
+                if (next === S_CUSTOM_IMG && !isCustomTemplate) next = sectionPages[pageIndex + 2] ?? next;
+                setStep(next);
                 return;
             }
             submitEvent();
@@ -1143,7 +1165,7 @@ export function EventWizard({
             {/* Stepper — whole wizard only; a single section has none. */}
             {!section && (
             <div className="overflow-x-auto">
-                <ol className="flex min-w-[680px] items-start">
+                <ol className="flex w-full items-start">
                     {STEPS.map((label, i) => {
                         const n = i + 1;
                         const done = n < step;
@@ -1182,7 +1204,7 @@ export function EventWizard({
                                 </span>
                                 <span
                                     className={cn(
-                                        "px-1 text-center text-[12px] leading-tight",
+                                        "px-0.5 text-center text-[11px] leading-tight sm:text-[12px]",
                                         current ? "font-semibold text-primary" : "text-muted-foreground"
                                     )}
                                 >
@@ -1205,7 +1227,9 @@ export function EventWizard({
                                 </p>
                             )}
                             <h2 className="mt-0.5 text-[17px] font-bold text-primary">{SECTION_PAGES[section].title}</h2>
-                            <p className="mt-1 text-[13px] text-muted-foreground">{SECTION_PAGES[section].subtitle}</p>
+                            <p className="mt-1 text-[13px] text-muted-foreground">
+                                {PAGE_TITLES[step] ?? SECTION_PAGES[section].subtitle}
+                            </p>
                         </>
                     ) : (
                         <>
@@ -1290,7 +1314,7 @@ export function EventWizard({
                         {/* ── Step 2 ─────────────────────────────────────────── */}
                         {/* ── Step 2 — Basic Details ─────────────────────────── */}
                         {step === S_BASIC && (
-                            <div className="grid max-w-3xl gap-5">
+                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
                                 <Field label="Event Title" required error={errors.name}>
                                     <Input
                                         value={form.name}
@@ -1385,7 +1409,7 @@ export function EventWizard({
 
                         {/* ── Step 3 — Date & Time ───────────────────────────── */}
                         {step === S_DATE && (
-                            <div className="grid max-w-3xl gap-5">
+                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
                                 <Field label="Event Time Zone">
                                     <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
                                         <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
@@ -1420,27 +1444,50 @@ export function EventWizard({
 
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
-                            <div className="grid max-w-3xl gap-5">
+                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
+                                <div className="lg:row-span-6">
                                 <Field label="Venue Location">
                                     <VenueMapPicker
                                         lat={form.venue_lat}
                                         lng={form.venue_lng}
-                                        onPick={(lat, lng, place) =>
+                                        onPick={(lat, lng) =>
+                                            // As in the app: the pin always sets the
+                                            // Directions link to itself.
                                             setForm((prev) => ({
                                                 ...prev,
                                                 venue_lat: lat.toFixed(6),
                                                 venue_lng: lng.toFixed(6),
-                                                venue_name: prev.venue_name || (place?.name ?? "").slice(0, 255),
-                                                venue_address: prev.venue_address || (place?.address ?? "").slice(0, 500),
-                                                venue_map_link: prev.venue_map_link || `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`,
+                                                venue_map_link: `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`,
                                             }))
                                         }
+                                        onAddress={(place) => {
+                                            // A field is filled only when it is empty or
+                                            // still holds what the map wrote last time —
+                                            // never over something the host typed.
+                                            setForm((prev) => {
+                                                const next = { ...prev };
+                                                const fill = (key: "venue_name" | "venue_address" | "venue_landmark", value: string | undefined, max: number) => {
+                                                    const text = (value ?? "").trim().slice(0, max);
+                                                    if (!text) return;
+                                                    const current = prev[key].trim();
+                                                    if (current && current !== mapFilled.current[key]) return;
+                                                    next[key] = text;
+                                                    mapFilled.current[key] = text;
+                                                };
+                                                fill("venue_name", place.name, 255);
+                                                fill("venue_address", place.address, 500);
+                                                fill("venue_landmark", place.landmark, 255);
+                                                return next;
+                                            });
+                                            toast.success("Location selected. Check the venue details.");
+                                        }}
                                         onClear={() => setForm((prev) => ({ ...prev, venue_lat: "", venue_lng: "" }))}
                                     />
                                 </Field>
+                                </div>
                                 <Field label="Venue Name">
                                     <Input
                                         value={form.venue_name}
@@ -1505,33 +1552,9 @@ export function EventWizard({
                             </div>
                         )}
 
-                        {/* ── Step 6 — Settings ──────────────────────────────── */}
-                        {step === S_SETTINGS && (
-                            <div className="grid max-w-3xl gap-4">
-                                <PanelHeading label="Guest Registration" />
-                                {/* Shown as in the app, where these are not saved yet
-                                    either — so they are marked rather than pretending. */}
-                                {[
-                                    "Allow new participants to RSVP",
-                                    "Require approval for participants",
-                                ].map((label, i) => (
-                                    <div key={label} className="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3">
-                                        <span className="text-[13.5px] font-medium text-foreground">{label}</span>
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="secondary" className="rounded px-1.5 py-0 text-[10px] font-semibold uppercase">Soon</Badge>
-                                            <Switch checked={i === 0} disabled aria-label={label} />
-                                        </div>
-                                    </div>
-                                ))}
-                                <p className="text-[12px] text-muted-foreground">
-                                    These settings are coming soon. For now every event accepts RSVPs without approval.
-                                </p>
-                            </div>
-                        )}
-
-                        {/* ── Step 7 — Organizer Settings ────────────────────── */}
+                        {/* ── Step 7 — Organizer Details ─────────────────────── */}
                         {step === S_ORGANIZER && (
-                            <div className="grid max-w-3xl gap-5">
+                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
                                 <Field label="Organizer / Hosted By">
                                     <Input
                                         value={form.organizer}
@@ -1572,7 +1595,12 @@ export function EventWizard({
                             </div>
                         )}
 
-                        {/* ── Step 5 — Menus (real event_menus) ───────────────── */}
+                        {/* ── Step 5 — Mobile Splash Screen (empty for now) ─── */}
+                        {step === S_SPLASH && (
+                            <div className="min-h-[220px]" />
+                        )}
+
+                        {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
                         {step === S_MENUS && (
                             <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
                                 {/*
@@ -1644,80 +1672,81 @@ export function EventWizard({
                             </div>
                         )}
 
-                        {/* ── Invitation Card page 1 (Edit Event only) — presentational ────────────────────────── */}
+                        {/* ── Invitation 1 — Choose a Template Category ────────── */}
                         {step === S_DESIGN && (
-                            /*
-                              Theme & Colour, and nothing else.
-
-                              The component toggles used to sit in a second panel
-                              on this step, which put two unrelated decisions on one
-                              screen: WHICH design, and WHAT that design carries.
-                              The second one is only answerable next to a picture of
-                              the result, so it moved to step 5 where the preview is.
-                            */
-                            <div className="grid gap-x-10 gap-y-8">
-                                <div className="flex min-w-0 flex-col gap-3">
-                                    <PanelHeading label="Theme & Colour" />
-                                    <p className="text-[12px] text-muted-foreground">
-                                        Pick the invitation design. Your plan decides what is on offer.
-                                    </p>
-
-                                {/* Both filters, side by side, whenever there are
-                                    templates to filter — shown even with a single
-                                    option, so it is plain which style and type the
-                                    designs below belong to. */}
-                                {dbTemplates.length > 0 && (
-                                    <div className="flex flex-wrap gap-3">
-                                        <div className="w-full max-w-[220px]">
-                                            <Label className="text-[11px] font-medium text-muted-foreground">Design Style</Label>
-                                            <Select value={designFilter} onValueChange={setDesignFilter}>
-                                                <SelectTrigger className="h-9 w-full rounded-md text-[12.5px]"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value={ALL_STYLES}>All Styles</SelectItem>
-                                                    {designOptions.map((d) => (
-                                                        <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="w-full max-w-[220px]">
-                                            <Label className="text-[11px] font-medium text-muted-foreground">Template Type</Label>
-                                            <Select value={styleFilter} onValueChange={setStyleFilter}>
-                                                <SelectTrigger className="h-9 w-full rounded-md text-[12.5px]"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value={ALL_STYLES}>All Types</SelectItem>
-                                                    {styleOptions.map((o) => (
-                                                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        {/*
-                                          The host's own picture for a CUSTOM
-                                          template (Jamal, 2026-10-05; required
-                                          2026-10-07), as a third control in this
-                                          row, the dropdowns' size (2026-10-07).
-                                          No preview of its own: every custom tile
-                                          below draws the picture. Shown ONLY while
-                                          Template Type is Custom.
-                                        */}
-                                        {customImageAsked && (
-                                            <CustomImageButton
-                                                value={form.custom_image}
-                                                onChange={(url) => setField("custom_image", url)}
-                                                error={errors.custom_image}
-                                            />
-                                        )}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[12px] text-muted-foreground">
+                                    Pick a design style. Your plan decides what is on offer.
+                                </p>
+                                {options.isLoading ? (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                                        {[ALL_STYLES, ...designOptions].map((d) => {
+                                            const active = designFilter === d;
+                                            const count = d === ALL_STYLES
+                                                ? dbTemplates.length
+                                                : dbTemplates.filter((t) => t.style === d).length;
+                                            return (
+                                                <button
+                                                    key={d}
+                                                    type="button"
+                                                    onClick={() => { setDesignFilter(d); setStep(S_TEMPLATES); }}
+                                                    aria-pressed={active}
+                                                    className={cn(
+                                                        "flex min-h-20 flex-col items-start justify-center rounded-lg border-2 px-4 py-3 text-left transition-colors",
+                                                        active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                                                    )}
+                                                >
+                                                    <span className="text-[13.5px] font-semibold capitalize text-foreground">
+                                                        {d === ALL_STYLES ? "All Styles" : d}
+                                                    </span>
+                                                    <span className="text-[11.5px] text-muted-foreground">
+                                                        {count} template{count === 1 ? "" : "s"}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
+                            </div>
+                        )}
 
-                                {/* ONLY the admin catalogue, narrowed to this client's
-                                    plan, to the category picked in
-                                    step 1, and to the style filter above. There is
-                                    deliberately no built-in fallback:
-                                    offering designs the plan does not grant is exactly
-                                    the mis-sell the plan gating exists to prevent, and
-                                    a hardcoded grid made an empty catalogue look full. */}
+                        {/* ── Invitation 2 — Choose a Template ─────────────────── */}
+                        {step === S_TEMPLATES && (
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    {/* Template types as tabs, as in the app. */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {[{ value: ALL_STYLES, label: "All" }, ...styleOptions].map((o) => (
+                                            <button
+                                                key={o.value}
+                                                type="button"
+                                                onClick={() => setStyleFilter(o.value)}
+                                                aria-pressed={styleFilter === o.value}
+                                                className={cn(
+                                                    "h-8 rounded-full border px-4 text-[12.5px] font-medium transition",
+                                                    styleFilter === o.value
+                                                        ? "border-primary bg-primary text-primary-foreground"
+                                                        : "border-border bg-card text-foreground hover:bg-muted"
+                                                )}
+                                            >
+                                                {o.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep(S_DESIGN)}
+                                        className="text-[12px] font-semibold text-primary hover:underline"
+                                    >
+                                        Change Category{designFilter !== ALL_STYLES ? ` (${designFilter})` : ""}
+                                    </button>
+                                </div>
                                 {options.isLoading ? (
                                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                                         {Array.from({ length: 6 }).map((_, i) => (
@@ -1836,7 +1865,27 @@ export function EventWizard({
                                         </p>
                                     </div>
                                 )}
+                            </div>
+                        )}
 
+                        {/* ── Invitation 3 — Your Image (custom templates only) ─── */}
+                        {step === S_CUSTOM_IMG && (
+                            <div className="flex max-w-xl flex-col gap-3">
+                                <p className="text-[12.5px] text-muted-foreground">
+                                    This is a custom template. Add your own picture and it is placed inside the
+                                    template&apos;s design.
+                                </p>
+                                <CustomImageButton
+                                    value={form.custom_image}
+                                    onChange={(url) => setField("custom_image", url)}
+                                    error={errors.custom_image}
+                                />
+                            </div>
+                        )}
+
+                        {/* ── Invitation — Card Settings (from the Preview) ─────── */}
+                        {step === S_CARD_SETTINGS && (
+                            <div className="flex flex-col">
                                     {/* What this colour ACTUALLY drives: the
                                         event / host names on the invitation and on
                                         every thumbnail of it. Nothing else reads it —
@@ -1894,7 +1943,6 @@ export function EventWizard({
                                         <FontAwesomeIcon icon={faRotateLeft} className="!size-[11px]" />
                                         Reset
                                     </button>
-                                </div>
                                 </div>
 
                                 {/* Secondary Colour: the accents and details. "Follow template"
@@ -1973,7 +2021,6 @@ export function EventWizard({
                                         </button>
                                     ))}
                                 </div>
-
                             </div>
                         )}
 
@@ -2223,7 +2270,7 @@ export function EventWizard({
                                         ],
                                     },
                                     {
-                                        title: "Organizer Settings", go: S_ORGANIZER, rows: [
+                                        title: "Organizer Details", go: S_ORGANIZER, rows: [
                                             ["Hosted By", form.organizer || "—"],
                                             ["Contact Number", form.contact_phone || "—"],
                                             ["Contact Email", form.contact_email || "—"],
@@ -2393,9 +2440,12 @@ export function EventWizard({
                                 variant="outline"
                                 onClick={() => {
                                     if (sectionPages) {
+                                        if (step === S_CARD_SETTINGS) { setStep(S_PREVIEW); return; }
                                         // First page: Cancel back to the hub.
-                                        if (pageIndex <= 0) router.push(hubHref);
-                                        else setStep(sectionPages[pageIndex - 1]);
+                                        if (pageIndex <= 0) { router.push(hubHref); return; }
+                                        let prev = sectionPages[pageIndex - 1];
+                                        if (prev === S_CUSTOM_IMG && !isCustomTemplate) prev = sectionPages[pageIndex - 2] ?? prev;
+                                        setStep(prev);
                                         return;
                                     }
                                     setStep((s) => Math.max(1, s - 1));
@@ -2404,8 +2454,19 @@ export function EventWizard({
                                 className="h-10 rounded-md text-[13px] font-medium"
                             >
                                 <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[12px]" />
-                                {sectionPages && pageIndex <= 0 ? "Cancel" : "Back"}
+                                {step === S_CARD_SETTINGS ? "Back to Preview" : sectionPages && pageIndex <= 0 ? "Cancel" : "Back"}
                             </Button>
+                            {section === "invitation" && step === S_PREVIEW && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setStep(S_CARD_SETTINGS)}
+                                    disabled={saving}
+                                    className="ml-auto h-10 rounded-md text-[13px] font-medium"
+                                >
+                                    <FontAwesomeIcon icon={faPalette} className="mr-2 !size-[12px]" />
+                                    Card Settings
+                                </Button>
+                            )}
                             <Button
                                 onClick={goNext}
                                 disabled={saving}
@@ -2413,6 +2474,8 @@ export function EventWizard({
                             >
                                 {saving
                                     ? (isEdit ? "Saving Changes..." : "Creating Event...")
+                                    : step === S_CARD_SETTINGS
+                                        ? "Done"
                                     : sectionPages
                                         ? (pageIndex < sectionPages.length - 1 ? "Next" : "Save")
                                     : step === S_REVIEW
@@ -2512,8 +2575,8 @@ const SUBTITLES = [
     "Tell your guests what the event is.",
     "When the event starts and ends.",
     "Where the event takes place.",
+    "The screen guests see while the event opens in the mobile app.",
     "Choose the menus to show on the participant home.",
-    "How guests join and register.",
     "Who is hosting, and how guests can reach you.",
     "Check everything before you create the event.",
     SUBTITLES_LAST,

@@ -63,7 +63,7 @@ export function EditEventHub({ eventId }: { eventId: number }) {
     // Same order as the app's Edit Event (Organizer Settings added: on the web
     // it is the only place to edit hosted-by, contact email and footer note).
     const rows: Row[] = [
-        { icon: faMobileScreenButton, title: "Splash Screen", description: "Change app splash screen", href: "/dashboard/splash-screens" },
+        { icon: faMobileScreenButton, title: "Mobile Splash Screen", description: "Change the app splash screen" },
         { icon: faEnvelopeOpenText, title: "Invitation Card", description: "Choose template, card settings and colour", href: section("invitation") },
         { icon: faCircleInfo, title: "Basic Details", description: "Update title, hosts and photo", href: section("basic") },
         { icon: faQrcode, title: "Event QR", description: "Show the event QR code for guests to scan", onClick: () => setQrOpen(true) },
@@ -78,7 +78,7 @@ export function EditEventHub({ eventId }: { eventId: number }) {
         { icon: faVideo, title: "Live Streaming", description: "Manage your event's live streaming content" },
         { icon: faLink, title: "Social Links", description: "Add, edit and delete event social links" },
         { icon: faAddressCard, title: "Contact Person", description: "Update contact person details", href: tab("settings") },
-        { icon: faUserTie, title: "Organizer Settings", description: "Hosted by, contact email and footer note", href: section("organizer") },
+        { icon: faUserTie, title: "Organizer Details", description: "Hosted by, contact email and footer note", href: section("organizer") },
         { icon: faGear, title: "Event App Menu", description: "Manage app menus and features", href: section("menus") },
     ];
 
