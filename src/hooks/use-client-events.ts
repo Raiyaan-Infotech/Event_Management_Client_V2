@@ -95,6 +95,8 @@ export interface ClientEvent {
     /** The plan's app features switched OFF for this event; [] = all on. */
     disabled_app_menu_ids?: number[];
     theme_id: string | null;
+    /** Mobile app home screen design (Home Screen Templates); null = none picked. */
+    home_screen_template_id?: number | null;
     primary_color: string | null;
     /** The event's own secondary colour; null = follow the template. */
     secondary_color?: string | null;
@@ -157,6 +159,7 @@ export interface EventPayload {
     menu_order?: number[] | null;
     disabled_app_menu_ids?: number[];
     theme_id?: string | null;
+    home_screen_template_id?: number | null;
     primary_color?: string | null;
     secondary_color?: string | null;
     qr_style?: number;

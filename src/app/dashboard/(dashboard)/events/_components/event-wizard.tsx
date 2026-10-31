@@ -45,6 +45,7 @@ import {
     type ClientEvent,
 } from "@/hooks/use-client-events";
 import { PRIMARY_SWATCHES } from "@/lib/event-themes";
+import { HomeTemplatePicker } from "./home-template-picker";
 import {
     resolveArtwork,
     suitsScope,
@@ -176,6 +177,8 @@ interface FormState {
     privacy: string;
     status: string;
     theme_id: string;
+    /** Mobile app home screen design picked in Step 1; "" = none. */
+    home_screen_template_id: string;
     primary_color: string;
     /** The invitation's secondary colour (accents and details); "" = follow the template. */
     secondary_color: string;
@@ -210,6 +213,7 @@ const EMPTY: FormState = {
     // Blank, not a hardcoded slug: the theme catalogue is whatever the client's
     // PLAN grants, so nothing can be preselected until those templates load.
     theme_id: "", primary_color: PRIMARY_SWATCHES[0],
+    home_screen_template_id: "",
     secondary_color: "", qr_style: 0,
     cover_image: "",
     custom_image: "",
@@ -430,6 +434,7 @@ export function EventWizard({
             privacy: row.privacy ?? "public",
             status: row.status ?? "upcoming",
             theme_id: row.theme_id || "",
+            home_screen_template_id: row.home_screen_template_id ? String(row.home_screen_template_id) : "",
             primary_color: row.primary_color || PRIMARY_SWATCHES[0],
             secondary_color: row.secondary_color ?? "",
             qr_style: row.qr_style ?? 0,
@@ -915,6 +920,9 @@ export function EventWizard({
                     .map((m) => m.id),
                 menu_order: orderedMenuRows.map((m) => m.id),
                 theme_id: form.theme_id,
+                home_screen_template_id: form.home_screen_template_id
+                    ? Number(form.home_screen_template_id)
+                    : null,
                 primary_color: form.primary_color,
                 // "" → null: follow the template's own secondary colour.
                 secondary_color: form.secondary_color || null,
@@ -1171,7 +1179,29 @@ export function EventWizard({
                                             invalid={errors.category_id}
                                         />
                                     </Field>
+                                    {form.category_id && (
+                                        <p className="self-end rounded-md bg-muted/50 px-3 py-2 text-[12px] text-muted-foreground md:col-span-2 md:justify-self-end">
+                                            Colours, images and content can be customised later.
+                                        </p>
+                                    )}
                                 </div>
+
+                                {/* Mobile app home design — templates from the admin's
+                                    Home Screen Templates; style chips from the Template
+                                    Categories master table. Optional: choosable later. */}
+                                {form.category_id && (
+                                    <HomeTemplatePicker
+                                        categoryId={form.category_id}
+                                        categoryName={selectedCategory?.name}
+                                        value={form.home_screen_template_id}
+                                        onChange={(id) => setField("home_screen_template_id", id)}
+                                        hostNames={
+                                            form.host_one.trim() && form.host_two.trim()
+                                                ? `${form.host_one.trim()} & ${form.host_two.trim()}`
+                                                : undefined
+                                        }
+                                    />
+                                )}
                             </div>
                         )}
 
