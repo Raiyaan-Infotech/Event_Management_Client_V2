@@ -512,17 +512,17 @@ function EventRow({
     const confirmed = event.confirmed_count ?? 0;
 
     return (
-        <li className="grid min-w-0 grid-cols-1 items-center gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[96px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)_minmax(250px,300px)_124px]">
+        <li className="grid min-w-0 grid-cols-1 items-stretch gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-[96px_minmax(0,1fr)] xl:grid-cols-[96px_minmax(0,1fr)_minmax(250px,300px)_140px] xl:gap-x-5">
             <EventThumbnail
                 themeId={event.theme_id}
                 customImage={eventCustomImage(event)}
                 name={event.name}
                 primaryColor={event.primary_color}
-                className="h-[104px] w-[96px] rounded-lg"
+                className="h-[104px] w-[96px] self-center rounded-lg"
             />
 
             {/* Details */}
-            <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5 self-center">
                 <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-[14.5px] font-bold leading-snug text-foreground break-words">{event.name}</h3>
                     <Badge
@@ -558,8 +558,8 @@ function EventRow({
                 </div>
             </div>
 
-            {/* Pre-event setup */}
-            <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border p-3 md:col-span-2 xl:col-span-1">
+            {/* Pre-event setup — a straight divider line on each side, no box */}
+            <div className="flex min-w-0 items-center gap-3 border-t border-border pt-4 md:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
                 <ProgressRing percent={percent} complete={complete} />
                 <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-bold text-foreground">{done} of {steps.length}</p>
@@ -604,7 +604,7 @@ function EventRow({
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 md:col-span-2 xl:col-span-1 xl:grid-cols-1">
+            <div className="grid content-center grid-cols-2 gap-1.5 border-t border-border pt-4 sm:grid-cols-5 md:col-span-2 xl:col-span-1 xl:grid-cols-1 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
                 <Button asChild variant="outline" size="sm" className="h-7 justify-start border-primary/50 text-[12px] font-semibold text-primary hover:bg-primary/5 hover:text-primary">
                     <Link href={`/dashboard/events/${event.id}`}>
                         <FontAwesomeIcon icon={faArrowRight} className="!size-[10px]" />
