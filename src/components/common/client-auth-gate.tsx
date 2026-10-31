@@ -2,32 +2,28 @@
 
 import { useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRightToBracket, faSpinner, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRightToBracket, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
-import { loginUrl, currentUrl, isSiteConfigured, SITE_URL_ENV } from '@/lib/site';
+import { loginUrl, currentUrl } from '@/lib/site';
 import { useClientProfile } from '@/hooks/use-client-portal';
 
 /**
  * Nothing signed-in renders until the backend confirms a session.
  *
- * ── WHAT THIS FIXES ──────────────────────────────────────────────────────────
- * There was no gate at all. `/` redirected to `/dashboard`, the shell rendered
- * for anyone, and each panel independently discovered its own 401 and printed
- * "Sign in on the website" with no link. On the live deployment that reads as a
- * broken admin dashboard, not as a portal nobody has signed into.
+ * ── WHY IT EXISTS ────────────────────────────────────────────────────────────
+ * Without a gate the shell rendered for anyone and every panel discovered its
+ * own 401 separately. A signed-out visitor now gets one clear move: the
+ * portal's own `/login` page, carrying the page they were trying to reach.
  *
- * ── WHY A REDIRECT AND NOT A LOGIN FORM ──────────────────────────────────────
- * This portal deliberately has no credentials UI. The session cookie is issued
- * by the backend when the visitor signs in on the tenant's WEBSITE, so the only
- * correct move is to send them there. Building a form here would mean a second
- * place that handles passwords, and it must never point at the ADMIN panel's
- * login — that issues an admin JWT, a different identity entirely.
+ * (V1 sent them to the public website's login. V2 has no public website, so
+ * `/login` is part of this portal — see `components/auth/login-view.tsx`.)
  *
  * ── WHY `window.location` AND NOT `router.push` ──────────────────────────────
- * The website is a different origin. Next's router cannot navigate to it, and a
- * push would silently do nothing.
+ * `replace` keeps the signed-out dashboard out of history, so the back button
+ * after signing in does not return to it; a full navigation also starts the
+ * signed-in session with a clean cache.
  */
 export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     const { data: client, isLoading, isError, error } = useClientProfile();
@@ -40,14 +36,7 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!notSignedIn) return;
-        const target = loginUrl(currentUrl());
-        // No configured website means there is nowhere correct to go. Falling
-        // back to a guessed domain is what shipped `localhost:3005` to
-        // production, so this stops and says so instead.
-        if (!target) return;
-        // Replace, not assign: the signed-out dashboard must not sit in history
-        // for the back button to return to after signing in.
-        window.location.replace(target);
+        window.location.replace(loginUrl(currentUrl()));
     }, [notSignedIn]);
 
     if (isLoading) {
@@ -60,48 +49,15 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
     }
 
     if (notSignedIn) {
-        /**
-         * A deployment that never had `NEXT_PUBLIC_SITE_URL` set. Naming the
-         * variable turns a mystery into a two-minute fix; sending the visitor
-         * to a hardcoded domain would look like it worked and quietly be wrong
-         * the day that domain changes.
-         */
-        if (!isSiteConfigured) {
-            return (
-                <Centered>
-                    <FontAwesomeIcon icon={faTriangleExclamation} className="!size-[24px] text-warning" />
-                    <h1 className="mt-3 text-[17px] font-bold text-foreground">You are not signed in</h1>
-                    <p className="mt-1.5 text-[13px] text-muted-foreground">
-                        This portal does not know which website to send you to, so it cannot open the
-                        sign-in page.
-                    </p>
-                    <p className="mt-3 rounded-md bg-muted px-3 py-2 font-mono text-[11.5px] text-foreground">
-                        {SITE_URL_ENV} is not set
-                    </p>
-                    <p className="mt-2 text-[11.5px] text-muted-foreground">
-                        Set it to the website&rsquo;s address and redeploy — it is read at build time.
-                    </p>
-                </Centered>
-            );
-        }
-
-        /**
-         * The redirect above is already running. This is what shows during it,
-         * and the fallback if the browser blocks the navigation — so it carries
-         * a real button rather than an instruction nobody can act on.
-         */
         return (
             <Centered>
                 <h1 className="text-[17px] font-bold text-foreground">You are not signed in</h1>
                 <p className="mt-1.5 text-[13px] text-muted-foreground">
-                    Taking you to the website to sign in…
+                    Taking you to the sign-in page…
                 </p>
                 <Button
                     className="mt-5 w-full"
-                    onClick={() => {
-                        const target = loginUrl(currentUrl());
-                        if (target) window.location.replace(target);
-                    }}
+                    onClick={() => window.location.replace(loginUrl(currentUrl()))}
                 >
                     <FontAwesomeIcon icon={faArrowRightToBracket} className="!size-[13px]" />
                     Go to sign in
@@ -125,8 +81,6 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
         );
     }
 
-    // A 200 with no client is not a session. Treated as signed out rather than
-    // rendering a shell whose every query will 401 a moment later.
     if (!client) return null;
 
     return <>{children}</>;

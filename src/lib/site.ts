@@ -1,10 +1,17 @@
 /**
- * Where the tenant's WEBSITE BUILDER site lives.
+ * Sign-in addresses, plus where the tenant's WEBSITE lives (optional).
  *
- * ── WHY THIS FILE EXISTS ─────────────────────────────────────────────────────
- * This portal has no login screen of its own, and it must never send anyone to
- * one that belongs to the ADMIN panel. A visitor signs in on the tenant's
- * public website — the site the Website Builder produces — and arrives here
+ * ── V2 CHANGE (2026-10-31) ───────────────────────────────────────────────────
+ * V2 has no public website or Website Builder, so this portal now has its OWN
+ * `/login` page ([loginUrl] below). `NEXT_PUBLIC_SITE_URL` is therefore OPTIONAL:
+ * it only feeds the footer links and the "create a new account" link, and is
+ * hidden when unset. The notes below describe V1, where sign-in lived on the
+ * website — kept because they explain the redirect-loop traps.
+ *
+ * ── WHY THIS FILE EXISTS (V1) ────────────────────────────────────────────────
+ * This portal had no login screen of its own, and it must never send anyone to
+ * one that belongs to the ADMIN panel. A visitor signed in on the tenant's
+ * public website — the site the Website Builder produces — and arrived here
  * with the backend's session cookie already set.
  *
  * Before this, an unauthenticated visitor landed on `/dashboard`, got the full
@@ -55,20 +62,40 @@ export const isSiteConfigured = WEBSITE_URL !== null;
 export const SITE_URL_ENV = 'NEXT_PUBLIC_SITE_URL';
 
 /**
- * The website's sign-in page, carrying where the visitor was trying to reach.
- * Null when the website URL is not configured — callers must handle that
- * rather than navigating to a guess.
+ * A path on THIS portal that is safe to open after signing in.
  *
- * `next` is an ABSOLUTE url because the website is a different origin; a path
- * would resolve against the website and land on one of its own pages. The
- * website validates it against the portal's origin before using it, so this is
- * a request, not an instruction.
+ * ── VALIDATED, BECAUSE `next` COMES FROM THE ADDRESS BAR ─────────────────────
+ * Anyone can put anything in `?next=`. Following it blindly would make the
+ * login page a redirector to any site on the internet, firing right after a
+ * successful sign-in — when nobody is checking the address. Only a path on this
+ * portal's own origin is accepted; everything else becomes the dashboard.
+ * `/login` itself is refused too, or signing in would loop back to the form.
  */
-export function loginUrl(returnTo?: string): string | null {
-    if (!WEBSITE_URL) return null;
-    const url = new URL('/login', `${WEBSITE_URL}/`);
-    if (returnTo) url.searchParams.set('next', returnTo);
-    return url.toString();
+export function safeNextPath(raw: string | null | undefined): string {
+    const fallback = '/dashboard';
+    if (!raw) return fallback;
+    try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+        const url = new URL(raw, origin);
+        if (url.origin !== origin) return fallback;
+        const path = `${url.pathname}${url.search}${url.hash}`;
+        if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/login')) return fallback;
+        return path;
+    } catch {
+        return fallback;
+    }
+}
+
+/**
+ * This portal's own sign-in page, carrying where the visitor was trying to go.
+ *
+ * V2 has no public website, so sign-in lives here at `/login`. `returnTo` may be
+ * a full URL (see [currentUrl]) or a path; it is reduced to a safe same-origin
+ * path, so the result is always a relative `/login?next=...` link.
+ */
+export function loginUrl(returnTo?: string): string {
+    const path = returnTo ? safeNextPath(returnTo) : null;
+    return path && path !== '/dashboard' ? `/login?next=${encodeURIComponent(path)}` : '/login';
 }
 
 export function signupUrl(returnTo?: string): string | null {
