@@ -348,28 +348,6 @@ export function EventWizard({
     const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
     const hubHref = eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events";
     const [form, setForm] = useState<FormState>(EMPTY);
-    /**
-     * Venue photo from the place itself: once the pin is placed, and only while
-     * the Venue Image is empty. Quiet when the place has no photo.
-     */
-    const lastPin = useRef<{ lat: number; lng: number } | null>(null);
-    const formRef = useRef(form);
-    formRef.current = form;
-    const loadVenuePhoto = async (name?: string) => {
-        const pin = lastPin.current;
-        if (!pin) return;
-        try {
-            const res = await api.get<{ url: string | null }>("/client/venue-photo", {
-                lat: pin.lat, lng: pin.lng, name: name ?? "",
-            });
-            if (!res?.url || lastPin.current !== pin || formRef.current.venue_image) return;
-            const url = res.url;
-            setForm((prev) => (prev.venue_image ? prev : { ...prev, venue_image: url }));
-            toast.success("Venue photo added from the location.");
-        } catch {
-            /* no photo — the host can upload one */
-        }
-    };
     /** What the venue map last wrote into each field (see the Venue step). */
     const mapFilled = useRef<Partial<Record<"venue_name" | "venue_address" | "venue_landmark", string>>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -1592,7 +1570,6 @@ export function EventWizard({
                                         lat={form.venue_lat}
                                         lng={form.venue_lng}
                                         onPick={(lat, lng) => {
-                                            lastPin.current = { lat, lng };
                                             // As in the app: the pin always sets the
                                             // Directions link to itself.
                                             setForm((prev) => ({
@@ -1622,7 +1599,6 @@ export function EventWizard({
                                                 return next;
                                             });
                                             toast.success("Location selected. Check the venue details.");
-                                            void loadVenuePhoto(place.name);
                                         }}
                                         onClear={() => setForm((prev) => ({ ...prev, venue_lat: "", venue_lng: "" }))}
                                     />
@@ -1690,17 +1666,6 @@ export function EventWizard({
                                             className="h-10 rounded-md"
                                         />
                                     </Field>
-                                </div>
-                                <div className="sm:col-span-2">
-                                <CoverImageField
-                                    label="Venue Image"
-                                    required={false}
-                                    hint="JPG, PNG or WEBP · 16:9. Filled from the place when Google has a photo."
-                                    value={form.venue_image}
-                                    onChange={(url) => setField("venue_image", url)}
-                                    previewClassName="aspect-[16/9] w-full max-w-[300px]"
-                                    emptyClassName="w-full max-w-[420px] py-3"
-                                />
                                 </div>
                                 </div>
                             </div>

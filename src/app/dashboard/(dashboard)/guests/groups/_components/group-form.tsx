@@ -113,9 +113,9 @@ export function GroupForm({ groupId }: { groupId?: number }) {
 
     if (isEdit && groups.isLoading) {
         return (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-3.5">
                 <Skeleton className="h-8 w-[200px]" />
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
                     <Skeleton className="h-[360px] rounded-xl" />
                     <Skeleton className="h-[260px] rounded-xl" />
                 </div>
@@ -124,9 +124,9 @@ export function GroupForm({ groupId }: { groupId?: number }) {
     }
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3.5">
             <div className="min-w-0">
-                <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">
+                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
                     {isEdit ? "Edit Group" : "Add New Group"}
                 </h1>
                 <p className="mt-1 text-[13.5px] text-muted-foreground">
@@ -134,19 +134,19 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-                <div className="flex min-w-0 flex-col gap-5">
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Group information ───────────────────────────────── */}
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-5">
-                            <div className="mb-4 flex items-center gap-2.5">
+                        <CardContent className="p-3.5">
+                            <div className="mb-3 flex items-center gap-2.5">
                                 <span className="grid h-8 w-8 place-items-center rounded-md bg-primary/10">
                                     <FontAwesomeIcon icon={faPeopleGroup} className="!size-[12px] text-primary" />
                                 </span>
                                 <p className="text-[13.5px] font-bold text-foreground">Group Information</p>
                             </div>
 
-                            <div className="flex flex-col gap-5">
+                            <div className="flex flex-col gap-3.5">
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-[12.5px] font-medium">
                                         Group Name <span className="text-destructive">*</span>
@@ -155,7 +155,7 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                                         value={form.name}
                                         onChange={(e) => setField("name", e.target.value.slice(0, 120))}
                                         placeholder="Enter group name"
-                                        className={cn("h-11 rounded-md", errors.name && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.name && "border-destructive")}
                                     />
                                     <p className="text-[11.5px] text-muted-foreground">
                                         Choose a name that helps you identify this group.
@@ -223,15 +223,15 @@ export function GroupForm({ groupId }: { groupId?: number }) {
 
                     {/* ── Group settings ──────────────────────────────────── */}
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-5">
-                            <div className="mb-4 flex items-center gap-2.5">
+                        <CardContent className="p-3.5">
+                            <div className="mb-3 flex items-center gap-2.5">
                                 <span className="grid h-8 w-8 place-items-center rounded-md bg-primary/10">
                                     <FontAwesomeIcon icon={faGear} className="!size-[12px] text-primary" />
                                 </span>
                                 <p className="text-[13.5px] font-bold text-foreground">Group Settings</p>
                             </div>
 
-                            <div className="grid gap-5 sm:grid-cols-2">
+                            <div className="grid gap-3.5 sm:grid-cols-2">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <Label className="text-[12.5px] font-medium">Make Group Default</Label>
@@ -252,7 +252,7 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                                         value={form.visibility}
                                         onValueChange={(v) => setField("visibility", v as "private" | "public")}
                                     >
-                                        <SelectTrigger className="h-11 w-full rounded-md text-[13px]">
+                                        <SelectTrigger className="h-10 w-full rounded-md text-[13px]">
                                             <FontAwesomeIcon
                                                 icon={form.visibility === "private" ? faLock : faGlobe}
                                                 className="mr-2 !size-[12px] text-muted-foreground"
@@ -271,7 +271,7 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                             </div>
 
                             {form.is_default && (
-                                <p className="mt-4 rounded-md bg-primary/5 px-3 py-2 text-[11.5px] text-muted-foreground">
+                                <p className="mt-3 rounded-md bg-primary/5 px-3 py-2 text-[11.5px] text-muted-foreground">
                                     {/* Saying it out loud beats a silent side effect on a
                                         group the user is not looking at. */}
                                     Only one group can be the default — setting this will clear it from any
@@ -282,10 +282,10 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                     </Card>
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Button asChild variant="outline" className="h-11 rounded-md px-5 text-[13px] font-medium">
+                        <Button asChild variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium">
                             <Link href="/dashboard/guests/groups">Cancel</Link>
                         </Button>
-                        <Button onClick={submit} disabled={saving} className="h-11 rounded-md px-6 text-[13px] font-semibold">
+                        <Button onClick={submit} disabled={saving} className="h-10 rounded-md px-4 text-[13px] font-semibold">
                             {saving ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Group")}
                             {!saving && <FontAwesomeIcon icon={faPeopleGroup} className="ml-2 !size-[12px]" />}
                         </Button>
@@ -293,9 +293,9 @@ export function GroupForm({ groupId }: { groupId?: number }) {
                 </div>
 
                 {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
                                 <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>
@@ -321,8 +321,8 @@ export function GroupForm({ groupId }: { groupId?: number }) {
 
                     {/* Live preview — exactly how this group will render everywhere. */}
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
-                            <div className="mb-4 flex items-center gap-2">
+                        <CardContent className="p-3.5">
+                            <div className="mb-3 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faEye} className="!size-[12px] text-muted-foreground" />
                                 <p className="text-[13px] font-bold text-foreground">Group Preview</p>
                             </div>

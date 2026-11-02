@@ -30,7 +30,11 @@ import { PageLoader } from "@/components/common/page-loader";
 const DELAY_MS = 180;
 
 export function GlobalLoader() {
-    const fetching = useIsFetching();
+    // Only a FIRST load (a query with no data yet). A background refresh of data
+    // already on screen — reconnect, a socket update, a stale refetch — stays
+    // silent: covering a filled page with "Loading..." for it read as the page
+    // reloading by itself (coming back to the tab, Jamal 2026-11-02).
+    const fetching = useIsFetching({ predicate: (q) => q.state.data === undefined });
     const mutating = useIsMutating();
     const busy = fetching + mutating > 0;
 

@@ -188,9 +188,9 @@ function ImportGuests() {
 
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3.5">
             <div className="min-w-0">
-                <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Import Guests</h1>
+                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Import Guests</h1>
                 <p className="mt-1 text-[13.5px] text-muted-foreground">
                     Import guests in bulk using a CSV file. It&rsquo;s quick and easy!
                 </p>
@@ -237,14 +237,14 @@ function ImportGuests() {
                 </ol>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_290px]">
-                <div className="flex min-w-0 flex-col gap-5">
+            <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_290px]">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Step 1 ──────────────────────────────────────────── */}
                     {step === 1 && (
                         <>
                             <Card className="border border-border py-0 shadow-none">
-                                <CardContent className="p-5">
-                                    <div className="mb-4 flex items-center gap-2.5">
+                                <CardContent className="p-3.5">
+                                    <div className="mb-3 flex items-center gap-2.5">
                                         <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
                                             1
                                         </span>
@@ -256,7 +256,7 @@ function ImportGuests() {
                                         onDragLeave={() => setDragging(false)}
                                         onDrop={onDrop}
                                         className={cn(
-                                            "flex flex-col items-center gap-3 rounded-md border-2 border-dashed px-6 py-10 text-center transition-colors",
+                                            "flex flex-col items-center gap-3 rounded-md border-2 border-dashed px-4 py-10 text-center transition-colors",
                                             dragging ? "border-primary bg-primary/5" : "border-border"
                                         )}
                                     >
@@ -279,7 +279,7 @@ function ImportGuests() {
                                                 </p>
                                                 <p className="text-[12px] text-muted-foreground">or</p>
                                                 <Button variant="outline"
-                                                    className="h-10 rounded-md border-primary/40 px-5 text-[13px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
+                                                    className="h-10 rounded-md border-primary/40 px-4 text-[13px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
                                                     onClick={() => inputRef.current?.click()}>
                                                     Browse Files
                                                 </Button>
@@ -303,7 +303,7 @@ function ImportGuests() {
                                         />
                                     </div>
 
-                                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                                    <div className="mt-3 grid gap-3.5 sm:grid-cols-2">
                                         <div className="min-w-0">
                                             <p className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
                                                 <FontAwesomeIcon icon={faFileCsv} className="!size-[12px] text-success" />
@@ -346,7 +346,7 @@ function ImportGuests() {
                                                 At least these columns are required.
                                             </p>
 
-                                            <p className="mb-2 mt-4 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
+                                            <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {["Last Name", "WhatsApp Number", "Email", "Guest Group", "City"].map((c) => (
                                                     <Badge key={c} variant="secondary" className="rounded text-[10.5px]">{c}</Badge>
@@ -362,8 +362,8 @@ function ImportGuests() {
                             </Card>
 
                             <Card className="border border-border py-0 shadow-none">
-                                <CardContent className="p-5">
-                                    <div className="grid gap-5">
+                                <CardContent className="p-3.5">
+                                    <div className="grid gap-3.5">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
                                                 <Label className="text-[12.5px] font-medium">Create missing groups</Label>
@@ -379,7 +379,7 @@ function ImportGuests() {
                             </Card>
 
                             <Card className="border-warning/40 bg-warning/5 py-0 shadow-none">
-                                <CardContent className="flex items-start gap-3 p-4">
+                                <CardContent className="flex items-start gap-3 p-3.5">
                                     <FontAwesomeIcon icon={faCircleInfo} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
                                     <div className="min-w-0">
                                         <p className="text-[12.5px] font-semibold text-foreground">Important</p>
@@ -397,14 +397,14 @@ function ImportGuests() {
                     {/* ── Step 2 ──────────────────────────────────────────── */}
                     {step === 2 && (
                         <Card className="border border-border py-0 shadow-none">
-                            <CardContent className="p-5">
-                                <div className="mb-4 flex items-center gap-2.5">
+                            <CardContent className="p-3.5">
+                                <div className="mb-3 flex items-center gap-2.5">
                                     <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">2</span>
                                     <p className="text-[13.5px] font-bold text-foreground">Map Fields</p>
                                 </div>
 
                                 {analyse.isPending ? (
-                                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                                    <div className="flex flex-col items-center gap-3 py-8 text-center">
                                         <FontAwesomeIcon icon={faSpinner} className="!size-[22px] animate-spin text-primary" />
                                         <p className="text-[13px] text-muted-foreground">Reading your file…</p>
                                     </div>
@@ -429,8 +429,8 @@ function ImportGuests() {
                     {step === 3 && preview && (
                         <>
                             <Card className="border border-border py-0 shadow-none">
-                                <CardContent className="p-5">
-                                    <div className="mb-4 flex items-center gap-2.5">
+                                <CardContent className="p-3.5">
+                                    <div className="mb-3 flex items-center gap-2.5">
                                         <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">3</span>
                                         <p className="text-[13.5px] font-bold text-foreground">Review &amp; Preview</p>
                                     </div>
@@ -444,7 +444,7 @@ function ImportGuests() {
                                             icon={faCircleXmark} tone="text-destructive" bg="bg-destructive/10" />
                                     </div>
 
-                                    <Separator className="my-5" />
+                                    <Separator className="my-3" />
 
                                     <p className="mb-3 text-[12.5px] font-semibold text-foreground">
                                         Columns matched ({mapped.length} of {preview.mapping.length})
@@ -483,7 +483,7 @@ function ImportGuests() {
                             {preview.preview.length > 0 && (
                                 <Card className="border border-border py-0 shadow-none">
                                     <CardContent className="p-0">
-                                        <p className="px-5 pt-5 text-[12.5px] font-semibold text-foreground">
+                                        <p className="px-4 pt-3 text-[12.5px] font-semibold text-foreground">
                                             First {preview.preview.length} row(s)
                                         </p>
                                         <div className="mt-3 overflow-x-auto">
@@ -526,7 +526,7 @@ function ImportGuests() {
 
                             {preview.errors.length > 0 && (
                                 <Card className="border-destructive/30 py-0 shadow-none">
-                                    <CardContent className="p-5">
+                                    <CardContent className="p-3.5">
                                         <p className="mb-3 flex items-center gap-2 text-[12.5px] font-semibold text-destructive">
                                             <FontAwesomeIcon icon={faCircleXmark} className="!size-[12px]" />
                                             {preview.error_count} row(s) will not be imported
@@ -553,7 +553,7 @@ function ImportGuests() {
 
                             {preview.skipped.length > 0 && (
                                 <Card className="border-warning/30 py-0 shadow-none">
-                                    <CardContent className="p-5">
+                                    <CardContent className="p-3.5">
                                         <p className="mb-3 flex items-center gap-2 text-[12.5px] font-semibold text-warning">
                                             <FontAwesomeIcon icon={faForward} className="!size-[12px]" />
                                             {preview.skipped_count} duplicate(s) will be skipped
@@ -592,11 +592,11 @@ function ImportGuests() {
                                 )}
 
                                 <div className="mt-3 flex flex-wrap justify-center gap-2">
-                                    <Button asChild className="h-10 rounded-md px-5 text-[13px] font-semibold">
+                                    <Button asChild className="h-10 rounded-md px-4 text-[13px] font-semibold">
                                         <Link href="/dashboard/guests">View Guest List</Link>
                                     </Button>
                                     <Button
-                                        variant="outline" className="h-10 rounded-md px-5 text-[13px] font-medium"
+                                        variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium"
                                         onClick={() => {
                                             setStep(1); setFile(null); setContent("");
                                             setPreview(null); setResult(null);
@@ -614,7 +614,7 @@ function ImportGuests() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <Button
                                 variant="outline"
-                                className="h-11 rounded-md px-5 text-[13px] font-medium"
+                                className="h-10 rounded-md px-4 text-[13px] font-medium"
                                 disabled={analyse.isPending || commit.isPending}
                                 onClick={() => (step === 1 ? router.push("/dashboard/guests") : setStep(step - 1))}
                             >
@@ -624,7 +624,7 @@ function ImportGuests() {
 
                             {step === 1 && (
                                 <Button onClick={goToMapping} disabled={!content || analyse.isPending}
-                                    className="h-11 rounded-md px-6 text-[13px] font-semibold">
+                                    className="h-10 rounded-md px-4 text-[13px] font-semibold">
                                     Next: Map Fields
                                     <FontAwesomeIcon icon={faArrowRight} className="ml-2 !size-[12px]" />
                                 </Button>
@@ -637,7 +637,7 @@ function ImportGuests() {
                                         create_groups: createGroups,
                                     })}
                                     disabled={commit.isPending || preview.valid_count === 0}
-                                    className="h-11 rounded-md px-6 text-[13px] font-semibold"
+                                    className="h-10 rounded-md px-4 text-[13px] font-semibold"
                                 >
                                     {commit.isPending
                                         ? "Importing..."
@@ -654,9 +654,9 @@ function ImportGuests() {
                 </div>
 
                 {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-3 flex items-center gap-2">
                                 <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/10">
                                     <FontAwesomeIcon icon={faFileCsv} className="!size-[11px] text-primary" />
@@ -676,7 +676,7 @@ function ImportGuests() {
                     </Card>
 
                     <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
                                 <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>
@@ -690,7 +690,7 @@ function ImportGuests() {
                     </Card>
 
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faHeadset} className="!size-[12px] text-primary" />
                                 <p className="text-[13px] font-bold text-foreground">Need Help?</p>

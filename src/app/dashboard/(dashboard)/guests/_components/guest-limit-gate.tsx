@@ -31,8 +31,8 @@ export function GuestLimitGate({ children }: { children: ReactNode }) {
     if (!allFull) return <>{children}</>;
 
     return (
-        <Card className="mx-auto mt-6 max-w-lg">
-            <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+        <Card className="mx-auto mt-4 max-w-lg">
+            <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
                 <FontAwesomeIcon icon={faUserSlash} className="!size-[26px] text-muted-foreground/40" />
                 <p className="text-[14px] font-semibold text-foreground">Guest limit reached</p>
                 <p className="max-w-sm text-[13px] text-muted-foreground">

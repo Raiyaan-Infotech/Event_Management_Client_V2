@@ -59,7 +59,7 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col gap-5 p-4 md:p-6">
+            <div className="flex flex-col gap-3.5 p-3.5 md:p-3.5">
                 <Skeleton className="h-8 w-52" />
                 <Skeleton className="h-36 rounded-xl" />
                 <Skeleton className="h-10 w-full max-w-2xl rounded-lg" />
@@ -86,7 +86,7 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
     const initials = g.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
 
     return (
-        <div className="flex min-w-0 flex-col gap-5 p-4 md:p-6">
+        <div className="flex min-w-0 flex-col gap-3.5 p-3.5 md:p-3.5">
             <Button asChild variant="ghost" size="sm" className="-ms-2 w-fit text-muted-foreground">
                 <Link href="/dashboard/rsvps">
                     <ArrowLeft className="size-3.5" /> Back to RSVPs
@@ -95,7 +95,7 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
 
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">Guest Profile</h1>
+                    <h1 className="text-[20px] font-semibold tracking-tight">Guest Profile</h1>
                     <p className="text-sm break-words text-muted-foreground">
                         Everything recorded about this person, across every event.
                     </p>
@@ -116,8 +116,8 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
 
             {/* ── Header card ──────────────────────────────────────────────── */}
             <Card className="py-0">
-                <CardContent className="grid min-w-0 gap-5 p-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                    <div className="flex min-w-0 items-start gap-4">
+                <CardContent className="grid min-w-0 gap-3.5 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                    <div className="flex min-w-0 items-start gap-3">
                         <Avatar className="size-16 shrink-0">
                             {/*
                               Conditionally rendered, with a key. A bare
@@ -224,22 +224,22 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
                     </TabsList>
                 </div>
 
-                <TabsContent value="overview" className="mt-4">
+                <TabsContent value="overview" className="mt-3">
                     <OverviewTab data={data} fmt={fmt} />
                 </TabsContent>
-                <TabsContent value="invitations" className="mt-4">
+                <TabsContent value="invitations" className="mt-3">
                     <InvitationsTab data={data} fmt={fmt} />
                 </TabsContent>
-                <TabsContent value="history" className="mt-4">
+                <TabsContent value="history" className="mt-3">
                     <HistoryTab data={data} fmt={fmt} />
                 </TabsContent>
-                <TabsContent value="notes" className="mt-4">
+                <TabsContent value="notes" className="mt-3">
                     <NotesTab guestId={guestId} data={data} fmt={fmt} />
                 </TabsContent>
-                <TabsContent value="events" className="mt-4">
+                <TabsContent value="events" className="mt-3">
                     <LinkedEventsTab data={data} fmt={fmt} />
                 </TabsContent>
-                <TabsContent value="timeline" className="mt-4">
+                <TabsContent value="timeline" className="mt-3">
                     <TimelineTab data={data} fmt={fmt} />
                 </TabsContent>
             </Tabs>
@@ -256,9 +256,9 @@ function OverviewTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
     const answers = g.custom_answers ? Object.entries(g.custom_answers) : [];
 
     return (
-        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-3">
+        <div className="grid min-w-0 items-start gap-3.5 xl:grid-cols-3">
             <Card className="py-0">
-                <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                     <SectionHeading icon={Calendar} label="Invitation Summary" />
                     <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                         <Field label="Event" value={data.event?.name} />
@@ -299,7 +299,7 @@ function OverviewTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
             </Card>
 
             <Card className="py-0">
-                <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                     <SectionHeading icon={Mail} label="Communication" />
                     <div className="grid grid-cols-2 gap-3">
                         <Stat label="Messages" value={data.summary.total_messages} />
@@ -327,7 +327,7 @@ function OverviewTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
             </Card>
 
             <Card className="py-0">
-                <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                     <SectionHeading icon={Info} label="Custom Answers" />
                     {answers.length ? (
                         <>
@@ -359,7 +359,7 @@ function OverviewTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
 function InvitationsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
     return (
         <Card className="py-0">
-            <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+            <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                 <div className="grid gap-3 sm:grid-cols-4">
                     <Stat label="Total" value={data.summary.total_messages} />
                     <Stat label="Delivered" value={data.summary.delivered} />
@@ -424,7 +424,7 @@ function InvitationsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
 function HistoryTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
     return (
         <Card className="py-0">
-            <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+            <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                 <SectionHeading icon={Clock} label="Every recorded change to this guest's answer" />
 
                 {data.response_history.length === 0 ? (
@@ -521,7 +521,7 @@ function HistoryTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
 function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
     return (
         <Card className="py-0">
-            <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+            <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                 <SectionHeading icon={Link2} label={`Events this person is on (${data.linked_events.length})`} />
 
                 <div className="w-full overflow-x-auto">
@@ -655,7 +655,7 @@ function TimelineTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
 
     return (
         <Card className="py-0">
-            <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+            <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                 <SectionHeading icon={Clock} label={`Activity (${entries.length})`} />
                 {entries.length === 0 ? (
                     <Empty text="Nothing has happened with this guest yet." />

@@ -92,11 +92,11 @@ export default function ManageGroupsPage() {
     ];
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3.5">
             {/* ── Header ──────────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Manage Groups</h1>
+                    <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Manage Groups</h1>
                     <p className="mt-1 text-[13.5px] text-muted-foreground">
                         Organize your guests into groups for better management.
                     </p>
@@ -111,7 +111,7 @@ export default function ManageGroupsPage() {
 
             {authError && (
                 <Card className="border-warning/40 bg-warning/10 py-0 shadow-none">
-                    <CardContent className="flex items-start gap-3 p-4">
+                    <CardContent className="flex items-start gap-3 p-3.5">
                         <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
                         <div>
                             <p className="text-[12.5px] font-semibold text-foreground">You are not signed in</p>
@@ -125,11 +125,11 @@ export default function ManageGroupsPage() {
             )}
 
             {/* ── Four tiles ──────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {tiles.map((tile) => (
                     <Card key={tile.label} className="min-w-0 border border-border py-0 shadow-none">
-                        <CardContent className="flex items-center gap-3.5 p-4">
-                            <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", tile.bg)}>
+                        <CardContent className="flex items-center gap-3.5 p-3.5">
+                            <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", tile.bg)}>
                                 <FontAwesomeIcon icon={tile.icon} className="!size-[15px]" style={{ color: tile.color }} />
                             </span>
                             <div className="min-w-0">
@@ -171,7 +171,7 @@ export default function ManageGroupsPage() {
                             {visibility !== "all" && <Badge className="ml-2 h-4 min-w-4 px-1 text-[10px]">1</Badge>}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-[240px] p-4">
+                    <PopoverContent align="end" className="w-[240px] p-3.5">
                         <div className="flex flex-col gap-3">
                             <Label className="text-[12px] font-medium">Visibility</Label>
                             <Select value={visibility} onValueChange={setVisibility}>
@@ -206,13 +206,13 @@ export default function ManageGroupsPage() {
             </div>
 
             {/* ── Table + rail ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_264px]">
+            <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_264px]">
                 <Card className="min-w-0 gap-0 border border-border p-0 shadow-none">
                     <CardContent className="p-0">
                         {groups.isLoading ? (
                             <div className="divide-y divide-border">
                                 {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-4">
+                                    <div key={i} className="flex items-center gap-3 p-3.5">
                                         <Skeleton className="h-9 w-9 shrink-0 rounded-md" />
                                         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                             <Skeleton className="h-3.5 w-1/5" />
@@ -222,7 +222,7 @@ export default function ManageGroupsPage() {
                                 ))}
                             </div>
                         ) : rows.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-16 text-center">
+                            <div className="flex flex-col items-center gap-2 py-10 text-center">
                                 <FontAwesomeIcon icon={faPeopleGroup} className="!size-[26px] text-muted-foreground/40" />
                                 <p className="text-[14px] font-semibold text-foreground">No groups yet</p>
                                 <p className="max-w-sm text-[13px] text-muted-foreground">
@@ -241,19 +241,19 @@ export default function ManageGroupsPage() {
                                 <table className="w-full min-w-[820px] border-collapse">
                                     <thead>
                                         <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                                            <th className="py-3 pl-4 text-left font-medium">Group</th>
-                                            <th className="py-3 text-left font-medium">Description</th>
-                                            <th className="py-3 text-right font-medium">Events</th>
-                                            <th className="py-3 text-right font-medium">Members</th>
-                                            <th className="py-3 pl-6 text-left font-medium">Visibility</th>
-                                            <th className="py-3 text-left font-medium">Created On</th>
-                                            <th className="py-3 pr-4 text-right font-medium">Actions</th>
+                                            <th className="py-2 pl-4 text-left font-medium">Group</th>
+                                            <th className="py-2 text-left font-medium">Description</th>
+                                            <th className="py-2 text-right font-medium">Events</th>
+                                            <th className="py-2 text-right font-medium">Members</th>
+                                            <th className="py-2 pl-6 text-left font-medium">Visibility</th>
+                                            <th className="py-2 text-left font-medium">Created On</th>
+                                            <th className="py-2 pr-4 text-right font-medium">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rows.map((group) => (
                                             <tr key={group.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                                                <td className="py-3 pl-4 pr-3 align-top">
+                                                <td className="py-2 pl-4 pr-3 align-top">
                                                     <div className="flex min-w-0 items-center gap-2.5">
                                                         <span
                                                             className="grid h-9 w-9 shrink-0 place-items-center rounded-md"
@@ -278,21 +278,21 @@ export default function ManageGroupsPage() {
                                                     </div>
                                                 </td>
 
-                                                <td className="max-w-[240px] py-3 pr-3 align-top">
+                                                <td className="max-w-[240px] py-2 pr-3 align-top">
                                                     <p className="text-[12px] text-muted-foreground break-words">
                                                         {group.description || "—"}
                                                     </p>
                                                 </td>
 
                                                 {/* DISTINCT events, not a member count. */}
-                                                <td className="py-3 pr-3 text-right align-top text-[12.5px] font-semibold tabular-nums text-foreground">
+                                                <td className="py-2 pr-3 text-right align-top text-[12.5px] font-semibold tabular-nums text-foreground">
                                                     {group.events_count}
                                                 </td>
-                                                <td className="py-3 pr-3 text-right align-top text-[12.5px] font-semibold tabular-nums text-foreground">
+                                                <td className="py-2 pr-3 text-right align-top text-[12.5px] font-semibold tabular-nums text-foreground">
                                                     {group.members_count}
                                                 </td>
 
-                                                <td className="py-3 pl-6 pr-3 align-top">
+                                                <td className="py-2 pl-6 pr-3 align-top">
                                                     <Badge
                                                         variant="ghost"
                                                         className={cn(
@@ -310,11 +310,11 @@ export default function ManageGroupsPage() {
                                                     </Badge>
                                                 </td>
 
-                                                <td className="py-3 pr-3 align-top text-[12px] text-muted-foreground">
+                                                <td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
                                                     {fmt(group.created_at)}
                                                 </td>
 
-                                                <td className="py-3 pr-4 align-top">
+                                                <td className="py-2 pr-4 align-top">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <Button
                                                             asChild variant="outline" size="icon"
@@ -364,7 +364,7 @@ export default function ManageGroupsPage() {
                         {totalItems > 0 && (
                             <>
                                 <Separator />
-                                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
                                     <p className="text-[12.5px] text-muted-foreground">
                                         Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, totalItems)} of{" "}
                                         {totalItems} groups
@@ -400,9 +400,9 @@ export default function ManageGroupsPage() {
                 </Card>
 
                 {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/10">
                                     <FontAwesomeIcon icon={faPeopleGroup} className="!size-[11px] text-primary" />
@@ -417,7 +417,7 @@ export default function ManageGroupsPage() {
                     </Card>
 
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <p className="mb-3 text-[13px] font-bold text-foreground">Quick Actions</p>
                             <ul className="flex flex-col">
                                 {[
@@ -442,7 +442,7 @@ export default function ManageGroupsPage() {
                     </Card>
 
                     <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
                                 <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>

@@ -181,16 +181,23 @@ export default function GuestsPage() {
         { label: "Confirmed", value: count("confirmed"), caption: "Joined and said Yes", icon: faUserClock, color: "#22C55E", bg: "bg-[#22C55E]/10" },
         { label: "Declined", value: count("declined"), caption: "Said No", icon: faPeopleGroup, color: "#EF4444", bg: "bg-[#EF4444]/10" },
     ];
-    const withEvent = (href: string) => (eventId ? `${href}?event=${eventId}` : href);
+    const withEvent = (href: string) => {
+        // The list's group filter is pre-chosen on Add Guest, as in the app.
+        const q = new URLSearchParams();
+        if (eventId) q.set("event", eventId);
+        if (groupId !== "all" && groupId !== "0" && href.endsWith("/add")) q.set("group", groupId);
+        const qs = q.toString();
+        return qs ? `${href}?${qs}` : href;
+    };
 
     const activeFilters = groupId !== "all" ? 1 : 0;
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3.5">
             {/* ── Header ──────────────────────────────────────────────────── */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Guests</h1>
+                    <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Guests</h1>
                     <p className="mt-1 text-[13.5px] text-muted-foreground">
                         Guests are added to one event, and their status follows the invitation and their RSVP.
                     </p>
@@ -213,7 +220,7 @@ export default function GuestsPage() {
 
             {!events.isLoading && eventRows.length === 0 && (
                 <Card className="border border-border py-0 shadow-none">
-                    <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3.5">
                         <p className="text-[13px] text-muted-foreground">Guests belong to an event. Create an event first.</p>
                         <Button asChild size="sm" className="h-8 text-[12px]">
                             <Link href="/dashboard/events/create">Create Event</Link>
@@ -224,7 +231,7 @@ export default function GuestsPage() {
 
             {authError && (
                 <Card className="border-warning/40 bg-warning/10 py-0 shadow-none">
-                    <CardContent className="flex items-start gap-3 p-4">
+                    <CardContent className="flex items-start gap-3 p-3.5">
                         <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
                         <div>
                             <p className="text-[12.5px] font-semibold text-foreground">You are not signed in</p>
@@ -238,11 +245,11 @@ export default function GuestsPage() {
             )}
 
             {/* ── Five tiles ──────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
                 {tiles.map((tile) => (
                     <Card key={tile.label} className="min-w-0 border border-border py-0 shadow-none">
-                        <CardContent className="flex items-center gap-3.5 p-4">
-                            <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", tile.bg)}>
+                        <CardContent className="flex items-center gap-3.5 p-3.5">
+                            <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", tile.bg)}>
                                 <FontAwesomeIcon icon={tile.icon} className="!size-[15px]" style={{ color: tile.color }} />
                             </span>
                             <div className="min-w-0">
@@ -302,7 +309,7 @@ export default function GuestsPage() {
                             )}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-[240px] p-4">
+                    <PopoverContent align="end" className="w-[240px] p-3.5">
                         <div className="flex flex-col gap-3">
                             <Label className="text-[12px] font-medium">Active filters</Label>
                             <p className="text-[11.5px] text-muted-foreground">
@@ -335,7 +342,7 @@ export default function GuestsPage() {
             </div>
 
             {/* ── Table + rail ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_264px]">
+            <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_264px]">
                 <Card className="min-w-0 gap-0 border border-border p-0 shadow-none">
                     <Tabs value={tab} onValueChange={(v) => setTab(v as GuestTab)}>
                         <div className="overflow-x-auto border-b border-border px-2">
@@ -344,7 +351,7 @@ export default function GuestsPage() {
                                     <TabsTrigger
                                         key={t.value}
                                         value={t.value}
-                                        className="h-auto rounded-none px-4 py-3 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
+                                        className="h-auto rounded-none px-4 py-2 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
                                     >
                                         {t.label}
                                         {s ? ` (${t.value === "all" ? s.total_guests ?? 0 : count(t.value as GuestStatus)})` : ""}
@@ -405,7 +412,7 @@ export default function GuestsPage() {
                         {guests.isLoading ? (
                             <div className="divide-y divide-border">
                                 {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-4">
+                                    <div key={i} className="flex items-center gap-3 p-3.5">
                                         <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
                                         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                             <Skeleton className="h-3.5 w-1/4" />
@@ -416,7 +423,7 @@ export default function GuestsPage() {
                                 ))}
                             </div>
                         ) : guests.isError && !authError ? (
-                            <div className="flex flex-col items-center gap-2 py-16 text-center">
+                            <div className="flex flex-col items-center gap-2 py-10 text-center">
                                 <FontAwesomeIcon icon={faTriangleExclamation} className="!size-[26px] text-warning/60" />
                                 <p className="text-[14px] font-semibold text-foreground">Could not load your guests</p>
                                 <p className="text-[13px] text-muted-foreground">
@@ -427,7 +434,7 @@ export default function GuestsPage() {
                                 </Button>
                             </div>
                         ) : rows.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-16 text-center">
+                            <div className="flex flex-col items-center gap-2 py-10 text-center">
                                 <FontAwesomeIcon icon={faUsers} className="!size-[26px] text-muted-foreground/40" />
                                 <p className="text-[14px] font-semibold text-foreground">No guests here</p>
                                 <p className="max-w-sm text-[13px] text-muted-foreground">
@@ -453,25 +460,25 @@ export default function GuestsPage() {
                                 <table className="w-full min-w-[860px] border-collapse">
                                     <thead>
                                         <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                                            <th className="w-10 py-3 pl-4">
+                                            <th className="w-10 py-2 pl-4">
                                                 <Checkbox
                                                     checked={allOnPageSelected}
                                                     onCheckedChange={toggleAll}
                                                     aria-label="Select all guests on this page"
                                                 />
                                             </th>
-                                            <th className="py-3 text-left font-medium">Guest</th>
-                                            <th className="py-3 text-left font-medium">Group</th>
-                                            <th className="py-3 text-left font-medium">Status</th>
-                                            <th className="py-3 text-left font-medium">Added On</th>
-                                            <th className="py-3 pr-4 text-right font-medium">Actions</th>
+                                            <th className="py-2 text-left font-medium">Guest</th>
+                                            <th className="py-2 text-left font-medium">Group</th>
+                                            <th className="py-2 text-left font-medium">Status</th>
+                                            <th className="py-2 text-left font-medium">Added On</th>
+                                            <th className="py-2 pr-4 text-right font-medium">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rows.map((guest) => {
                                             return (
                                                 <tr key={guest.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                                                    <td className="py-3 pl-4 align-top">
+                                                    <td className="py-2 pl-4 align-top">
                                                         <Checkbox
                                                             checked={selected.includes(guest.id)}
                                                             onCheckedChange={() => toggleOne(guest.id)}
@@ -479,7 +486,7 @@ export default function GuestsPage() {
                                                         />
                                                     </td>
 
-                                                    <td className="py-3 pr-3 align-top">
+                                                    <td className="py-2 pr-3 align-top">
                                                         <div className="flex min-w-0 items-center gap-2.5">
                                                             <Avatar className="h-9 w-9 shrink-0">
                                                                 <AvatarFallback className="bg-primary/10 text-[11px] font-bold text-primary">
@@ -511,7 +518,7 @@ export default function GuestsPage() {
                                                         </div>
                                                     </td>
 
-                                                    <td className="py-3 pr-3 align-top">
+                                                    <td className="py-2 pr-3 align-top">
                                                         {guest.group ? (
                                                             <span className="inline-flex items-center gap-1.5 text-[12px] text-foreground">
                                                                 <span
@@ -525,7 +532,7 @@ export default function GuestsPage() {
                                                         )}
                                                     </td>
 
-                                                    <td className="py-3 pr-3 align-top">
+                                                    <td className="py-2 pr-3 align-top">
                                                         {guest.status ? (
                                                             <span className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", STATUS_PILL[guest.status])}>
                                                                 {GUEST_STATUS_LABELS[guest.status]}
@@ -535,11 +542,11 @@ export default function GuestsPage() {
                                                         )}
                                                     </td>
 
-                                                    <td className="py-3 pr-3 align-top text-[12px] text-muted-foreground">
+                                                    <td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
                                                         {fmt(guest.created_at)}
                                                     </td>
 
-                                                    <td className="py-3 pr-4 align-top">
+                                                    <td className="py-2 pr-4 align-top">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
@@ -593,7 +600,7 @@ export default function GuestsPage() {
                         {totalItems > 0 && (
                             <>
                                 <Separator />
-                                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
                                     <p className="text-[12.5px] text-muted-foreground">
                                         Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, totalItems)} of{" "}
                                         {totalItems.toLocaleString()} guests
@@ -642,9 +649,9 @@ export default function GuestsPage() {
                 </Card>
 
                 {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <p className="mb-3 text-[13px] font-bold text-foreground">Quick Actions</p>
                             <ul className="flex flex-col">
                                 {[
@@ -669,7 +676,7 @@ export default function GuestsPage() {
                     </Card>
 
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-3 flex items-center justify-between gap-2">
                                 <p className="text-[13px] font-bold text-foreground">Guest Groups</p>
                                 <Link
@@ -685,7 +692,7 @@ export default function GuestsPage() {
                                     {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-9 w-full rounded-md" />)}
                                 </div>
                             ) : (groups.data ?? []).length === 0 ? (
-                                <p className="py-3 text-[12px] text-muted-foreground">
+                                <p className="py-2 text-[12px] text-muted-foreground">
                                     No groups yet. Groups let you message a specific set of guests.
                                 </p>
                             ) : (
@@ -731,7 +738,7 @@ export default function GuestsPage() {
                     </Card>
 
                     <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
                                 <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>

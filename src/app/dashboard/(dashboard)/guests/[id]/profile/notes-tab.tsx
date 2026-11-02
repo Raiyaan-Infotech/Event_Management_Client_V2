@@ -77,10 +77,10 @@ export function NotesTab({ guestId, data, fmt }: {
 
     return (
         <>
-            <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="grid min-w-0 items-start gap-3.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 {/* ── Notes ───────────────────────────────────────────────── */}
                 <Card className="py-0">
-                    <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                    <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                             <SectionHeading icon={StickyNote} label={`Notes (${data.notes.length})`} />
                             <Button size="sm" onClick={() => { setEditing(null); setComposing(true); }}>
@@ -119,10 +119,10 @@ export function NotesTab({ guestId, data, fmt }: {
                     </CardContent>
                 </Card>
 
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Tags ────────────────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-3 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={TagIcon} label="Tags" />
                             {data.tags.length ? (
                                 <div className="flex flex-wrap gap-1.5">
@@ -172,7 +172,7 @@ export function NotesTab({ guestId, data, fmt }: {
 
                     {/* ── Reminders ───────────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-3 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                                 <SectionHeading icon={Bell} label="Reminders" />
                                 <Button size="sm" variant="outline" onClick={() => setReminderOpen(true)}>
@@ -385,7 +385,7 @@ function NoteDialog({ open, onOpenChange, guestId, note }: {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex min-w-0 flex-col gap-1.5">
                         <Label htmlFor="note-title" className="text-[12px]">
                             Title <span className="text-destructive">*</span>
@@ -407,7 +407,7 @@ function NoteDialog({ open, onOpenChange, guestId, note }: {
                         <RichTextEditor value={body} onChange={setBody} />
                     </div>
 
-                    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-2">
                         <div className="flex min-w-0 flex-col gap-1.5">
                             <Label className="text-[12px]">Category</Label>
                             <Select value={category} onValueChange={(v) => setCategory(v as NoteCategory)}>
@@ -493,7 +493,7 @@ function ReminderDialog({ open, onOpenChange, guestId }: {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex min-w-0 flex-col gap-1.5">
                         <Label htmlFor="rem-title" className="text-[12px]">
                             What <span className="text-destructive">*</span>

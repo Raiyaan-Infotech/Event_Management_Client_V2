@@ -88,6 +88,12 @@ export function GuestForm({ guestId }: { guestId?: number }) {
     const isEdit = !!guestId;
 
     const [form, setForm] = useState<FormState>(EMPTY);
+    // Add opened from a group-filtered list: that group is pre-chosen (as in the app).
+    useEffect(() => {
+        if (guestId) return;
+        const group = new URLSearchParams(window.location.search).get("group");
+        if (group) setForm((prev) => (prev.group_id ? prev : { ...prev, group_id: group }));
+    }, [guestId]);
     const [errors, setErrors] = useState<Record<string, boolean>>({});
     const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -192,13 +198,15 @@ export function GuestForm({ guestId }: { guestId?: number }) {
 
     const selectedGroup = (groups.data ?? []).find((g) => String(g.id) === form.group_id);
 
+    /**
+     * The app's rules. Add: Full Name, Mobile and Group required; Email and Note
+     * optional. Edit: First Name and Phone required (the app's full form).
+     */
     const validate = () => {
         const next: Record<string, boolean> = {};
         if (!form.first_name.trim()) next.first_name = true;
-        // Mobile is mandatory, email optional: an invitation is shared to a
-        // phone number, so that is the field a contact cannot be without.
         if (!form.mobile.trim()) next.mobile = true;
-        if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) next.email = true;
+        if (!isEdit && !form.group_id) next.group_id = true;
 
         if (Object.keys(next).length) {
             setErrors(next);
@@ -210,6 +218,11 @@ export function GuestForm({ guestId }: { guestId?: number }) {
         if (phoneError) {
             setErrors({ mobile: true });
             toast.error(phoneError);
+            return false;
+        }
+        if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) {
+            setErrors({ email: true });
+            toast.error("Please enter a valid email address.");
             return false;
         }
         return true;
@@ -234,7 +247,8 @@ export function GuestForm({ guestId }: { guestId?: number }) {
             city: form.city.trim() || null,
             state: form.state.trim() || null,
             postal_code: form.postal_code.trim() || null,
-            country: form.country.trim() || null,
+            // Add sends only the short form's fields, as the app does.
+            country: isEdit ? form.country.trim() || null : null,
             // The chosen option's id and its words, both — the id joins back
             // to the admin's list, the words survive the option being renamed.
             food_preference_option_id: chosenFood?.id ?? null,
@@ -249,9 +263,9 @@ export function GuestForm({ guestId }: { guestId?: number }) {
 
     if (isEdit && existing.isLoading) {
         return (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-3.5">
                 <Skeleton className="h-8 w-[200px]" />
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
                     <Skeleton className="h-[420px] rounded-xl" />
                     <Skeleton className="h-[300px] rounded-xl" />
                 </div>
@@ -260,9 +274,9 @@ export function GuestForm({ guestId }: { guestId?: number }) {
     }
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3.5">
             <div className="min-w-0">
-                <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">
+                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
                     {isEdit ? "Edit Guest" : "Add Guest"}
                 </h1>
                 <p className="mt-1 text-[13.5px] text-muted-foreground">
@@ -270,20 +284,109 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-                <div className="flex min-w-0 flex-col gap-5">
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Guest information ───────────────────────────────── */}
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-5">
+                        <CardContent className="p-3.5">
                             <SectionHeader icon={faUser} title="Guest Information" />
 
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            {/* ── Add: the app's "Add Guest One by One" form ── */}
+                            {!isEdit && (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {capacity.data?.limit != null && (
+                                        <p className="rounded-md bg-primary/5 px-3 py-2 text-[12px] text-muted-foreground sm:col-span-2">
+                                            <span className="font-semibold text-foreground">
+                                                {capacity.data.used} / {capacity.data.limit}
+                                            </span>{" "}
+                                            guests used on your plan
+                                        </p>
+                                    )}
+                                    <Field label="Full Name" required error={errors.first_name} message="Full name is required">
+                                        <div className="relative">
+                                            <FontAwesomeIcon
+                                                icon={faUser}
+                                                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 !size-[12px] text-muted-foreground"
+                                            />
+                                            <Input
+                                                value={form.first_name}
+                                                onChange={(e) => setField("first_name", e.target.value.slice(0, 100))}
+                                                placeholder="Enter full name"
+                                                className={cn("h-10 rounded-md pl-9", errors.first_name && "border-destructive")}
+                                            />
+                                        </div>
+                                    </Field>
+                                    <Field label="Mobile Number" required error={errors.mobile} message="Enter a valid mobile number">
+                                        <PhoneInput
+                                            country={countryForDial(form.dial_code)}
+                                            number={form.mobile}
+                                            onChange={(iso, num) => { setField("dial_code", dialOf(iso)); setField("mobile", num); }}
+                                            placeholder="Enter mobile number"
+                                            invalid={errors.mobile}
+                                        />
+                                    </Field>
+                                    <Field label="Group" required error={errors.group_id} message="Group is required">
+                                        {!groups.isLoading && (groups.data ?? []).length === 0 ? (
+                                            <Button asChild variant="outline" className="h-10 justify-start rounded-md text-[13px]">
+                                                <Link href="/dashboard/guests/groups/add">
+                                                    <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[11px]" />
+                                                    Create a group first
+                                                </Link>
+                                            </Button>
+                                        ) : (
+                                            <Select value={form.group_id} onValueChange={(v) => setField("group_id", v)}>
+                                                <SelectTrigger className={cn("h-10 w-full rounded-md text-[13px]", errors.group_id && "border-destructive")}>
+                                                    <FontAwesomeIcon icon={faPeopleGroup} className="mr-2 !size-[12px] text-muted-foreground" />
+                                                    <SelectValue placeholder="Select group" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {(groups.data ?? []).map((g) => (
+                                                        <SelectItem key={g.id} value={String(g.id)}>{g.name} ({g.members_count})</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </Field>
+                                    <Field label="Email (Optional)" error={errors.email} message="Enter a valid email address">
+                                        <div className="relative">
+                                            <FontAwesomeIcon
+                                                icon={faEnvelope}
+                                                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 !size-[12px] text-muted-foreground"
+                                            />
+                                            <Input
+                                                type="email"
+                                                value={form.email}
+                                                onChange={(e) => setField("email", e.target.value.slice(0, 255))}
+                                                placeholder="Enter email address"
+                                                className={cn("h-10 rounded-md pl-9", errors.email && "border-destructive")}
+                                            />
+                                        </div>
+                                    </Field>
+                                    <div className="sm:col-span-2">
+                                        <Field label="Note (Optional)">
+                                            <Textarea
+                                                value={form.notes}
+                                                onChange={(e) => setField("notes", e.target.value.slice(0, 300))}
+                                                placeholder="Add a note (e.g., relation, occasion)"
+                                                className="min-h-[64px] rounded-md"
+                                            />
+                                            <Counter value={form.notes.length} max={300} />
+                                        </Field>
+                                    </div>
+                                    <p className="-mt-1 text-[11.5px] text-muted-foreground sm:col-span-2">
+                                        More details (address, birthday…) can be added later with Edit Guest.
+                                    </p>
+                                </div>
+                            )}
+
+                            {isEdit && (<>
+                            <div className="grid gap-3 sm:grid-cols-2">
                                 <Field label="First Name" required error={errors.first_name}>
                                     <Input
                                         value={form.first_name}
                                         onChange={(e) => setField("first_name", e.target.value.slice(0, 100))}
                                         placeholder="Enter first name"
-                                        className={cn("h-11 rounded-md", errors.first_name && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.first_name && "border-destructive")}
                                     />
                                 </Field>
                                 <Field label="Last Name">
@@ -291,7 +394,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                         value={form.last_name}
                                         onChange={(e) => setField("last_name", e.target.value.slice(0, 100))}
                                         placeholder="Enter last name"
-                                        className="h-11 rounded-md"
+                                        className="h-10 rounded-md"
                                     />
                                 </Field>
 
@@ -306,7 +409,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                             value={form.email}
                                             onChange={(e) => setField("email", e.target.value.slice(0, 255))}
                                             placeholder="Enter email address"
-                                            className={cn("h-11 rounded-md pl-9", errors.email && "border-destructive")}
+                                            className={cn("h-10 rounded-md pl-9", errors.email && "border-destructive")}
                                         />
                                     </div>
                                 </Field>
@@ -326,7 +429,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                         value={form.group_id || "none"}
                                         onValueChange={(v) => setField("group_id", v === "none" ? "" : v)}
                                     >
-                                        <SelectTrigger className="h-11 w-full rounded-md text-[13px]">
+                                        <SelectTrigger className="h-10 w-full rounded-md text-[13px]">
                                             <FontAwesomeIcon icon={faPeopleGroup} className="mr-2 !size-[12px] text-muted-foreground" />
                                             <SelectValue placeholder="Select a group (optional)" />
                                         </SelectTrigger>
@@ -349,18 +452,18 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                             value={form.company}
                                             onChange={(e) => setField("company", e.target.value.slice(0, 200))}
                                             placeholder="Enter company or organization"
-                                            className="h-11 rounded-md pl-9"
+                                            className="h-10 rounded-md pl-9"
                                         />
                                     </div>
                                 </Field>
                             </div>
 
                             {/* ── Add More Details ────────────────────────── */}
-                            <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen} className="mt-5">
+                            <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen} className="mt-3">
                                 <CollapsibleTrigger asChild>
                                     <button
                                         type="button"
-                                        className="flex w-full items-center gap-3 rounded-md border border-dashed border-border px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                                        className="flex w-full items-center gap-3 rounded-md border border-dashed border-border px-4 py-2 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                                     >
                                         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10">
                                             <FontAwesomeIcon icon={faPlus} className="!size-[11px] text-primary" />
@@ -383,18 +486,18 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                     </button>
                                 </CollapsibleTrigger>
 
-                                <CollapsibleContent className="pt-5">
+                                <CollapsibleContent className="pt-3">
                                     <SectionHeader icon={faMapLocationDot} title="Address" />
-                                    <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-3 sm:grid-cols-2">
                                         <Field label="Address Line 1">
                                             <Input value={form.address_line1}
                                                 onChange={(e) => setField("address_line1", e.target.value.slice(0, 255))}
-                                                placeholder="House no., Building, Street" className="h-11 rounded-md" />
+                                                placeholder="House no., Building, Street" className="h-10 rounded-md" />
                                         </Field>
                                         <Field label="Address Line 2 (Optional)">
                                             <Input value={form.address_line2}
                                                 onChange={(e) => setField("address_line2", e.target.value.slice(0, 255))}
-                                                placeholder="Apartment, Suite, Floor, etc." className="h-11 rounded-md" />
+                                                placeholder="Apartment, Suite, Floor, etc." className="h-10 rounded-md" />
                                         </Field>
                                         {/* Country first: each field below reads the list
                                             of the one above, and changing one clears those
@@ -464,14 +567,14 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                         </Field>
                                     </div>
 
-                                    <Separator className="my-5" />
+                                    <Separator className="my-3" />
                                     <SectionHeader icon={faClipboardList} title="Additional Information" />
 
-                                    <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="grid gap-3 sm:grid-cols-2">
                                         <Field label="Title / Salutation">
                                             <Select value={form.title || "none"}
                                                 onValueChange={(v) => setField("title", v === "none" ? "" : v)}>
-                                                <SelectTrigger className="h-11 w-full rounded-md text-[13px]">
+                                                <SelectTrigger className="h-10 w-full rounded-md text-[13px]">
                                                     <SelectValue placeholder="Select (Optional)" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -486,7 +589,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                             <Input type="date" value={form.date_of_birth}
                                                 max={new Date().toISOString().slice(0, 10)}
                                                 onChange={(e) => setField("date_of_birth", e.target.value)}
-                                                className="h-11 rounded-md" />
+                                                className="h-10 rounded-md" />
                                         </Field>
 
                                         <Field label="Dietary Preference (Optional)">
@@ -501,7 +604,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                                     }));
                                                 }}
                                             >
-                                                <SelectTrigger className="h-11 w-full rounded-md text-[13px]">
+                                                <SelectTrigger className="h-10 w-full rounded-md text-[13px]">
                                                     <SelectValue
                                                         placeholder={
                                                             formOptions.isLoading
@@ -532,7 +635,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                             <Textarea value={form.notes}
                                                 onChange={(e) => setField("notes", e.target.value.slice(0, 300))}
                                                 placeholder="Add any notes about this guest..."
-                                                className="min-h-[84px] rounded-md" />
+                                                className="min-h-[72px] rounded-md" />
                                             <Counter value={form.notes.length} max={300} />
                                         </Field>
 
@@ -540,12 +643,13 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                             <Textarea value={form.special_requirements}
                                                 onChange={(e) => setField("special_requirements", e.target.value.slice(0, 500))}
                                                 placeholder="E.g., Accessibility, Seating preference..."
-                                                className="min-h-[84px] rounded-md" />
+                                                className="min-h-[72px] rounded-md" />
                                         </Field>
                                     </div>
 
                                 </CollapsibleContent>
                             </Collapsible>
+                            </>)}
                         </CardContent>
                     </Card>
 
@@ -562,10 +666,10 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                     )}
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Button asChild variant="outline" className="h-11 rounded-md px-5 text-[13px] font-medium">
+                        <Button asChild variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium">
                             <Link href="/dashboard/guests">Cancel</Link>
                         </Button>
-                        <Button onClick={submit} disabled={saving || guestLimitReached} className="h-11 rounded-md px-6 text-[13px] font-semibold">
+                        <Button onClick={submit} disabled={saving || guestLimitReached} className="h-10 rounded-md px-4 text-[13px] font-semibold">
                             {saving ? (isEdit ? "Saving..." : "Adding...") : (isEdit ? "Save Changes" : "Add Guest")}
                             {!saving && <FontAwesomeIcon icon={faUserPlus} className="ml-2 !size-[12px]" />}
                         </Button>
@@ -573,9 +677,9 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                 </div>
 
                 {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-3 flex items-center gap-2">
                                 <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/10">
                                     <FontAwesomeIcon icon={faUser} className="!size-[11px] text-primary" />
@@ -590,7 +694,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                     </Card>
 
                     <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-3 flex items-center justify-between gap-2">
                                 <p className="text-[13px] font-bold text-foreground">Guest Groups</p>
                                 <Link href="/dashboard/guests/groups/add"
@@ -645,7 +749,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                     </Card>
 
                     <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-4">
+                        <CardContent className="p-3.5">
                             <div className="mb-2 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
                                 <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>
@@ -672,7 +776,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
 
 function SectionHeader({ icon, title }: { icon: typeof faUser; title: string }) {
     return (
-        <div className="mb-4 flex items-center gap-2.5">
+        <div className="mb-3 flex items-center gap-2.5">
             <span className="grid h-8 w-8 place-items-center rounded-md bg-primary/10">
                 <FontAwesomeIcon icon={icon} className="!size-[12px] text-primary" />
             </span>
@@ -682,24 +786,24 @@ function SectionHeader({ icon, title }: { icon: typeof faUser; title: string }) 
 }
 
 function Field({
-    label, required, error, children,
+    label, required, error, message, children,
 }: {
-    label: string; required?: boolean; error?: boolean; children: React.ReactNode;
+    label: string; required?: boolean; error?: boolean; message?: string; children: React.ReactNode;
 }) {
     return (
-        <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-1.5">
             <Label className="text-[12.5px] font-medium">
                 {label} {required && <span className="text-destructive">*</span>}
             </Label>
             {children}
-            {error && <span className="text-[11px] text-destructive">This field is required.</span>}
+            {error && <span className="text-[11px] text-destructive">{message ?? "This field is required."}</span>}
         </div>
     );
 }
 
 function Counter({ value, max }: { value: number; max: number }) {
     return (
-        <span className={cn("mt-1 self-end text-[11px]", value >= max ? "text-destructive" : "text-muted-foreground")}>
+        <span className={cn("-mt-1 self-end text-[10.5px] leading-none", value >= max ? "text-destructive" : "text-muted-foreground")}>
             {value}/{max}
         </span>
     );
