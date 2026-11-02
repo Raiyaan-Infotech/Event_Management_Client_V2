@@ -445,7 +445,8 @@ export function useUnreadCount() {
         queryKey: KEY.unread,
         queryFn: () => api.get<{ unread: number }>('/client/notifications/count'),
         staleTime: 60 * 1000,
-        refetchOnWindowFocus: true,
+        // No refetch on tab focus: coming back to the tab must not reload
+        // anything. The badge refreshes on its own staleTime / after actions.
     });
 }
 
