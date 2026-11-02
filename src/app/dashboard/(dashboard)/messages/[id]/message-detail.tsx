@@ -384,7 +384,7 @@ export default function MessageDetail({ campaignId }: { campaignId: number }) {
                                     </div>
                                 </div>
                                 <Button asChild size="sm" variant="outline" className="w-full">
-                                    <Link href={`/dashboard/guests?event_id=${c.event.id}`}>
+                                    <Link href={`/dashboard/events/${c.event.id}/guests`}>
                                         <Users className="size-3.5" /> View guest list
                                     </Link>
                                 </Button>

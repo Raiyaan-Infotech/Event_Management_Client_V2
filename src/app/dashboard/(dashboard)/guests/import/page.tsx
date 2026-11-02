@@ -593,7 +593,7 @@ function ImportGuests() {
 
                                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                                     <Button asChild className="h-10 rounded-md px-4 text-[13px] font-semibold">
-                                        <Link href="/dashboard/guests">View Guest List</Link>
+                                        <Link href={importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events"}>View Guest List</Link>
                                     </Button>
                                     <Button
                                         variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium"
@@ -616,7 +616,7 @@ function ImportGuests() {
                                 variant="outline"
                                 className="h-10 rounded-md px-4 text-[13px] font-medium"
                                 disabled={analyse.isPending || commit.isPending}
-                                onClick={() => (step === 1 ? router.push("/dashboard/guests") : setStep(step - 1))}
+                                onClick={() => (step === 1 ? router.push(importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events") : setStep(step - 1))}
                             >
                                 {step > 1 && <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[12px]" />}
                                 {step === 1 ? "Cancel" : "Back"}

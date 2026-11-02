@@ -238,6 +238,22 @@ export function VenueMapPicker({
         if (!hasPin && markerRef.current) markerRef.current.setMap(null);
     }, [hasPin]);
 
+    // Pin set from OUTSIDE — the saved event loading after the map was built
+    // (Edit Venue opened on Chennai with the pin elsewhere), or typed lat/lng.
+    // A pin the map itself placed is already there, so it is left alone.
+    useEffect(() => {
+        if (!hasPin || state !== 'ready' || !mapRef.current) return;
+        const g = (window as unknown as { google?: G }).google;
+        if (!g) return;
+        const p = { lat: Number(lat), lng: Number(lng) };
+        const cur = markerRef.current?.getMap?.() ? markerRef.current.getPosition?.() : null;
+        if (cur && Math.abs(cur.lat() - p.lat) < 1e-5 && Math.abs(cur.lng() - p.lng) < 1e-5) return;
+        placePin(g, p, false);
+        mapRef.current.setCenter(p);
+        mapRef.current.setZoom(16);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lat, lng, hasPin, state]);
+
     const runSearch = async () => {
         const text = query.trim();
         if (!text || searching) return;

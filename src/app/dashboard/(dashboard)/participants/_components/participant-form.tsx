@@ -86,7 +86,7 @@ export function ParticipantForm({
     const router = useRouter();
     const editing = !!participant;
     const seed: ParticipantSeed = participant ?? fromGuest ?? {};
-    const back = `/dashboard/participants?event=${eventId}`;
+    const back = `/dashboard/events/${eventId}/participants`;
 
     const save = useSaveParticipant(() => router.push(back));
     const upload = useUploadPhoto();

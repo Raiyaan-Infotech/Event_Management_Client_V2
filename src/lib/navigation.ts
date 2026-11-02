@@ -2,11 +2,9 @@ import {
     faHouse,
     faCalendarDays,
     faLayerGroup,
-    faUsers,
     faUserPlus,
     faFileImport,
     faPeopleGroup,
-    faSquareCheck,
     faBell,
     faPaperPlane,
     faEnvelope,
@@ -18,7 +16,6 @@ import {
     faClockRotateLeft,
     faSliders,
     faListCheck,
-    faUserCheck,
 } from "@fortawesome/free-solid-svg-icons"
 
 /**
@@ -72,18 +69,6 @@ export const navMain = [
     { title: "Templates", url: "/dashboard/templates", icon: faLayerGroup, items: [] },
     // Splash Screens removed from the web (2026-10-31) — it lives in the mobile app only.
     {
-        title: "Guests",
-        url: "/dashboard/guests",
-        icon: faUsers,
-        section: "guests",
-        items: [
-            { title: "All Guests", url: "/dashboard/guests", icon: faListUl, ready: true },
-            { title: "Add Guest", url: "/dashboard/guests/add", icon: faUserPlus, ready: true },
-            { title: "Guest Groups", url: "/dashboard/guests/groups", icon: faPeopleGroup, ready: true },
-            { title: "Import Guests", url: "/dashboard/guests/import", icon: faFileImport, ready: true },
-        ],
-    },
-    {
         title: "Messages",
         url: "/dashboard/messages",
         icon: faEnvelope,
@@ -102,9 +87,9 @@ export const navMain = [
             { title: "Notification History", url: "/dashboard/messages/notifications/history", icon: faClockRotateLeft, ready: true },
         ],
     },
-    // The app's Manage Participants (2026-11-02); plan menu slug `participants`.
-    { title: "Participants", url: "/dashboard/participants", icon: faUserCheck, section: "participants", items: [] },
-    { title: "RSVPs", url: "/dashboard/rsvps", icon: faSquareCheck, section: "rsvp", items: [] },
+    // Guests, RSVPs and Participants live INSIDE the event (Jamal, 2026-11-02):
+    // the event view's tabs open /dashboard/events/:id/{guests,rsvps,participants}.
+    // Their plan gate is kept below (EVENT_SECTIONS).
     // Per event, as in the app (2026-10-31).
     { title: "Agenda", url: "/dashboard/agenda", icon: faListCheck, items: [] },
     { title: "Notifications", url: "/dashboard/notifications", icon: faBell, items: [] },
@@ -130,6 +115,16 @@ export const navMain = [
  * Every section slug the plan grants on the website: event menu slugs (e.g.
  * `rsvp`) plus portal section slugs (e.g. `guests`).
  */
+/**
+ * Plan-gated areas with no sidebar entry — they open from the event view's tabs
+ * (2026-11-02). Their old URLs (/dashboard/guests/add, …) still carry the gate.
+ */
+export const EVENT_SECTIONS = [
+    { title: "Guests", url: "/dashboard/guests", section: "guests", tab: "guests" },
+    { title: "RSVPs", url: "/dashboard/rsvps", section: "rsvp", tab: "rsvps" },
+    { title: "Participants", url: "/dashboard/participants", section: "participants", tab: "participants" },
+] as const
+
 export function grantedSections(options?: { menus?: { slug: string }[]; portal_sections?: string[] } | null) {
     return new Set<string>([
         ...(options?.menus ?? []).map((m) => m.slug),
@@ -146,6 +141,10 @@ export function grantedSections(options?: { menus?: { slug: string }[]; portal_s
  * Templates is always shown, so it must not inherit Messages' plan gate.
  */
 export function sectionForPath(pathname: string) {
+    const inEvent = pathname.match(/^\/dashboard\/events\/\d+\/(guests|rsvps|participants)(\/|$)/)
+    const area = inEvent ? `/dashboard/${inEvent[1]}` : pathname
+    const hidden = EVENT_SECTIONS.find((i) => area === i.url || area.startsWith(`${i.url}/`))
+    if (hidden) return { title: hidden.title, slug: hidden.section }
     const owner = navMain
         .filter((i) => pathname === i.url || pathname.startsWith(`${i.url}/`))
         .sort((a, b) => b.url.length - a.url.length)[0]

@@ -105,11 +105,16 @@ export function GuestForm({ guestId }: { guestId?: number }) {
         if (typeof window === "undefined") return null;
         return Number(new URLSearchParams(window.location.search).get("event")) || null;
     };
+    // Back to the event's Guests page (Guests live inside the event, 2026-11-02).
+    const listHref = () => {
+        const ev = eventParam() ?? existing.data?.event_id ?? null;
+        return ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events";
+    };
     const create = useCreateGuest(() => {
         const ev = eventParam();
-        router.push(ev ? `/dashboard/guests?event=${ev}` : "/dashboard/guests");
+        router.push(ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events");
     });
-    const update = useUpdateGuest(() => router.push("/dashboard/guests"));
+    const update = useUpdateGuest(() => router.push(listHref()));
     const saving = create.isPending || update.isPending;
 
     /*
@@ -667,7 +672,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Button asChild variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium">
-                            <Link href="/dashboard/guests">Cancel</Link>
+                            <Link href={listHref()}>Cancel</Link>
                         </Button>
                         <Button onClick={submit} disabled={saving || guestLimitReached} className="h-10 rounded-md px-4 text-[13px] font-semibold">
                             {saving ? (isEdit ? "Saving..." : "Adding...") : (isEdit ? "Save Changes" : "Add Guest")}

@@ -57,7 +57,9 @@ export default function Breadcrumb() {
       const segments = pathname?.split("/").filter(Boolean).filter(s => s !== "dashboard") || [];
       segments.forEach((segment, index) => {
         const url = `/dashboard/${segments.slice(0, index + 1).join("/")}`;
-        const label = segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+        // Known words keep their own spelling ("rsvps" → "RSVPs", not "Rsvps").
+        const NAMES: Record<string, string> = { rsvps: "RSVPs" };
+        const label = NAMES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
         items.push({ label, url, isLast: index === segments.length - 1 });
       });
     }

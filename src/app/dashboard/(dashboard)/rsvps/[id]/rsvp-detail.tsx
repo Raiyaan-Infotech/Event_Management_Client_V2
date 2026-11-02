@@ -83,7 +83,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
         <div className="flex min-w-0 flex-col gap-3.5">
             <div className="flex flex-wrap items-center gap-3">
                 <Button asChild variant="ghost" size="sm" className="-ms-2 text-muted-foreground">
-                    <Link href="/dashboard/rsvps">
+                    <Link href={r.event?.id ? `/dashboard/events/${r.event.id}/rsvps` : "/dashboard/events"}>
                         <ArrowLeft className="size-3.5" /> Back to RSVPs
                     </Link>
                 </Button>

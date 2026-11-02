@@ -30,8 +30,9 @@ import { EventQr } from "@/components/common/event-qr";
 import { InvitationDownload } from "@/components/common/invitation-download";
 import { downloadQrAsPng, fileSlug } from "@/lib/export-invitation";
 import { useClientEvent, useDeleteEvent, type DerivedStatus } from "@/hooks/use-client-events";
-import { useParticipantCapacity, useParticipantStats, useParticipants } from "@/hooks/use-guests";
-import { PlanUsageBar } from "@/components/common/plan-usage-bar";
+import { useParticipantStats } from "@/hooks/use-guests";
+import { useEventOptions } from "@/hooks/use-client-portal";
+import { EVENT_SECTIONS, grantedSections } from "@/lib/navigation";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
@@ -64,13 +65,18 @@ const TABS = [
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Gallery" },
     { value: "family", label: "Family" },
+    { value: "guests", label: "Guests" },
     { value: "rsvps", label: "RSVPs" },
+    { value: "participants", label: "Participants" },
     { value: "settings", label: "Settings" },
     { value: "messages", label: "Messages" },
     { value: "activity", label: "Activity Log" },
 ] as const;
 
 type TabValue = (typeof TABS)[number]["value"];
+
+/** These three live INSIDE the event as their own pages (Jamal, 2026-11-02). */
+const PAGE_TABS: TabValue[] = ["guests", "rsvps", "participants"];
 
 const STATUS_META: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
     live: { label: "Live", dot: "bg-destructive", className: "bg-destructive/10 text-destructive" },
@@ -122,8 +128,20 @@ export function EventDetail({ eventId }: { eventId: number }) {
     // Family, Gallery, RSVPs and Settings.
     useEffect(() => {
         const wanted = new URLSearchParams(window.location.search).get("tab");
-        if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
+        if (wanted && PAGE_TABS.includes(wanted as TabValue)) router.replace(`/dashboard/events/${eventId}/${wanted}`);
+        else if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
     }, []);
+    // Guests / RSVPs / Participants show only when the plan grants them (as the sidebar did).
+    const planOptions = useEventOptions();
+    const granted = grantedSections(planOptions.data);
+    const visibleTabs = TABS.filter((t) => {
+        const gate = EVENT_SECTIONS.find((e) => e.tab === t.value);
+        return !gate || (!!planOptions.data && granted.has(gate.section));
+    });
+    const openTab = (v: TabValue) => {
+        if (PAGE_TABS.includes(v)) router.push(`/dashboard/events/${eventId}/${v}`);
+        else setTab(v);
+    };
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
     // The QR inside the dialog, captured on demand by its Download button.
@@ -134,8 +152,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
     const remove = useDeleteEvent();
     // The people attending THIS event — participants, not the phone book (§581).
     const rsvp = useParticipantStats(eventId);
-    const guests = useParticipants({ event_id: eventId, limit: 8 });
-    const participantCap = useParticipantCapacity(eventId);
 
     if (query.isLoading) {
         return (
@@ -289,9 +305,9 @@ export function EventDetail({ eventId }: { eventId: number }) {
             </Card>
 
             {/* ── Tabs ────────────────────────────────────────────────────── */}
-            <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="overflow-x-auto">
+            <Tabs value={tab} onValueChange={(v) => openTab(v as TabValue)} className="overflow-x-auto">
                 <TabsList variant="line" className="h-auto gap-0 border-b border-border p-0">
-                    {TABS.map((t) => (
+                    {visibleTabs.map((t) => (
                         <TabsTrigger
                             key={t.value}
                             value={t.value}
@@ -405,8 +421,8 @@ export function EventDetail({ eventId }: { eventId: number }) {
                     <div className="flex min-w-0 flex-col gap-5">
                         <Panel title="Quick Links">
                             <div className="flex flex-col gap-2 pt-1">
-                                <QuickLink icon={faUsers} label="View Guests" href={`/dashboard/guests?event=${event.id}`} />
-                                <QuickLink icon={faSquareCheck} label="View RSVPs" onClick={() => setTab("rsvps")} />
+                                <QuickLink icon={faUsers} label="View Guests" onClick={() => openTab("guests")} />
+                                <QuickLink icon={faSquareCheck} label="View RSVPs" onClick={() => openTab("rsvps")} />
                                 {/* Held by decision — see the Messages tab. */}
                                 <QuickLink icon={faComments} label="Send Message" soon />
                                 <QuickLink icon={faQrcode} label="Download QR Code" onClick={() => setQrOpen(true)} />
@@ -522,66 +538,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
             {/* ── Settings ────────────────────────────────────────────────── */}
             {tab === "settings" && <SettingsPanel event={event} />}
-
-            {tab === "rsvps" && (
-                <div className="flex flex-col gap-5">
-                    {participantCap.data?.limit != null && (
-                        <Card className="min-w-0 border border-border py-0 shadow-none">
-                            <CardContent className="p-4">
-                                <PlanUsageBar
-                                    label="Participants on this event (plan's Max RSVP per event)"
-                                    used={participantCap.data.used}
-                                    limit={participantCap.data.limit}
-                                />
-                            </CardContent>
-                        </Card>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                        <MiniTile label="Accepted" value={rsvp.data?.accepted ?? 0} icon={faCircleCheck} color="#22C55E" />
-                        <MiniTile label="Pending" value={rsvp.data?.pending ?? 0} icon={faMinus} color="#F59E0B" />
-                        <MiniTile label="Declined" value={rsvp.data?.declined ?? 0} icon={faXmark} color="#EF4444" />
-                        <MiniTile label="Not Responded" value={rsvp.data?.not_responded ?? 0} icon={faUsers} color="#3B82F6" />
-                    </div>
-
-                    <Panel title="Guests on this event">
-                        {guests.isLoading ? (
-                            <div className="flex flex-col gap-2 py-2">
-                                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full rounded-md" />)}
-                            </div>
-                        ) : (guests.data?.data ?? []).length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-8 text-center">
-                                <FontAwesomeIcon icon={faUsers} className="!size-[22px] text-muted-foreground/40" />
-                                <p className="text-[12.5px] font-semibold text-foreground">No guests yet</p>
-                                <Button asChild size="sm" className="mt-1 h-8 text-[12px]">
-                                    <Link href="/dashboard/guests/add">Add a guest</Link>
-                                </Button>
-                            </div>
-                        ) : (
-                            <>
-                                <ul className="divide-y divide-border">
-                                    {(guests.data?.data ?? []).map((guest) => (
-                                        <li key={guest.id} className="flex items-center gap-3 py-2.5">
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[12.5px] font-medium text-foreground break-words">{guest.name}</p>
-                                                <p className="text-[11px] text-muted-foreground break-all">{guest.email}</p>
-                                            </div>
-                                            <Badge variant="secondary" className="shrink-0 rounded text-[10.5px] capitalize">
-                                                {guest.rsvp_status.replace("_", " ")}
-                                            </Badge>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <Separator className="my-3" />
-                                <Link href={`/dashboard/rsvps?event=${event.id}`}
-                                    className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-primary hover:underline">
-                                    View all participants for this event
-                                    <FontAwesomeIcon icon={faArrowRight} className="!size-[9px]" />
-                                </Link>
-                            </>
-                        )}
-                    </Panel>
-                </div>
-            )}
 
             {/* ── Messages — ON HOLD ──────────────────────────────────────── */}
             {tab === "messages" && (
@@ -808,27 +764,6 @@ function QuickLink({
             className={cn(base, "w-full text-left text-foreground hover:border-primary/40 hover:bg-primary/5")}>
             {inner}
         </button>
-    );
-}
-
-function MiniTile({
-    label, value, icon, color,
-}: {
-    label: string; value: number; icon: typeof faUsers; color: string;
-}) {
-    return (
-        <Card className="min-w-0 border border-border py-0 shadow-none">
-            <CardContent className="flex items-center gap-3 p-4">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md"
-                    style={{ backgroundColor: `${color}1A` }}>
-                    <FontAwesomeIcon icon={icon} className="!size-[12px]" style={{ color }} />
-                </span>
-                <div className="min-w-0">
-                    <p className="text-[18px] font-bold leading-none tabular-nums text-foreground">{value}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground break-words">{label}</p>
-                </div>
-            </CardContent>
-        </Card>
     );
 }
 
