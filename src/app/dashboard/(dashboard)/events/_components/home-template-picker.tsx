@@ -182,7 +182,7 @@ export function HomeTemplatePicker({
                         <div className="mt-3 flex items-start gap-2 rounded-md bg-card px-3 py-2">
                             <FontAwesomeIcon icon={faCircleInfo} className="mt-0.5 !size-[12px] shrink-0 text-primary" />
                             <p className="text-[11px] leading-4 text-muted-foreground">
-                                This is a live preview of the template. Colours, images and content can be customised later.
+                                This is a live preview of the template.
                             </p>
                         </div>
                     </aside>

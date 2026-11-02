@@ -1361,11 +1361,6 @@ export function EventWizard({
                                             invalid={errors.category_id}
                                         />
                                     </Field>
-                                    {form.category_id && (
-                                        <p className="self-end rounded-md bg-muted/50 px-3 py-2 text-[12px] text-muted-foreground md:col-span-2 md:justify-self-end">
-                                            Colours, images and content can be customised later.
-                                        </p>
-                                    )}
                                 </div>
 
                                 {/* Mobile app home design — templates from the admin's
