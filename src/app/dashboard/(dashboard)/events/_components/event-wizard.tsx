@@ -1217,10 +1217,10 @@ export function EventWizard({
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <h1 className="text-[22px] font-bold tracking-tight text-foreground">
+                        <h1 className="text-[19px] font-bold tracking-tight text-foreground">
                             {section ? `Edit ${SECTION_PAGES[section].title}` : isEdit ? "Edit Event" : "New Event"}
                         </h1>
-                        <p className="mt-1 text-[13.5px] text-muted-foreground">
+                        <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                             {section
                                 ? form.name || "Update this part of your event."
                                 : isEdit
@@ -1265,13 +1265,13 @@ export function EventWizard({
                         const done = n < step;
                         const current = n === step;
                         return (
-                            <li key={label} className="relative flex flex-1 flex-col items-center gap-2">
+                            <li key={label} className="relative flex flex-1 flex-col items-center gap-1">
                                 {/* Connector sits behind the circle and stops at the
                                     row edges, so it never pokes out past step 1 or 6. */}
                                 {i > 0 && (
                                     <span
                                         className={cn(
-                                            "absolute left-0 top-[15px] h-[2px] w-1/2 -translate-x-1/2",
+                                            "absolute left-0 top-[13px] h-[2px] w-1/2 -translate-x-1/2",
                                             done || current ? "bg-primary" : "bg-border"
                                         )}
                                         aria-hidden
@@ -1280,7 +1280,7 @@ export function EventWizard({
                                 {i < STEPS.length - 1 && (
                                     <span
                                         className={cn(
-                                            "absolute right-0 top-[15px] h-[2px] w-1/2 translate-x-1/2",
+                                            "absolute right-0 top-[13px] h-[2px] w-1/2 translate-x-1/2",
                                             done ? "bg-primary" : "bg-border"
                                         )}
                                         aria-hidden
@@ -1288,7 +1288,7 @@ export function EventWizard({
                                 )}
                                 <span
                                     className={cn(
-                                        "relative z-10 grid h-8 w-8 place-items-center rounded-full border-2 text-[12.5px] font-semibold transition-colors",
+                                        "relative z-10 grid h-7 w-7 place-items-center rounded-full border-2 text-[12px] font-semibold transition-colors",
                                         done && "border-primary bg-primary text-primary-foreground",
                                         current && "border-primary bg-primary text-primary-foreground",
                                         !done && !current && "border-border bg-card text-muted-foreground"
@@ -1298,7 +1298,7 @@ export function EventWizard({
                                 </span>
                                 <span
                                     className={cn(
-                                        "px-0.5 text-center text-[11px] leading-tight sm:text-[12px]",
+                                        "px-0.5 text-center text-[11px] leading-tight",
                                         current ? "font-semibold text-primary" : "text-muted-foreground"
                                     )}
                                 >
@@ -1309,9 +1309,9 @@ export function EventWizard({
                     })}
                 </ol>
                 {/* The active step's description, under its own label. */}
-                <div className="relative mt-1.5 hidden h-5 lg:block">
+                <div className="relative mt-1 hidden h-4 lg:block">
                     <p
-                        className="absolute whitespace-nowrap text-[12.5px] text-muted-foreground"
+                        className="absolute whitespace-nowrap text-[12px] text-muted-foreground"
                         style={{
                             left: `${((step - 0.5) / STEPS.length) * 100}%`,
                             transform: `translateX(${step <= 1 ? "-25%" : step >= STEPS.length - 1 ? "-75%" : "-50%"})`,
@@ -1412,9 +1412,9 @@ export function EventWizard({
                         {/* ── Step 2 ─────────────────────────────────────────── */}
                         {/* ── Step 2 — Basic Details ─────────────────────────── */}
                         {step === S_BASIC && (
-                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
-                                {/* Left: the text fields, in order. Right: the photo. */}
-                                <div className="flex min-w-0 flex-col gap-4">
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] md:gap-x-5">
+                                {/* Three columns on a laptop: text | hosts + status | photo. */}
+                                <div className="flex min-w-0 flex-col gap-3">
                                 <Field label="Event Title" required error={errors.name}>
                                     <Input
                                         value={form.name}
@@ -1445,6 +1445,8 @@ export function EventWizard({
                                     <Counter value={form.description.length} max={300} />
                                 </Field>
 
+                                </div>
+                                <div className="flex min-w-0 flex-col gap-3">
                                 {/* Two fields: the app and the invitation print them
                                     either side of an ampersand. */}
                                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1481,7 +1483,7 @@ export function EventWizard({
                                                     onClick={() => setField("privacy", o.value)}
                                                     aria-pressed={active}
                                                     className={cn(
-                                                        "rounded-lg border p-3 text-left transition",
+                                                        "rounded-lg border px-3 py-2 text-left transition",
                                                         active ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border hover:bg-muted/50"
                                                     )}
                                                 >
@@ -1491,7 +1493,7 @@ export function EventWizard({
                                             );
                                         })}
                                     </div>
-                                    <p className="mt-2 text-[11.5px] text-muted-foreground">
+                                    <p className="mt-1.5 text-[11.5px] text-muted-foreground">
                                         {form.privacy === "private"
                                             ? "A guest is counted as a participant only after completing check-in at the event."
                                             : "A guest is counted as a participant once they complete the RSVP."}
@@ -1499,26 +1501,19 @@ export function EventWizard({
                                 </Field>
                                 </div>
 
-                                {/* The photo fills its column; its size guide sits under it. */}
-                                <div className="flex min-w-0 flex-col gap-3">
+                                {/* The photo, with its size guide as the hint. */}
+                                <div className="flex min-w-0 flex-col md:col-span-2 xl:col-span-1">
                                     <CoverImageField
                                         label="Upload Event Photo"
                                         value={form.cover_image}
                                         onChange={(url) => setField("cover_image", url)}
                                         error={errors.cover_image}
-                                        previewClassName="mx-auto aspect-square w-full max-w-[340px]"
+                                        previewClassName="aspect-square w-full max-w-[230px]"
                                         aspect={1}
                                         outputSize={1080}
-                                        hint="JPG, PNG or WEBP. Cropped square, as in the app."
-                                        emptyClassName="mx-auto aspect-square w-full max-w-[340px] justify-center"
+                                        hint="Square 1:1 · 1080 × 1080 px · JPG, PNG or WEBP. Zoom and move it in the crop window."
+                                        emptyClassName="aspect-square w-full max-w-[230px] justify-center"
                                     />
-                                    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-                                        <p className="text-[12.5px] font-semibold text-foreground">Image size</p>
-                                        <p className="mt-0.5 text-[12px] text-muted-foreground">
-                                            Square (1:1), as in the mobile app · saved at 1080 × 1080 px · JPG, PNG or WEBP.
-                                            After you pick a photo you can zoom and move it to fit before it is uploaded.
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1528,7 +1523,7 @@ export function EventWizard({
                             <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
                                 <Field label="Event Time Zone">
                                     <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
-                                        <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
+                                        <SelectTrigger className="h-10 w-full rounded-md"><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             {/* A saved zone that is not in the list (the app writes
                                                 longer names) is still offered, or the box shows empty. */}
@@ -1569,13 +1564,13 @@ export function EventWizard({
 
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
-                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
+                            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-5">
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
-                                <div className="flex flex-col gap-2 lg:row-span-7">
+                                <div className="flex min-w-0 flex-col gap-2">
                                 <div>
-                                    <p className="text-[14px] font-semibold text-foreground">Step 1 (Search on Map)</p>
+                                    <p className="text-[13.5px] font-semibold text-foreground">Step 1 (Search on Map)</p>
                                     <p className="text-[12px] text-muted-foreground">Find the venue, then drop or move the pin.</p>
                                 </div>
                                 <Field label="Venue Location" required error={errors.venue_pin}>
@@ -1619,10 +1614,12 @@ export function EventWizard({
                                     />
                                 </Field>
                                 </div>
-                                <div>
-                                    <p className="text-[14px] font-semibold text-foreground">Step 2 (Want to Edit)</p>
+                                <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2">
+                                <div className="sm:col-span-2">
+                                    <p className="text-[13.5px] font-semibold text-foreground">Step 2 (Want to Edit)</p>
                                     <p className="text-[12px] text-muted-foreground">Enter manually, or correct what the map filled in.</p>
                                 </div>
+                                <div className="sm:col-span-2">
                                 <Field label="Venue Name" required error={errors.venue_name}>
                                     <Input
                                         value={form.venue_name}
@@ -1631,6 +1628,8 @@ export function EventWizard({
                                         className={cn("h-10 rounded-md", errors.venue_name && "border-destructive")}
                                     />
                                 </Field>
+                                </div>
+                                <div className="sm:col-span-2">
                                 <Field label="Address" required error={errors.venue_address}>
                                     <Textarea
                                         value={form.venue_address}
@@ -1640,6 +1639,7 @@ export function EventWizard({
                                     />
                                     <Counter value={form.venue_address.length} max={500} />
                                 </Field>
+                                </div>
                                 <Field label="City" required error={errors.venue_landmark}>
                                     <Input
                                         value={form.venue_landmark}
@@ -1657,7 +1657,7 @@ export function EventWizard({
                                     />
                                 </Field>
                                 {/* The app drops this pin on its map; here it is typed. */}
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
                                     <Field label="Latitude">
                                         <Input
                                             inputMode="decimal"
@@ -1677,20 +1677,25 @@ export function EventWizard({
                                         />
                                     </Field>
                                 </div>
+                                <div className="sm:col-span-2">
                                 <CoverImageField
                                     label="Venue Image"
                                     required={false}
-                                    hint="JPG, PNG or WEBP. A photo of the venue, shown to guests in the app."
+                                    hint="JPG, PNG or WEBP · 16:9. Filled from the place when Google has a photo."
                                     value={form.venue_image}
                                     onChange={(url) => setField("venue_image", url)}
+                                    previewClassName="aspect-[16/9] w-full max-w-[300px]"
+                                    emptyClassName="w-full max-w-[420px] py-3"
                                 />
+                                </div>
+                                </div>
                             </div>
                         )}
 
                         {/* ── Step 7 — Organizer Details ─────────────────────── */}
                         {step === S_ORGANIZER && (
-                            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-x-6">
-                                <div className="flex min-w-0 flex-col gap-4">
+                            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:gap-x-5">
+                                <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2">
                                 <Field label="Organizer / Hosted By" required error={errors.organizer}>
                                     <Input
                                         value={form.organizer}
@@ -1699,7 +1704,7 @@ export function EventWizard({
                                         className={cn("h-10 rounded-md", errors.organizer && "border-destructive")}
                                     />
                                 </Field>
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="contents">
                                     <Field label="Contact Number" required error={errors.contact_phone}>
                                         <PhoneInput
                                             country={splitPhone(form.contact_phone).iso}
@@ -1738,8 +1743,8 @@ export function EventWizard({
                                     aspect={1}
                                     outputSize={600}
                                     cropTitle="Crop organizer photo"
-                                    previewClassName="aspect-square w-full"
-                                    emptyClassName="aspect-square w-full justify-center"
+                                    previewClassName="aspect-square w-full max-w-[220px]"
+                                    emptyClassName="aspect-square w-full max-w-[220px] justify-center"
                                 />
                             </div>
                         )}
@@ -1762,7 +1767,7 @@ export function EventWizard({
 
                         {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
                         {step === S_MENUS && (
-                            <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
+                            <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
                                 {/*
                                   Every menu the plan grants, in two panels by the
                                   menu's own Default flag: Default = always on,
@@ -1792,7 +1797,7 @@ export function EventWizard({
                                                 {panel.rows.map((m, idx) => {
                                                     const locked = isDefaultMenu(m);
                                                     return (
-                                                        <li key={m.id} className="flex items-center justify-between gap-4 py-3">
+                                                        <li key={m.id} className="flex items-center justify-between gap-4 py-2">
                                                             <span className="min-w-0 text-[13.5px] font-medium text-foreground break-words">
                                                                 {m.name}
                                                             </span>
@@ -2396,7 +2401,7 @@ export function EventWizard({
 
                         {/* ── Step 8 — Review ────────────────────────────────── */}
                         {step === S_REVIEW && (
-                            <div className="grid gap-4 lg:grid-cols-2">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                                 {/* Same order as the steps. */}
                                 {([
                                     {
@@ -2451,7 +2456,7 @@ export function EventWizard({
                                         ],
                                     },
                                 ] as const).map((section) => (
-                                    <div key={section.title} className="min-w-0 rounded-lg border border-border p-4">
+                                    <div key={section.title} className="min-w-0 rounded-lg border border-border p-3">
                                         <div className="mb-2 flex items-center justify-between gap-2">
                                             <p className="text-[13px] font-bold text-foreground">{section.title}</p>
                                             <button
@@ -2663,7 +2668,7 @@ export function EventWizard({
                 </CardContent>
             </Card>
 
-            <div className="flex items-center justify-center gap-2.5 rounded-md bg-primary/5 px-4 py-3 text-center">
+            <div className="flex items-center justify-center gap-2.5 rounded-md bg-primary/5 px-4 py-2 text-center">
                 <FontAwesomeIcon icon={faCircleInfo} className="!size-[13px] shrink-0 text-primary" />
                 <p className="text-[12.5px] text-muted-foreground">
                     You can save your progress at any time and continue later from{" "}

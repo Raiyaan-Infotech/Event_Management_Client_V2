@@ -228,12 +228,13 @@ export function SplashStep({
                     )}
                 </Section>
 
+                <div className="grid gap-3 xl:grid-cols-2">
                 {/* 2. Invitation parts, each with a switch */}
                 <Section title="2. Invitation Menu">
                     <p className="-mt-1 text-[12px] text-muted-foreground">Choose what is shown on the splash screen.</p>
-                    <ul className="grid gap-x-8 sm:grid-cols-2">
+                    <ul className="grid gap-x-6">
                         {SPLASH_COMPONENTS.map((c) => (
-                            <li key={c.key} className="flex items-center justify-between gap-3 border-b border-border py-2.5 text-[13px]">
+                            <li key={c.key} className="flex items-center justify-between gap-3 border-b border-border py-2 text-[13px]">
                                 {c.label}
                                 <Switch
                                     checked={!!value.components[c.key]}
@@ -245,15 +246,16 @@ export function SplashStep({
                     </ul>
                 </Section>
 
+                <div className="flex min-w-0 flex-col gap-3">
                 {/* 3. Animation */}
                 <Section title="3. Animation">
                     <Label className="text-[12.5px] font-medium">Select Animation</Label>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-4 gap-2">
                         {ANIMATIONS.map(({ value: a, label, icon: Icon }) => (
                             <button
                                 key={a} type="button" onClick={() => set("animation", a)} aria-pressed={value.animation === a}
                                 className={cn(
-                                    "flex flex-col items-center gap-2 rounded-lg border px-3 py-4 text-[12px] transition",
+                                    "flex flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center text-[11.5px] transition",
                                     value.animation === a ? "border-primary bg-primary/5 text-primary ring-2 ring-primary/20" : "border-border hover:bg-muted/50",
                                 )}
                             >
@@ -287,6 +289,8 @@ export function SplashStep({
                         </>
                     )}
                 </Section>
+                </div>
+                </div>
             </div>
 
             {/* Live phone preview */}
