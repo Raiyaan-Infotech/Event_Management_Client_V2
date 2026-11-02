@@ -20,7 +20,7 @@ import { faCheck, faEye, faCircleInfo, faMobileScreenButton } from '@fortawesome
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { HomeScreenPreview } from '@/components/common/home-screen-preview';
+import { HomeScreenPreview, type PreviewMenu } from '@/components/common/home-screen-preview';
 import { useHomeScreenTemplates, type HomeScreenTemplate } from '@/hooks/use-home-screen-templates';
 
 export function HomeTemplatePicker({
@@ -29,6 +29,7 @@ export function HomeTemplatePicker({
     value,
     onChange,
     hostNames,
+    menus,
 }: {
     categoryId: string;
     categoryName?: string;
@@ -37,6 +38,8 @@ export function HomeTemplatePicker({
     onChange: (id: string) => void;
     /** The event's own names once typed (edit mode), else a sample is shown. */
     hostNames?: string;
+    /** The event's menus (on, in order) — drawn on every preview. */
+    menus?: PreviewMenu[];
 }) {
     const { data, isLoading, isError } = useHomeScreenTemplates(categoryId);
     const templates = useMemo(() => data?.templates ?? [], [data]);
@@ -139,6 +142,7 @@ export function HomeTemplatePicker({
                                                 selected={String(t.id) === value}
                                                 previewing={previewed?.id === t.id}
                                                 hostNames={hostNames}
+                                                menus={menus}
                                                 onPreview={() => setPreviewId(t.id)}
                                                 onSelect={() => {
                                                     onChange(String(t.id));
@@ -169,6 +173,7 @@ export function HomeTemplatePicker({
                                         imageUrl={previewed.image_url}
                                         colors={previewed.colors}
                                         title={hostNames || undefined}
+                                        menus={menus}
                                     />
                                 </div>
                                 <p className="mt-3 break-words text-center text-[12.5px] font-semibold text-foreground">
@@ -213,6 +218,7 @@ function TemplateCard({
     selected,
     previewing,
     hostNames,
+    menus,
     onPreview,
     onSelect,
 }: {
@@ -220,6 +226,7 @@ function TemplateCard({
     selected: boolean;
     previewing: boolean;
     hostNames?: string;
+    menus?: PreviewMenu[];
     onPreview: () => void;
     onSelect: () => void;
 }) {
@@ -251,6 +258,7 @@ function TemplateCard({
                     imageUrl={template.image_url}
                     colors={template.colors}
                     title={hostNames || undefined}
+                    menus={menus}
                     size="sm"
                 />
             </button>

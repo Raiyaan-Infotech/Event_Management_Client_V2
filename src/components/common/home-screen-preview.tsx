@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { DynamicIcon } from '@/components/common/dynamic-icon';
 import { mediaUrl } from '@/lib/media-url';
 import type { TemplateColor } from '@/hooks/use-home-screen-templates';
 
@@ -27,6 +28,23 @@ const MENUS = [
     { label: 'Messages', Icon: MessageCircle },
     { label: 'Contact', Icon: Phone },
 ];
+
+/** One menu tile on the home screen: the event's real menu, with its admin icon. */
+export interface PreviewMenu {
+    id: number | string;
+    name: string;
+    icon?: string | null;
+}
+
+/**
+ * How the screen is split so EVERY menu fits without scrolling: more menus →
+ * a shorter image, smaller tiles, and 5 columns past 16.
+ */
+const fitFor = (count: number) =>
+    count <= 8 ? { image: '50%', cols: 4, tile: 'h-7 w-7', icon: 'size-3.5', label: 'text-[7px]', gapY: 'gap-y-1.5' }
+        : count <= 12 ? { image: '40%', cols: 4, tile: 'h-6 w-6', icon: 'size-3', label: 'text-[6.5px]', gapY: 'gap-y-1' }
+            : count <= 16 ? { image: '32%', cols: 4, tile: 'h-6 w-6', icon: 'size-3', label: 'text-[6px]', gapY: 'gap-y-1' }
+                : { image: '28%', cols: 5, tile: 'h-5 w-5', icon: 'size-2.5', label: 'text-[5.5px]', gapY: 'gap-y-0.5' };
 
 const COUNTDOWN = [
     { value: '25', label: 'Days' },
@@ -42,6 +60,7 @@ export function HomeScreenPreview({
     subtitle = 'Are getting married',
     date = '25 Jan 2026',
     size = 'md',
+    menus,
     className,
 }: {
     imageUrl: string | null | undefined;
@@ -50,6 +69,8 @@ export function HomeScreenPreview({
     subtitle?: string;
     date?: string;
     size?: 'sm' | 'md';
+    /** The event's menus in their order; omitted → a sample set. */
+    menus?: PreviewMenu[];
     className?: string;
 }) {
     const has = (key: TemplateColor['key']) => colors.some((c) => c.key === key);
@@ -62,6 +83,11 @@ export function HomeScreenPreview({
     const text = has('text') ? pick('text')! : '#1F2937';
     const src = mediaUrl(imageUrl);
     const sm = size === 'sm';
+    const list: PreviewMenu[] = menus?.length
+        ? menus
+        : MENUS.map((m) => ({ id: m.label, name: m.label, icon: null }));
+    const fit = fitFor(list.length);
+    const sampleIcon = (name: string) => MENUS.find((m) => m.label === name)?.Icon;
 
     return (
         <div
@@ -83,7 +109,7 @@ export function HomeScreenPreview({
                 />
 
                 {/* image */}
-                <div className="relative h-[50%] w-full shrink-0">
+                <div className="relative w-full shrink-0" style={{ height: fit.image }}>
                     {src ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -131,20 +157,34 @@ export function HomeScreenPreview({
 
                     <span className={cn('h-px w-3/4', sm ? 'my-1' : 'my-2')} style={{ backgroundColor: accent, opacity: 0.5 }} />
 
-                    <div className={cn('grid w-full grid-cols-4', sm ? 'gap-x-0.5 gap-y-0.5' : 'gap-x-1 gap-y-1.5')}>
-                        {MENUS.map(({ label, Icon }) => (
-                            <div key={label} className="flex min-w-0 flex-col items-center">
-                                <span
-                                    className={cn('flex items-center justify-center', sm ? 'h-4 w-4 rounded' : 'h-7 w-7 rounded-lg')}
-                                    style={{ backgroundColor: secondary, border: `1px solid ${accent}55` }}
-                                >
-                                    <Icon className={sm ? 'h-2 w-2' : 'h-3.5 w-3.5'} style={{ color: primary }} />
-                                </span>
-                                <span className={cn('w-full truncate', sm ? 'text-[4px]' : 'text-[7px]')} style={{ color: text }}>
-                                    {label}
-                                </span>
-                            </div>
-                        ))}
+                    <div
+                        className={cn('grid w-full', sm ? 'gap-x-0.5 gap-y-0.5' : cn('gap-x-1', fit.gapY))}
+                        style={{ gridTemplateColumns: `repeat(${fit.cols}, minmax(0, 1fr))` }}
+                    >
+                        {list.map((m) => {
+                            const Sample = sampleIcon(m.name);
+                            return (
+                                <div key={m.id} className="flex min-w-0 flex-col items-center" title={m.name}>
+                                    <span
+                                        className={cn('flex items-center justify-center', sm ? 'h-4 w-4 rounded' : cn(fit.tile, 'rounded-lg'))}
+                                        style={{ backgroundColor: secondary, border: `1px solid ${accent}55` }}
+                                    >
+                                        {m.icon ? (
+                                            <DynamicIcon name={m.icon} color={primary} className={sm ? 'size-2' : fit.icon} />
+                                        ) : Sample ? (
+                                            <Sample className={sm ? 'h-2 w-2' : fit.icon} style={{ color: primary }} />
+                                        ) : (
+                                            <span className={cn('font-bold leading-none', sm ? 'text-[5px]' : 'text-[8px]')} style={{ color: primary }}>
+                                                {m.name.slice(0, 1).toUpperCase()}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className={cn('w-full truncate', sm ? 'text-[4px]' : fit.label)} style={{ color: text }}>
+                                        {m.name}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

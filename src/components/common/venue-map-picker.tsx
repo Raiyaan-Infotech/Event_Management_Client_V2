@@ -265,26 +265,56 @@ export function VenueMapPicker({
         }
     };
 
+    /**
+     * A laptop has no GPS: the browser guesses from Wi-Fi / the internet
+     * connection, and the FIRST answer is often a city or two away. So watch
+     * for up to 10 s and keep the most accurate reading (stop early under
+     * 100 m), never reuse a cached one, and say so when it is still rough.
+     */
     const useCurrentLocation = () => {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation) {
+            toast.error('Your browser cannot share its location. Please search the venue instead.');
+            return;
+        }
         setLocating(true);
-        navigator.geolocation.getCurrentPosition(
+        let best: GeolocationPosition | null = null;
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            navigator.geolocation.clearWatch(watchId);
+            window.clearTimeout(timer);
+            setLocating(false);
+            if (!best) {
+                toast.error('Could not get your location. Please search the venue or tap it on the map.');
+                return;
+            }
+            const g = (window as unknown as { google?: G }).google;
+            const p = { lat: best.coords.latitude, lng: best.coords.longitude };
+            const accuracy = best.coords.accuracy;
+            if (g && mapRef.current) {
+                mapRef.current.setCenter(p);
+                mapRef.current.setZoom(accuracy > 1000 ? 12 : 16);
+                placePin(g, p, true);
+            } else {
+                onPick(p.lat, p.lng);
+                void lookup(null, p);
+            }
+            if (accuracy > 1000) {
+                toast.warning(
+                    'Approximate location (±' + Math.round(accuracy / 1000) + ' km). Please search the venue or tap the exact spot on the map.',
+                );
+            }
+        };
+        const watchId = navigator.geolocation.watchPosition(
             (pos) => {
-                setLocating(false);
-                const g = (window as unknown as { google?: G }).google;
-                const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                if (g && mapRef.current) {
-                    mapRef.current.setCenter(p);
-                    mapRef.current.setZoom(16);
-                    placePin(g, p, true);
-                } else {
-                    onPick(p.lat, p.lng);
-                    void lookup(null, p);
-                }
+                if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+                if (pos.coords.accuracy <= 100) finish();
             },
-            () => setLocating(false),
-            { enableHighAccuracy: true, timeout: 10000 },
+            () => finish(),
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
         );
+        const timer = window.setTimeout(finish, 10000);
     };
 
     if (!KEY) {

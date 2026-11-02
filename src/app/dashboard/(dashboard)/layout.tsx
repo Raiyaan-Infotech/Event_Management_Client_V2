@@ -49,7 +49,7 @@ export default function DashboardLayout({
           <Suspense fallback={<div className="h-[52px]" />}>
             <Breadcrumb />
           </Suspense>
-          <div className="flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 lg:px-6 pt-4 pb-4">
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 lg:px-6 pt-2.5 pb-4">
             {/* A section the plan does not include is refused here, the same
                 rule the sidebar uses to hide it — see PlanSectionGate. */}
             <PlanSectionGate>{children}</PlanSectionGate>

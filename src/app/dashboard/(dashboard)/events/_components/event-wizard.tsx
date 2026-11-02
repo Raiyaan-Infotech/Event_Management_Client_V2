@@ -46,6 +46,8 @@ import {
 } from "@/hooks/use-client-events";
 import { PRIMARY_SWATCHES } from "@/lib/event-themes";
 import { HomeTemplatePicker } from "./home-template-picker";
+import { HomeScreenPreview } from "@/components/common/home-screen-preview";
+import { useHomeScreenTemplates } from "@/hooks/use-home-screen-templates";
 import { SplashStep } from "./splash-step";
 import { PhoneInput } from "@/components/common/phone-input";
 import { joinPhone, mobileNumberError, splitPhone } from "@/lib/phone";
@@ -595,6 +597,9 @@ export function EventWizard({
     };
 
     const categoryId = form.category_id ? Number(form.category_id) : null;
+    const homeTemplates = useHomeScreenTemplates(form.category_id || null);
+    const selectedHomeTemplate =
+        homeTemplates.data?.templates.find((t) => String(t.id) === form.home_screen_template_id) ?? null;
 
     // One request. Everything here is already narrowed to the client's plan by
     // the backend, so the wizard cannot offer an option they have not paid for.
@@ -639,6 +644,13 @@ export function EventWizard({
     /** Every menu the plan grants, split by its own Default flag. */
     const defaultRows = useMemo(() => orderedMenuRows.filter(isDefaultMenu), [orderedMenuRows]);
     const addonRows = useMemo(() => orderedMenuRows.filter((m) => !isDefaultMenu(m)), [orderedMenuRows]);
+    /** What the app's home grid will show: every menu that is on, in the host's order. */
+    const previewMenus = useMemo(
+        () => orderedMenuRows
+            .filter((m) => isDefaultMenu(m) || (menus[m.id] ?? true))
+            .map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
+        [orderedMenuRows, menus],
+    );
     useEffect(() => {
         if (!menuRows.length) return;
         // In edit mode the saved selection IS the answer — defaulting unknown
@@ -1258,7 +1270,7 @@ export function EventWizard({
 
             {/* Stepper — whole wizard only; a single section has none. */}
             {!section && (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-hidden pb-0.5 lg:overflow-visible">
                 <ol className="flex w-full items-start">
                     {STEPS.map((label, i) => {
                         const n = i + 1;
@@ -1309,7 +1321,7 @@ export function EventWizard({
                     })}
                 </ol>
                 {/* The active step's description, under its own label. */}
-                <div className="relative mt-1 hidden h-4 lg:block">
+                <div className="relative mt-1 hidden h-[18px] overflow-visible lg:block">
                     <p
                         className="absolute whitespace-nowrap text-[12px] text-muted-foreground"
                         style={{
@@ -1395,6 +1407,7 @@ export function EventWizard({
                                     Categories master table. Optional: choosable later. */}
                                 {form.category_id && (
                                     <HomeTemplatePicker
+                                        menus={previewMenus}
                                         categoryId={form.category_id}
                                         categoryName={selectedCategory?.name}
                                         value={form.home_screen_template_id}
@@ -1536,28 +1549,29 @@ export function EventWizard({
                                         </SelectContent>
                                     </Select>
                                 </Field>
+                                {/* Row 1: Start Date + Start Time. Row 2: End Date + End Time. */}
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Start Date" required error={errors.start_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.start_date}
                                             disabled={isEdit}
                                             onChange={(v) => confirmDate("start_date", v)} invalid={errors.start_date} />
-                                        <p className="text-[11.5px] font-medium text-destructive">
-                                            * The event date cannot be changed after it is created.
-                                        </p>
+                                    </Field>
+                                    <Field label="Start Time" required error={errors.start_time}>
+                                        <IconInput icon={faClock} type="time" value={form.start_time}
+                                            onChange={(v) => setField("start_time", v)} invalid={errors.start_time} />
                                     </Field>
                                     <Field label="End Date" required error={errors.end_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.end_date}
                                             disabled={isEdit}
                                             onChange={(v) => confirmDate("end_date", v)} invalid={errors.end_date} />
                                     </Field>
-                                    <Field label="Start Time" required error={errors.start_time}>
-                                        <IconInput icon={faClock} type="time" value={form.start_time}
-                                            onChange={(v) => setField("start_time", v)} invalid={errors.start_time} />
-                                    </Field>
                                     <Field label="End Time" required error={errors.end_time}>
                                         <IconInput icon={faClock} type="time" value={form.end_time}
                                             onChange={(v) => setField("end_time", v)} invalid={errors.end_time} />
                                     </Field>
+                                    <p className="text-[11.5px] font-medium text-destructive sm:col-span-2">
+                                        * The event date cannot be changed after it is created.
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -1767,7 +1781,8 @@ export function EventWizard({
 
                         {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
                         {step === S_MENUS && (
-                            <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
+                            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_230px]">
+                            <div className="grid min-w-0 gap-x-8 gap-y-4 lg:grid-cols-2">
                                 {/*
                                   Every menu the plan grants, in two panels by the
                                   menu's own Default flag: Default = always on,
@@ -1832,6 +1847,25 @@ export function EventWizard({
                                         )}
                                     </div>
                                 ))}
+                            </div>
+                            {/* Live: the chosen home template with exactly these menus. */}
+                            <aside className="flex flex-col items-center gap-2 self-start rounded-xl border border-primary/20 bg-primary/5 p-3 xl:sticky xl:top-4">
+                                <p className="text-[12.5px] font-bold text-foreground">Mobile Home Preview</p>
+                                <HomeScreenPreview
+                                    imageUrl={selectedHomeTemplate?.image_url}
+                                    colors={selectedHomeTemplate?.colors ?? []}
+                                    title={
+                                        form.host_one.trim() && form.host_two.trim()
+                                            ? `${form.host_one.trim()} & ${form.host_two.trim()}`
+                                            : form.name || undefined
+                                    }
+                                    date={form.start_date ? formatDate(form.start_date) : undefined}
+                                    menus={previewMenus}
+                                />
+                                <p className="text-center text-[11px] text-muted-foreground">
+                                    {previewMenus.length} menus · updates as you switch and reorder
+                                </p>
+                            </aside>
                             </div>
                         )}
 
