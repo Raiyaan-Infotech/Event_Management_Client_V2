@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ApiError } from "@/lib/api-client";
+import { api, ApiError } from "@/lib/api-client";
 import { useEventOptions, type MenuOption } from "@/hooks/use-client-portal";
 import {
     useCreateEvent,
@@ -47,6 +47,8 @@ import {
 import { PRIMARY_SWATCHES } from "@/lib/event-themes";
 import { HomeTemplatePicker } from "./home-template-picker";
 import { SplashStep } from "./splash-step";
+import { PhoneInput } from "@/components/common/phone-input";
+import { joinPhone, mobileNumberError, splitPhone } from "@/lib/phone";
 import { EMPTY_SPLASH, saveEventSplash, splashFromRow, useEventSplash, type SplashState } from "@/hooks/use-event-splash";
 import { VenueMapPicker } from "@/components/common/venue-map-picker";
 import {
@@ -192,8 +194,10 @@ const TEMPLATE_TYPES = [
 const templateTypeLabel = (type: string | null | undefined) =>
     TEMPLATE_TYPES.find((t) => t.value === type)?.label ?? null;
 
+/** Fallback only — the real list comes from `/client/event-options` (`timezones`). */
+const DEFAULT_TIME_ZONE = "(GMT +05:30) India Standard Time (Mumbai, Kolkata, New Delhi, Colombo)";
 const TIME_ZONES = [
-    "(GMT +05:30) India Standard Time",
+    DEFAULT_TIME_ZONE,
     "(GMT +04:00) Gulf Standard Time",
     "(GMT +00:00) Greenwich Mean Time",
     "(GMT -05:00) Eastern Standard Time",
@@ -260,7 +264,7 @@ const EMPTY: FormState = {
     category_id: "",
     name: "", host_one: "", host_two: "", tagline: "", description: "",
     start_date: "", end_date: "", start_time: "", end_time: "",
-    timezone: TIME_ZONES[0],
+    timezone: DEFAULT_TIME_ZONE,
     venue_name: "", venue_address: "",
     venue_landmark: "", venue_map_link: "", venue_image: "", venue_lat: "", venue_lng: "",
     ceremony_title: "", ceremony_venue: "", ceremony_description: "",
@@ -342,6 +346,28 @@ export function EventWizard({
     const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
     const hubHref = eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events";
     const [form, setForm] = useState<FormState>(EMPTY);
+    /**
+     * Venue photo from the place itself: once the pin is placed, and only while
+     * the Venue Image is empty. Quiet when the place has no photo.
+     */
+    const lastPin = useRef<{ lat: number; lng: number } | null>(null);
+    const formRef = useRef(form);
+    formRef.current = form;
+    const loadVenuePhoto = async (name?: string) => {
+        const pin = lastPin.current;
+        if (!pin) return;
+        try {
+            const res = await api.get<{ url: string | null }>("/client/venue-photo", {
+                lat: pin.lat, lng: pin.lng, name: name ?? "",
+            });
+            if (!res?.url || lastPin.current !== pin || formRef.current.venue_image) return;
+            const url = res.url;
+            setForm((prev) => (prev.venue_image ? prev : { ...prev, venue_image: url }));
+            toast.success("Venue photo added from the location.");
+        } catch {
+            /* no photo — the host can upload one */
+        }
+    };
     /** What the venue map last wrote into each field (see the Venue step). */
     const mapFilled = useRef<Partial<Record<"venue_name" | "venue_address" | "venue_landmark", string>>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -512,7 +538,7 @@ export function EventWizard({
             // silently shows nothing at all if handed the seconds.
             start_time: (row.start_time ?? "").slice(0, 5),
             end_time: (row.end_time ?? "").slice(0, 5),
-            timezone: row.timezone || TIME_ZONES[0],
+            timezone: row.timezone || DEFAULT_TIME_ZONE,
             venue_name: row.venue_name ?? "",
             venue_address: row.venue_address ?? "",
             venue_landmark: row.venue_landmark ?? "",
@@ -935,7 +961,7 @@ export function EventWizard({
         if (need(S_ORGANIZER)) {
             if (!form.organizer_image) next.organizer_image = true;
             if (!form.organizer.trim()) next.organizer = true;
-            if (!form.contact_phone.trim()) next.contact_phone = true;
+            if (!splitPhone(form.contact_phone).number) next.contact_phone = true;
             if (!form.contact_email.trim()) next.contact_email = true;
             if (!form.footer_note.trim()) next.footer_note = true;
         }
@@ -968,11 +994,12 @@ export function EventWizard({
             return false;
         }
         if (need(S_ORGANIZER)) {
-            const phone = form.contact_phone.trim();
+            const phone = splitPhone(form.contact_phone);
             const email = form.contact_email.trim();
-            if (phone && !/^[\d\s+()-]{6,30}$/.test(phone)) {
+            const phoneError = mobileNumberError(phone.iso, phone.number);
+            if (phoneError) {
                 setErrors({ contact_phone: true });
-                toast.error("Please enter a valid contact number.");
+                toast.error(phoneError);
                 return false;
             }
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1038,7 +1065,7 @@ export function EventWizard({
                 ceremony_description: form.ceremony_description.trim() || null,
                 organizer: form.organizer.trim() || null,
                 organizer_image: form.organizer_image || null,
-                contact_phone: form.contact_phone.trim() || null,
+                contact_phone: splitPhone(form.contact_phone).number ? form.contact_phone.trim() : null,
                 contact_email: form.contact_email.trim() || null,
                 footer_note: form.footer_note.trim() || null,
                 privacy: form.privacy,
@@ -1186,7 +1213,7 @@ export function EventWizard({
     }
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
             <div>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -1298,7 +1325,7 @@ export function EventWizard({
             )}
 
             <Card className="border border-border shadow-none py-0">
-                <CardContent className="p-6">
+                <CardContent className="p-4 lg:p-5">
                     {section ? (
                         <>
                             {sectionPages && sectionPages.length > 1 && (
@@ -1385,15 +1412,15 @@ export function EventWizard({
                         {/* ── Step 2 ─────────────────────────────────────────── */}
                         {/* ── Step 2 — Basic Details ─────────────────────────── */}
                         {step === S_BASIC && (
-                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
+                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
                                 {/* Left: the text fields, in order. Right: the photo. */}
-                                <div className="flex min-w-0 flex-col gap-5">
+                                <div className="flex min-w-0 flex-col gap-4">
                                 <Field label="Event Title" required error={errors.name}>
                                     <Input
                                         value={form.name}
                                         onChange={(e) => setField("name", e.target.value.slice(0, 100))}
                                         placeholder={isCouple ? "e.g. Arjun weds Priya" : "Please enter the event title"}
-                                        className={cn("h-11 rounded-md", errors.name && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.name && "border-destructive")}
                                     />
                                     <Counter value={form.name.length} max={100} />
                                 </Field>
@@ -1403,7 +1430,7 @@ export function EventWizard({
                                         value={form.tagline}
                                         onChange={(e) => setField("tagline", e.target.value.slice(0, 100))}
                                         placeholder="Please enter a tagline"
-                                        className={cn("h-11 rounded-md", errors.tagline && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.tagline && "border-destructive")}
                                     />
                                     <Counter value={form.tagline.length} max={100} />
                                 </Field>
@@ -1413,20 +1440,20 @@ export function EventWizard({
                                         value={form.description}
                                         onChange={(e) => setField("description", e.target.value.slice(0, 300))}
                                         placeholder="Please enter a short description"
-                                        className={cn("min-h-[90px] rounded-md", errors.description && "border-destructive")}
+                                        className={cn("min-h-[72px] rounded-md", errors.description && "border-destructive")}
                                     />
                                     <Counter value={form.description.length} max={300} />
                                 </Field>
 
                                 {/* Two fields: the app and the invitation print them
                                     either side of an ampersand. */}
-                                <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label={isCouple ? "Groom Name" : "First Host"} required={isCouple} error={errors.host_one}>
                                         <Input
                                             value={form.host_one}
                                             onChange={(e) => setField("host_one", e.target.value.slice(0, 120))}
                                             placeholder={isCouple ? "Groom's name" : "First host's name"}
-                                            className={cn("h-11 rounded-md", errors.host_one && "border-destructive")}
+                                            className={cn("h-10 rounded-md", errors.host_one && "border-destructive")}
                                         />
                                     </Field>
                                     <Field label={isCouple ? "Bride Name" : "Second Host"} required={isCouple} error={errors.host_two}>
@@ -1434,7 +1461,7 @@ export function EventWizard({
                                             value={form.host_two}
                                             onChange={(e) => setField("host_two", e.target.value.slice(0, 120))}
                                             placeholder={isCouple ? "Bride's name" : "Second host's name"}
-                                            className={cn("h-11 rounded-md", errors.host_two && "border-destructive")}
+                                            className={cn("h-10 rounded-md", errors.host_two && "border-destructive")}
                                         />
                                     </Field>
                                 </div>
@@ -1479,13 +1506,16 @@ export function EventWizard({
                                         value={form.cover_image}
                                         onChange={(url) => setField("cover_image", url)}
                                         error={errors.cover_image}
-                                        previewClassName="aspect-[16/9] w-full"
-                                        emptyClassName="aspect-[16/9] w-full justify-center"
+                                        previewClassName="mx-auto aspect-square w-full max-w-[340px]"
+                                        aspect={1}
+                                        outputSize={1080}
+                                        hint="JPG, PNG or WEBP. Cropped square, as in the app."
+                                        emptyClassName="mx-auto aspect-square w-full max-w-[340px] justify-center"
                                     />
                                     <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
                                         <p className="text-[12.5px] font-semibold text-foreground">Image size</p>
                                         <p className="mt-0.5 text-[12px] text-muted-foreground">
-                                            Shape 16:9 (landscape) · saved at 1280 × 720 px · JPG, PNG or WEBP.
+                                            Square (1:1), as in the mobile app · saved at 1080 × 1080 px · JPG, PNG or WEBP.
                                             After you pick a photo you can zoom and move it to fit before it is uploaded.
                                         </p>
                                     </div>
@@ -1495,20 +1525,23 @@ export function EventWizard({
 
                         {/* ── Step 3 — Date & Time ───────────────────────────── */}
                         {step === S_DATE && (
-                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
+                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
                                 <Field label="Event Time Zone">
                                     <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
                                         <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             {/* A saved zone that is not in the list (the app writes
                                                 longer names) is still offered, or the box shows empty. */}
-                                            {(TIME_ZONES.includes(form.timezone) || !form.timezone ? TIME_ZONES : [form.timezone, ...TIME_ZONES]).map((z) => (
+                                            {(() => {
+                                                const list = opts?.timezones?.length ? opts.timezones : TIME_ZONES;
+                                                return list.includes(form.timezone) || !form.timezone ? list : [form.timezone, ...list];
+                                            })().map((z) => (
                                                 <SelectItem key={z} value={z}>{z}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </Field>
-                                <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Start Date" required error={errors.start_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.start_date}
                                             disabled={isEdit}
@@ -1536,7 +1569,7 @@ export function EventWizard({
 
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
-                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
+                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
@@ -1549,7 +1582,8 @@ export function EventWizard({
                                     <VenueMapPicker
                                         lat={form.venue_lat}
                                         lng={form.venue_lng}
-                                        onPick={(lat, lng) =>
+                                        onPick={(lat, lng) => {
+                                            lastPin.current = { lat, lng };
                                             // As in the app: the pin always sets the
                                             // Directions link to itself.
                                             setForm((prev) => ({
@@ -1557,8 +1591,8 @@ export function EventWizard({
                                                 venue_lat: lat.toFixed(6),
                                                 venue_lng: lng.toFixed(6),
                                                 venue_map_link: `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`,
-                                            }))
-                                        }
+                                            }));
+                                        }}
                                         onAddress={(place) => {
                                             // A field is filled only when it is empty or
                                             // still holds what the map wrote last time —
@@ -1579,6 +1613,7 @@ export function EventWizard({
                                                 return next;
                                             });
                                             toast.success("Location selected. Check the venue details.");
+                                            void loadVenuePhoto(place.name);
                                         }}
                                         onClear={() => setForm((prev) => ({ ...prev, venue_lat: "", venue_lng: "" }))}
                                     />
@@ -1593,7 +1628,7 @@ export function EventWizard({
                                         value={form.venue_name}
                                         onChange={(e) => setField("venue_name", e.target.value.slice(0, 255))}
                                         placeholder="e.g. The Grand Palace"
-                                        className={cn("h-11 rounded-md", errors.venue_name && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.venue_name && "border-destructive")}
                                     />
                                 </Field>
                                 <Field label="Address" required error={errors.venue_address}>
@@ -1601,16 +1636,16 @@ export function EventWizard({
                                         value={form.venue_address}
                                         onChange={(e) => setField("venue_address", e.target.value.slice(0, 500))}
                                         placeholder="Please enter the venue address"
-                                        className={cn("min-h-[90px] rounded-md", errors.venue_address && "border-destructive")}
+                                        className={cn("min-h-[72px] rounded-md", errors.venue_address && "border-destructive")}
                                     />
                                     <Counter value={form.venue_address.length} max={500} />
                                 </Field>
-                                <Field label="Landmark" required error={errors.venue_landmark}>
+                                <Field label="City" required error={errors.venue_landmark}>
                                     <Input
                                         value={form.venue_landmark}
                                         onChange={(e) => setField("venue_landmark", e.target.value.slice(0, 255))}
-                                        placeholder="e.g. Near Marina Beach"
-                                        className={cn("h-11 rounded-md", errors.venue_landmark && "border-destructive")}
+                                        placeholder="e.g. Chennai"
+                                        className={cn("h-10 rounded-md", errors.venue_landmark && "border-destructive")}
                                     />
                                 </Field>
                                 <Field label="Google Map Link" required error={errors.venue_map_link}>
@@ -1618,18 +1653,18 @@ export function EventWizard({
                                         value={form.venue_map_link}
                                         onChange={(e) => setField("venue_map_link", e.target.value.slice(0, 500))}
                                         placeholder="https://maps.google.com/..."
-                                        className={cn("h-11 rounded-md", errors.venue_map_link && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.venue_map_link && "border-destructive")}
                                     />
                                 </Field>
                                 {/* The app drops this pin on its map; here it is typed. */}
-                                <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Latitude">
                                         <Input
                                             inputMode="decimal"
                                             value={form.venue_lat}
                                             onChange={(e) => setField("venue_lat", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
                                             placeholder="13.0827"
-                                            className="h-11 rounded-md"
+                                            className="h-10 rounded-md"
                                         />
                                     </Field>
                                     <Field label="Longitude">
@@ -1638,7 +1673,7 @@ export function EventWizard({
                                             value={form.venue_lng}
                                             onChange={(e) => setField("venue_lng", e.target.value.replace(/[^0-9.-]/g, "").slice(0, 12))}
                                             placeholder="80.2707"
-                                            className="h-11 rounded-md"
+                                            className="h-10 rounded-md"
                                         />
                                     </Field>
                                 </div>
@@ -1654,24 +1689,24 @@ export function EventWizard({
 
                         {/* ── Step 7 — Organizer Details ─────────────────────── */}
                         {step === S_ORGANIZER && (
-                            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-10">
-                                <div className="flex min-w-0 flex-col gap-5">
+                            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-x-6">
+                                <div className="flex min-w-0 flex-col gap-4">
                                 <Field label="Organizer / Hosted By" required error={errors.organizer}>
                                     <Input
                                         value={form.organizer}
                                         onChange={(e) => setField("organizer", e.target.value.slice(0, 200))}
                                         placeholder="Please enter who is hosting this event"
-                                        className={cn("h-11 rounded-md", errors.organizer && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.organizer && "border-destructive")}
                                     />
                                 </Field>
-                                <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="grid gap-4 sm:grid-cols-2">
                                     <Field label="Contact Number" required error={errors.contact_phone}>
-                                        <Input
-                                            value={form.contact_phone}
-                                            onChange={(e) => setField("contact_phone", e.target.value.slice(0, 30))}
-                                            placeholder="Please enter a contact number"
-                                            inputMode="tel"
-                                            className={cn("h-11 rounded-md", errors.contact_phone && "border-destructive")}
+                                        <PhoneInput
+                                            country={splitPhone(form.contact_phone).iso}
+                                            number={splitPhone(form.contact_phone).number}
+                                            onChange={(iso, num) => setField("contact_phone", joinPhone(iso, num))}
+                                            placeholder="Contact number"
+                                            invalid={errors.contact_phone}
                                         />
                                     </Field>
                                     <Field label="Contact Email" required error={errors.contact_email}>
@@ -1680,7 +1715,7 @@ export function EventWizard({
                                             onChange={(e) => setField("contact_email", e.target.value.slice(0, 150))}
                                             placeholder="Please enter a contact email address"
                                             inputMode="email"
-                                            className={cn("h-11 rounded-md", errors.contact_email && "border-destructive")}
+                                            className={cn("h-10 rounded-md", errors.contact_email && "border-destructive")}
                                         />
                                     </Field>
                                 </div>
@@ -1689,7 +1724,7 @@ export function EventWizard({
                                         value={form.footer_note}
                                         onChange={(e) => setField("footer_note", e.target.value.slice(0, 300))}
                                         placeholder="Please enter a footer note"
-                                        className={cn("h-11 rounded-md", errors.footer_note && "border-destructive")}
+                                        className={cn("h-10 rounded-md", errors.footer_note && "border-destructive")}
                                     />
                                     <Counter value={form.footer_note.length} max={300} />
                                 </Field>
@@ -1727,7 +1762,7 @@ export function EventWizard({
 
                         {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
                         {step === S_MENUS && (
-                            <div className="grid gap-x-10 gap-y-8 lg:grid-cols-2">
+                            <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
                                 {/*
                                   Every menu the plan grants, in two panels by the
                                   menu's own Default flag: Default = always on,
@@ -1760,11 +1795,6 @@ export function EventWizard({
                                                         <li key={m.id} className="flex items-center justify-between gap-4 py-3">
                                                             <span className="min-w-0 text-[13.5px] font-medium text-foreground break-words">
                                                                 {m.name}
-                                                                {locked && (
-                                                                    <span className="block text-[11.5px] font-normal text-muted-foreground">
-                                                                        Always included
-                                                                    </span>
-                                                                )}
                                                             </span>
                                                             <div className="flex shrink-0 items-center gap-1">
                                                                 <Button
@@ -2396,7 +2426,7 @@ export function EventWizard({
                                         title: "Venue", go: S_VENUE, rows: [
                                             ["Venue", form.venue_name || "—"],
                                             ["Address", form.venue_address || "—"],
-                                            ["Landmark", form.venue_landmark || "—"],
+                                            ["City", form.venue_landmark || "—"],
                                         ],
                                     },
                                     {
@@ -2415,7 +2445,7 @@ export function EventWizard({
                                         title: "Organizer Details", go: S_ORGANIZER, rows: [
                                             ["Organizer Photo", form.organizer_image ? "Added" : "—"],
                                             ["Hosted By", form.organizer || "—"],
-                                            ["Contact Number", form.contact_phone || "—"],
+                                            ["Contact Number", splitPhone(form.contact_phone).number ? form.contact_phone : "—"],
                                             ["Contact Email", form.contact_email || "—"],
                                             ["Footer Note", form.footer_note || "—"],
                                         ],
@@ -2578,7 +2608,7 @@ export function EventWizard({
 
                     {/* Nav — hidden on the success step, which has its own action. */}
                     {(step < S_CREATED || !!section) && (
-                        <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5">
+                        <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
                             <Button
                                 variant="outline"
                                 onClick={() => {
@@ -2854,6 +2884,7 @@ function CoverImageField({
                 open={picked !== null}
                 onOpenChange={(o) => { if (!o) setPicked(null); }}
                 aspect={aspect}
+                shape="rect"
                 outputSize={outputSize}
                 title={cropTitle}
                 onCropped={(cropped) => {

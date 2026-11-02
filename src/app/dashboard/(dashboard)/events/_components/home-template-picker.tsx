@@ -74,7 +74,7 @@ export function HomeTemplatePicker({
     };
 
     return (
-        <section className="min-w-0 border-t border-border pt-5">
+        <section className="min-w-0 border-t border-border pt-4">
             <h3 className="text-[15px] font-bold text-foreground">Choose {label} Mobile App Home Template</h3>
             <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                 Pick a {label.toLowerCase()} home template, explore its colour palette, and preview how it will look

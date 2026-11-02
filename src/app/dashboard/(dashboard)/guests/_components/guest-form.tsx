@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PhoneInput } from "@/components/common/phone-input";
+import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
 import {
     useAllGuestGroups, useCreateGuest, useUpdateGuest, useGuest, useGuestCapacity,
     useGuestFormOptions,
@@ -47,7 +49,6 @@ import { LocationPicker, locationPaths, useLocationId } from "@/components/commo
  * purpose, so the UI never shows a state the API would reject.
  */
 
-const DIAL_CODES = ["+91", "+1", "+44", "+61", "+971", "+65"];
 
 const TITLES = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
 
@@ -204,6 +205,13 @@ export function GuestForm({ guestId }: { guestId?: number }) {
             toast.error("Please fill all mandatory fields.");
             return false;
         }
+        // Same per-country mobile check as the app.
+        const phoneError = mobileNumberError(countryForDial(form.dial_code), form.mobile);
+        if (phoneError) {
+            setErrors({ mobile: true });
+            toast.error(phoneError);
+            return false;
+        }
         return true;
     };
 
@@ -218,7 +226,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
             last_name: form.last_name.trim() || null,
             email: form.email.trim() || null,
             dial_code: form.dial_code,
-            mobile: form.mobile.trim(),
+            mobile: nationalMobile(countryForDial(form.dial_code), form.mobile),
             whatsapp: form.whatsapp.trim() || null,
             company: form.company.trim() || null,
             address_line1: form.address_line1.trim() || null,
@@ -304,27 +312,13 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                 </Field>
 
                                 <Field label="Phone Number" required error={errors.mobile}>
-                                    <div className="flex gap-2">
-                                        <Select value={form.dial_code} onValueChange={(v) => setField("dial_code", v)}>
-                                            <SelectTrigger className="h-11 w-[104px] shrink-0 rounded-md text-[13px]">
-                                                <FontAwesomeIcon icon={faPhone} className="mr-1 !size-[11px] text-muted-foreground" />
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {DIAL_CODES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <Input
-                                            value={form.mobile}
-                                            // Digits only — a name in the phone box is
-                                            // rejected by the server anyway, and stopping
-                                            // it here beats a round trip to say so.
-                                            onChange={(e) => setField("mobile", e.target.value.replace(/[^\d\s-]/g, "").slice(0, 20))}
-                                            placeholder="Enter phone number"
-                                            className={cn("h-11 min-w-0 flex-1 rounded-md", errors.mobile && "border-destructive")}
-                                            inputMode="numeric"
-                                        />
-                                    </div>
+                                    <PhoneInput
+                                        country={countryForDial(form.dial_code)}
+                                        number={form.mobile}
+                                        onChange={(iso, num) => { setField("dial_code", dialOf(iso)); setField("mobile", num); }}
+                                        placeholder="Enter phone number"
+                                        invalid={errors.mobile}
+                                    />
                                 </Field>
 
                                 <Field label="Guest Group">

@@ -174,6 +174,8 @@ export interface TemplateOption {
 
 export interface EventOptions {
     plan: ClientPlan | null;
+    /** Event time zones — the same list the mobile app shows. */
+    timezones?: string[];
     /**
      * Events already created on this account against `plan.max_events` —
      * DELETED ones included, because a deleted event still spends its slot.

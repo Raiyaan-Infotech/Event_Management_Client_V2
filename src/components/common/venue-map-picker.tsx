@@ -74,7 +74,8 @@ async function lookupGoogle(g: G, lat: number, lng: number): Promise<PickedPlace
     return {
         name: isPlace ? clean(comp('premise') ?? comp('point_of_interest') ?? top.address_components?.[0]?.long_name) : undefined,
         address: clean(top.formatted_address),
-        landmark: clean(comp('sublocality') ?? comp('sublocality_level_1') ?? comp('neighborhood') ?? comp('locality')),
+        // The City box (stored in venue_landmark): the town, not the neighbourhood.
+        landmark: clean(comp('locality') ?? comp('postal_town') ?? comp('administrative_area_level_3') ?? comp('administrative_area_level_2')),
     };
 }
 
@@ -114,7 +115,7 @@ async function lookupOsm(lat: number, lng: number): Promise<PickedPlace | null> 
     return {
         name: clean(d?.name),
         address: clean(d?.display_name),
-        landmark: clean(a.suburb ?? a.neighbourhood ?? a.city_district ?? a.city ?? a.town ?? a.village),
+        landmark: clean(a.city ?? a.town ?? a.village ?? a.county ?? a.state_district),
     };
 }
 
@@ -321,7 +322,7 @@ export function VenueMapPicker({
                 </Button>
             </form>
             <div className="relative overflow-hidden rounded-lg border border-border">
-                <div ref={mapDiv} className="h-[460px] w-full bg-muted" />
+                <div ref={mapDiv} className="h-[340px] w-full bg-muted xl:h-[400px]" />
                 {state === 'loading' && (
                     <div className="absolute inset-0 grid place-items-center text-[12px] text-muted-foreground">
                         Loading map…

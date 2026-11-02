@@ -46,6 +46,23 @@ const ANIMATIONS: { value: SplashAnimation; label: string; icon: typeof Circle }
 ];
 
 const MAX_MUSIC_BYTES = 5 * 1024 * 1024;
+const MAX_MUSIC_SECONDS = 60;
+
+/** A picked audio file's length in seconds; null when the browser can't read it. */
+function audioSeconds(file: File): Promise<number | null> {
+    return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const audio = new Audio();
+        const done = (v: number | null) => {
+            URL.revokeObjectURL(url);
+            resolve(v);
+        };
+        audio.preload = "metadata";
+        audio.onloadedmetadata = () => done(Number.isFinite(audio.duration) ? audio.duration : null);
+        audio.onerror = () => done(null);
+        audio.src = url;
+    });
+}
 
 export function SplashStep({
     value,
@@ -75,6 +92,17 @@ export function SplashStep({
             toast.error("Please choose an MP3 smaller than 5MB.");
             return;
         }
+        if (kind === "music") {
+            const seconds = await audioSeconds(file);
+            if (seconds === null) {
+                toast.error("That audio file could not be read. Please choose an MP3.");
+                return;
+            }
+            if (seconds > MAX_MUSIC_SECONDS + 0.5) {
+                toast.error("Please choose music of 1 minute or less.");
+                return;
+            }
+        }
         setUploading(kind);
         try {
             const url = await upload.mutateAsync(file);
@@ -88,8 +116,8 @@ export function SplashStep({
     };
 
     return (
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="flex min-w-0 flex-col gap-5">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="flex min-w-0 flex-col gap-3">
                 {/* 1. Background */}
                 <Section title="1. Background">
                     <Label className="text-[12.5px] font-medium">Background Type</Label>
@@ -251,7 +279,7 @@ export function SplashStep({
                                 uploading={uploading === "music"}
                                 onPick={() => musicInput.current?.click()}
                             />
-                            <p className="text-[11.5px] text-muted-foreground">Note: Recommended MP3 file size less than 5MB.</p>
+                            <p className="text-[11.5px] text-muted-foreground">Note: MP3, up to 1 minute and less than 5MB.</p>
                             <input
                                 ref={musicInput} type="file" accept="audio/mpeg,.mp3" className="hidden"
                                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void pickFile("music", f); }}
@@ -271,7 +299,7 @@ export function SplashStep({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
+        <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <h3 className="text-[12.5px] font-bold uppercase tracking-wide text-foreground">{title}</h3>
             {children}
         </section>
@@ -363,9 +391,9 @@ function PhonePreview({
     const [first, ...rest] = title.split("&").map((s) => s.trim());
 
     return (
-        <div className="w-[230px] rounded-[38px] border-[6px] border-neutral-900 bg-neutral-900 shadow-xl">
+        <div className="w-[210px] rounded-[38px] border-[6px] border-neutral-900 bg-neutral-900 shadow-xl">
             <div
-                className="relative h-[470px] overflow-hidden rounded-[32px] text-white"
+                className="relative h-[420px] overflow-hidden rounded-[32px] text-white"
                 style={{ background: splashBackgroundCss(value) }}
             >
                 <div className="absolute left-1/2 top-2 h-5 w-20 -translate-x-1/2 rounded-full bg-neutral-900" />

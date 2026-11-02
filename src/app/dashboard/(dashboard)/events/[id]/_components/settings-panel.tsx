@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { PhoneInput } from "@/components/common/phone-input";
+import { joinPhone, mobileNumberError, splitPhone } from "@/lib/phone";
 import { mediaUrl } from "@/lib/media-url";
 import {
     useOrganizerContact, useParticipantSettings, useRsvpSettings, useSaveOrganizerContact,
@@ -186,9 +188,10 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
     const [description, setDescription] = useState(contact.description ?? "");
 
     const submit = () => {
-        const digits = mobile.replace(/\D/g, "");
-        if (digits && (digits.length < 6 || digits.length > 15)) {
-            toast.error("Please enter a valid mobile number.");
+        const phone = splitPhone(mobile);
+        const phoneError = mobileNumberError(phone.iso, phone.number);
+        if (phoneError) {
+            toast.error(phoneError);
             return;
         }
         if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
@@ -197,7 +200,7 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
         }
         // Empty strings clear a field; the server treats them as null.
         save.mutate({
-            name: name.trim(), photo: photo ?? "", mobile: mobile.trim(),
+            name: name.trim(), photo: photo ?? "", mobile: phone.number ? mobile.trim() : "",
             email: email.trim(), address: address.trim(), description: description.trim(),
         });
     };
@@ -241,7 +244,11 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
                 <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-[12.5px]">Mobile</Label>
-                        <Input value={mobile} maxLength={30} inputMode="tel" onChange={(e) => setMobile(e.target.value)} />
+                        <PhoneInput
+                            country={splitPhone(mobile).iso}
+                            number={splitPhone(mobile).number}
+                            onChange={(iso, num) => setMobile(joinPhone(iso, num))}
+                        />
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-[12.5px]">Email</Label>

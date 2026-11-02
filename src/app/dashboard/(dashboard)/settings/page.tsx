@@ -24,6 +24,9 @@ import { PreferencesTab } from './_components/preferences-tab';
 import { NotificationsTab } from './_components/notifications-tab';
 import { SecurityTab } from './_components/security-tab';
 import { useClientProfile, useUpdateProfile } from '@/hooks/use-client-portal';
+import { toast } from 'sonner';
+import { PhoneInput } from '@/components/common/phone-input';
+import { countryForDial, dialOf, mobileNumberError, nationalMobile } from '@/lib/phone';
 
 /**
  * Settings.
@@ -212,22 +215,11 @@ function ProfileTab({ onSelectTab }: { onSelectTab?: (tab: string) => void }) {
                                     />
                                 </Field>
                                 <Field label="Phone Number">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={form.dial_code}
-                                            onChange={(e) => set('dial_code')(e.target.value)}
-                                            className="w-20 shrink-0"
-                                            aria-label="Country dialling code"
-                                        />
-                                        {/* Digits only. The server strips anything else anyway,
-                                            so accepting them here would just mean the field
-                                            silently changes on save. */}
-                                        <Input
-                                            inputMode="numeric"
-                                            value={form.mobile}
-                                            onChange={(e) => set('mobile')(e.target.value.replace(/\D/g, ''))}
-                                        />
-                                    </div>
+                                    <PhoneInput
+                                        country={countryForDial(form.dial_code)}
+                                        number={form.mobile}
+                                        onChange={(iso, num) => setForm((prev) => ({ ...prev, dial_code: dialOf(iso), mobile: num }))}
+                                    />
                                 </Field>
                                 <Field label="Company Name">
                                     <Input
@@ -248,7 +240,16 @@ function ProfileTab({ onSelectTab }: { onSelectTab?: (tab: string) => void }) {
                                 <div className="sm:col-span-2">
                                     <Button
                                         disabled={save.isPending}
-                                        onClick={() => save.mutate(form)}
+                                        onClick={() => {
+                                            // Same per-country mobile check as the app.
+                                            const iso = countryForDial(form.dial_code);
+                                            const phoneError = mobileNumberError(iso, form.mobile);
+                                            if (phoneError) {
+                                                toast.error(phoneError);
+                                                return;
+                                            }
+                                            save.mutate({ ...form, mobile: nationalMobile(iso, form.mobile) });
+                                        }}
                                     >
                                         {save.isPending && <Loader2 className="size-4 animate-spin" />}
                                         Save Changes

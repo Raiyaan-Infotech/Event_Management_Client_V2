@@ -2,10 +2,10 @@
 
 import { useCallback, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
-import { Loader2, ZoomIn } from 'lucide-react';
+import { Loader2, RotateCcw, RotateCw, ZoomIn } from 'lucide-react';
 
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    Dialog, DialogContent, DialogDescription, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,7 @@ export function ImageCropDialog({
     aspect = 1,
     outputSize = 512,
     title = 'Crop your photo',
+    shape,
 }: {
     /** The picked file. Null closes the dialog. */
     file: File | null;
@@ -52,9 +53,12 @@ export function ImageCropDialog({
     /** Longest edge of the exported image, in pixels. */
     outputSize?: number;
     title?: string;
+    /** Crop frame. Default: round for 1:1 (avatars), else a rectangle. */
+    shape?: 'round' | 'rect';
 }) {
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
+    const [rotation, setRotation] = useState(0);
     const [area, setArea] = useState<Area | null>(null);
     const [working, setWorking] = useState(false);
 
@@ -66,7 +70,7 @@ export function ImageCropDialog({
         if (!file || !area) return;
         setWorking(true);
         try {
-            const cropped = await cropToFile(objectUrl!, area, file.name, outputSize);
+            const cropped = await cropToFile(objectUrl!, area, file.name, outputSize, rotation);
             onCropped(cropped);
             onOpenChange(false);
         } finally {
@@ -74,39 +78,47 @@ export function ImageCropDialog({
             // Reset, or reopening the dialog for a different photo starts at the
             // previous one's zoom and offset.
             setZoom(1);
+            setRotation(0);
             setCrop({ x: 0, y: 0 });
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[440px]">
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>
-                        Drag to reposition, and use the slider to zoom.
+            {/* Laid out like the mobile app's cropper: a coloured title bar, a dark
+                crop area with grid lines, then rotate / zoom and the actions. */}
+            <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[520px] [&>button]:text-primary-foreground">
+                <div className="bg-primary px-4 py-3 text-primary-foreground">
+                    <DialogTitle className="text-[15px] font-semibold">{title}</DialogTitle>
+                    <DialogDescription className="text-[11.5px] text-primary-foreground/80">
+                        Drag to move, zoom and rotate to fit.
                     </DialogDescription>
-                </DialogHeader>
+                </div>
 
-                {/* The cropper needs a positioned box with real height — it fills
-                    its container absolutely and collapses to nothing without one. */}
-                <div className="relative h-64 w-full overflow-hidden rounded-md bg-muted">
+                {/* The cropper fills its box absolutely — the box needs a real height. */}
+                <div className="relative h-[340px] w-full bg-[#1b2333] sm:h-[380px]">
                     {objectUrl && (
                         <Cropper
                             image={objectUrl}
                             crop={crop}
                             zoom={zoom}
+                            rotation={rotation}
                             aspect={aspect}
-                            cropShape={aspect === 1 ? 'round' : 'rect'}
-                            showGrid={aspect !== 1}
+                            cropShape={shape ?? (aspect === 1 ? 'round' : 'rect')}
+                            showGrid
                             onCropChange={setCrop}
                             onZoomChange={setZoom}
+                            onRotationChange={setRotation}
                             onCropComplete={onCropComplete}
                         />
                     )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                    <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Rotate left"
+                        onClick={() => setRotation((r) => (r - 90 + 360) % 360)}>
+                        <RotateCcw className="size-4" />
+                    </Button>
                     <ZoomIn className="size-4 shrink-0 text-muted-foreground" />
                     <Label className="sr-only" htmlFor="crop-zoom">Zoom</Label>
                     <input
@@ -119,15 +131,19 @@ export function ImageCropDialog({
                         onChange={(e) => setZoom(Number(e.target.value))}
                         className="h-1 w-full cursor-pointer appearance-none rounded-full bg-muted accent-primary"
                     />
+                    <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Rotate right"
+                        onClick={() => setRotation((r) => (r + 90) % 360)}>
+                        <RotateCw className="size-4" />
+                    </Button>
                 </div>
 
-                <DialogFooter>
+                <div className="flex justify-end gap-2 px-4 py-3">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={confirm} disabled={!area || working}>
                         {working && <Loader2 className="size-4 animate-spin" />}
                         Use photo
                     </Button>
-                </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );
@@ -163,8 +179,9 @@ function useObjectUrl(file: File | null): string | null {
  * canvas is filled white first, because a transparent avatar over a dark theme
  * renders as a hole.
  */
-async function cropToFile(src: string, area: Area, name: string, size: number): Promise<File> {
-    const image = await loadImage(src);
+async function cropToFile(src: string, area: Area, name: string, size: number, rotation = 0): Promise<File> {
+    const loaded = await loadImage(src);
+    const image = rotation ? rotateImage(loaded, rotation) : loaded;
 
     // Never upscale: a 200px crop exported at 512 is just a blurry 200px crop
     // in a bigger file.
@@ -205,4 +222,22 @@ function loadImage(src: string): Promise<HTMLImageElement> {
         img.onerror = () => reject(new Error('That file could not be read as an image.'));
         img.src = src;
     });
+}
+
+/** The image turned by `deg`, on a canvas big enough to hold it. */
+function rotateImage(img: HTMLImageElement, deg: number): HTMLCanvasElement {
+    const rad = (deg * Math.PI) / 180;
+    const sin = Math.abs(Math.sin(rad));
+    const cos = Math.abs(Math.cos(rad));
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w * cos + h * sin);
+    canvas.height = Math.round(w * sin + h * cos);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Your browser could not process that image.');
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(img, -w / 2, -h / 2);
+    return canvas;
 }

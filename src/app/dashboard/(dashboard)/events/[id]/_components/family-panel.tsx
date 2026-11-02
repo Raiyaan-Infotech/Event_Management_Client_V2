@@ -16,6 +16,8 @@ import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { PhoneInput } from "@/components/common/phone-input";
+import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
 import { mediaUrl } from "@/lib/media-url";
 import {
     relationSuitsSide, useDeleteFamilyMember, useEventFamily, useRelationOptions, useReorderFamily,
@@ -238,6 +240,7 @@ function FamilyDialog({
     const [dob, setDob] = useState(member?.date_of_birth?.slice(0, 10) ?? "");
     const [email, setEmail] = useState(member?.email ?? "");
     const [mobile, setMobile] = useState(member?.mobile ?? "");
+    const [dial, setDial] = useState(member?.dial_code || "+91");
     const [side, setSide] = useState<"groom" | "bride" | null>(member?.side ?? null);
     const [relation, setRelation] = useState<string>(member?.relationship ?? "");
     const [notes, setNotes] = useState(member?.notes ?? "");
@@ -267,6 +270,12 @@ function FamilyDialog({
             toast.error("Please fill all mandatory fields.");
             return;
         }
+        // Same per-country mobile check as the app (optional field).
+        const phoneError = mobileNumberError(countryForDial(dial), mobile);
+        if (phoneError) {
+            toast.error(phoneError);
+            return;
+        }
         const picked = (relations.data ?? []).find((o) => o.name === relation);
         save.mutate(
             {
@@ -275,7 +284,7 @@ function FamilyDialog({
                     first_name: first.trim(), last_name: last.trim() || null,
                     title: title === NONE ? null : title,
                     side, relationship: relation, relationship_option_id: picked?.id ?? null,
-                    email: email.trim() || null, mobile: mobile.trim() || null, dial_code: "+91",
+                    email: email.trim() || null, mobile: nationalMobile(countryForDial(dial), mobile) || null, dial_code: dial,
                     date_of_birth: dob || null, notes: notes.trim() || null,
                     // '' clears a photo that was removed.
                     photo: photo ?? "",
@@ -342,9 +351,10 @@ function FamilyDialog({
                     </div>
                     <div className="flex flex-col gap-1.5">
                         <Label className="text-[12.5px]">Phone Number (optional)</Label>
-                        <Input
-                            inputMode="numeric" value={mobile} maxLength={15} placeholder="Digits only"
-                            onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                        <PhoneInput
+                            country={countryForDial(dial)}
+                            number={mobile}
+                            onChange={(iso, num) => { setDial(dialOf(iso)); setMobile(num); }}
                         />
                     </div>
 
