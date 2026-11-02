@@ -116,8 +116,8 @@ export function SplashStep({
     };
 
     return (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-            <div className="flex min-w-0 flex-col gap-3">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="flex min-w-0 flex-col gap-2.5">
                 {/* 1. Background */}
                 <Section title="1. Background">
                     <Label className="text-[12.5px] font-medium">Background Type</Label>
@@ -137,7 +137,7 @@ export function SplashStep({
                     </div>
 
                     {value.background === "image" && (
-                        <div className="mt-2 flex flex-col gap-2">
+                        <div className="mt-1 flex flex-col gap-1.5">
                             <Label className="text-[12.5px] font-medium">Background Image</Label>
                             <div className="flex flex-wrap items-center gap-4">
                                 <div
@@ -164,7 +164,7 @@ export function SplashStep({
                     )}
 
                     {value.background === "color" && (
-                        <div className="mt-2 flex flex-col gap-2">
+                        <div className="mt-1 flex flex-col gap-1.5">
                             <Label className="text-[12.5px] font-medium">Background Color</Label>
                             <ColorInput value={value.color} onChange={(c) => set("color", c)} />
                             <div className="flex flex-wrap gap-1.5">
@@ -180,7 +180,7 @@ export function SplashStep({
                     )}
 
                     {value.background === "gradient" && (
-                        <div className="mt-2 grid gap-5 sm:grid-cols-2">
+                        <div className="mt-1 grid gap-3 sm:grid-cols-2">
                             <div className="flex flex-col gap-2">
                                 <Label className="text-[12.5px] font-medium">Gradient Type</Label>
                                 <Select value={value.gradient_type} onValueChange={(v) => set("gradient_type", v as SplashState["gradient_type"])}>
@@ -228,7 +228,7 @@ export function SplashStep({
                     )}
                 </Section>
 
-                <div className="grid gap-3 xl:grid-cols-2">
+                <div className="grid gap-2.5 xl:grid-cols-2">
                 {/* 2. Invitation parts, each with a switch */}
                 <Section title="2. Invitation Menu">
                     <p className="-mt-1 text-[12px] text-muted-foreground">Choose what is shown on the splash screen.</p>
@@ -246,7 +246,7 @@ export function SplashStep({
                     </ul>
                 </Section>
 
-                <div className="flex min-w-0 flex-col gap-3">
+                <div className="flex min-w-0 flex-col gap-2.5">
                 {/* 3. Animation */}
                 <Section title="3. Animation">
                     <Label className="text-[12.5px] font-medium">Select Animation</Label>
@@ -303,7 +303,7 @@ export function SplashStep({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
+        <section className="flex flex-col gap-1.5 rounded-lg border border-border p-3">
             <h3 className="text-[12.5px] font-bold uppercase tracking-wide text-foreground">{title}</h3>
             {children}
         </section>

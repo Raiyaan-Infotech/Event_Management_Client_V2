@@ -1360,7 +1360,7 @@ export function EventWizard({
                             // Full card width, not capped: three selects in a row
                             // need the room, and any max-w leaves a dead gutter
                             // down the right of a wide card.
-                            <div className="grid gap-5">
+                            <div className="grid gap-3">
                                 {/* An empty dropdown with no explanation reads as a broken
                                     form. The taxonomy endpoints require a session, and this
                                     panel has no login of its own, so 401 is the likely
@@ -1389,7 +1389,7 @@ export function EventWizard({
                                     </div>
                                 )}
 
-                                <div className="grid gap-5 md:grid-cols-3">
+                                <div className="grid gap-3 md:grid-cols-3">
                                     <Field label="Event Category" required error={errors.category_id}>
                                         <TaxonomySelect
                                             value={form.category_id}
@@ -1425,9 +1425,9 @@ export function EventWizard({
                         {/* ── Step 2 ─────────────────────────────────────────── */}
                         {/* ── Step 2 — Basic Details ─────────────────────────── */}
                         {step === S_BASIC && (
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] md:gap-x-5">
+                            <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_230px] md:gap-x-5">
                                 {/* Three columns on a laptop: text | hosts + status | photo. */}
-                                <div className="flex min-w-0 flex-col gap-3">
+                                <div className="flex min-w-0 flex-col gap-2.5">
                                 <Field label="Event Title" required error={errors.name}>
                                     <Input
                                         value={form.name}
@@ -1459,10 +1459,10 @@ export function EventWizard({
                                 </Field>
 
                                 </div>
-                                <div className="flex min-w-0 flex-col gap-3">
+                                <div className="flex min-w-0 flex-col gap-2.5">
                                 {/* Two fields: the app and the invitation print them
                                     either side of an ampersand. */}
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2.5 sm:grid-cols-2">
                                     <Field label={isCouple ? "Groom Name" : "First Host"} required={isCouple} error={errors.host_one}>
                                         <Input
                                             value={form.host_one}
@@ -1533,7 +1533,7 @@ export function EventWizard({
 
                         {/* ── Step 3 — Date & Time ───────────────────────────── */}
                         {step === S_DATE && (
-                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
+                            <div className="grid gap-2.5 lg:grid-cols-2 lg:gap-x-6">
                                 <Field label="Event Time Zone">
                                     <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
                                         <SelectTrigger className="h-10 w-full rounded-md"><SelectValue /></SelectTrigger>
@@ -1550,7 +1550,7 @@ export function EventWizard({
                                     </Select>
                                 </Field>
                                 {/* Row 1: Start Date + Start Time. Row 2: End Date + End Time. */}
-                                <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="grid gap-2.5 sm:grid-cols-2">
                                     <Field label="Start Date" required error={errors.start_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.start_date}
                                             disabled={isEdit}
@@ -1578,7 +1578,7 @@ export function EventWizard({
 
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
-                            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-5">
+                            <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-5">
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
@@ -1628,7 +1628,7 @@ export function EventWizard({
                                     />
                                 </Field>
                                 </div>
-                                <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2">
+                                <div className="grid min-w-0 content-start gap-2.5 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
                                     <p className="text-[13.5px] font-semibold text-foreground">Step 2 (Want to Edit)</p>
                                     <p className="text-[12px] text-muted-foreground">Enter manually, or correct what the map filled in.</p>
@@ -1671,7 +1671,7 @@ export function EventWizard({
                                     />
                                 </Field>
                                 {/* The app drops this pin on its map; here it is typed. */}
-                                <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                                <div className="grid gap-2.5 sm:col-span-2 sm:grid-cols-2">
                                     <Field label="Latitude">
                                         <Input
                                             inputMode="decimal"
@@ -1708,8 +1708,8 @@ export function EventWizard({
 
                         {/* ── Step 7 — Organizer Details ─────────────────────── */}
                         {step === S_ORGANIZER && (
-                            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:gap-x-5">
-                                <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2">
+                            <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_220px] md:gap-x-5">
+                                <div className="grid min-w-0 content-start gap-2.5 sm:grid-cols-2">
                                 <Field label="Organizer / Hosted By" required error={errors.organizer}>
                                     <Input
                                         value={form.organizer}
@@ -1781,8 +1781,8 @@ export function EventWizard({
 
                         {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
                         {step === S_MENUS && (
-                            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_230px]">
-                            <div className="grid min-w-0 gap-x-8 gap-y-4 lg:grid-cols-2">
+                            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_230px]">
+                            <div className="grid min-w-0 gap-x-8 gap-y-2.5 lg:grid-cols-2">
                                 {/*
                                   Every menu the plan grants, in two panels by the
                                   menu's own Default flag: Default = always on,
@@ -1792,7 +1792,7 @@ export function EventWizard({
                                     { key: "addon", title: "Additional Menus", text: "Enable or disable the menus for this event.", rows: addonRows, empty: "No additional menus in your plan." },
                                     { key: "default", title: "Default Menus", text: "These are default menus, so they can't be disabled.", rows: defaultRows, empty: "No menus are configured for this event type yet." },
                                 ] as const).map((panel) => (
-                                    <div key={panel.key} className="flex min-w-0 flex-col gap-3">
+                                    <div key={panel.key} className="flex min-w-0 flex-col gap-2.5">
                                         <div>
                                             <h3 className="text-[13.5px] font-semibold text-foreground">{panel.title}</h3>
                                             <p className="mt-0.5 text-[12.5px] text-muted-foreground">{panel.text}</p>
@@ -2239,7 +2239,7 @@ export function EventWizard({
                                 artwork.kind === "template" && "xl:grid-cols-[minmax(0,1fr)_300px]"
                             )}>
                                 {artwork.kind === "template" && (
-                                    <div className="flex min-w-0 flex-col gap-3">
+                                    <div className="flex min-w-0 flex-col gap-2.5">
                                         <PanelHeading label="Invitation Components" />
 
                                         <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
@@ -2805,7 +2805,7 @@ function Field({
     label: string; required?: boolean; error?: boolean; hint?: string; children: React.ReactNode;
 }) {
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
             <Label className="text-[12.5px] font-medium">
                 {label} {required && <span className="text-destructive">*</span>}
             </Label>
@@ -2847,7 +2847,7 @@ function CoverImageField({
     const [picked, setPicked] = useState<File | null>(null);
 
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
             <Label className="text-[12.5px] font-medium">
                 {label} {required && <span className="text-destructive">*</span>}
             </Label>
@@ -3045,7 +3045,7 @@ function SectionRule({ label }: { label: string }) {
 
 function Counter({ value, max }: { value: number; max: number }) {
     return (
-        <p className="text-right text-[11px] tabular-nums text-muted-foreground">
+        <p className="-mt-1 text-right text-[10.5px] leading-none tabular-nums text-muted-foreground">
             {value}/{max}
         </p>
     );

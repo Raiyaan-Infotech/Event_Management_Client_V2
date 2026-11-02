@@ -99,7 +99,7 @@ export function HomeTemplatePicker({
                     No home templates for {label} yet. You can carry on — one can be chosen later.
                 </p>
             ) : (
-                <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
                     <div className="min-w-0">
                         {/* Style chips — from the Home Screen Categories master table */}
                         <div className="flex flex-wrap items-center gap-2">
