@@ -18,6 +18,7 @@ import {
     faClockRotateLeft,
     faSliders,
     faListCheck,
+    faUserCheck,
 } from "@fortawesome/free-solid-svg-icons"
 
 /**
@@ -101,6 +102,8 @@ export const navMain = [
             { title: "Notification History", url: "/dashboard/messages/notifications/history", icon: faClockRotateLeft, ready: true },
         ],
     },
+    // The app's Manage Participants (2026-11-02); plan menu slug `participants`.
+    { title: "Participants", url: "/dashboard/participants", icon: faUserCheck, section: "participants", items: [] },
     { title: "RSVPs", url: "/dashboard/rsvps", icon: faSquareCheck, section: "rsvp", items: [] },
     // Per event, as in the app (2026-10-31).
     { title: "Agenda", url: "/dashboard/agenda", icon: faListCheck, items: [] },

@@ -199,6 +199,9 @@ export interface RsvpUpdate {
     dietary_preference?: string | null;
     special_requirements?: string | null;
     notes?: string | null;
+    /** Edit Response's phone (as in the app): national number + its code. */
+    dial_code?: string;
+    mobile?: string;
 }
 
 export function useUpdateRsvp(onDone?: () => void) {

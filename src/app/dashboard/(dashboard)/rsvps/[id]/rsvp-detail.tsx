@@ -49,10 +49,10 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col gap-5 p-4 md:p-6">
+            <div className="flex flex-col gap-3.5">
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-28 rounded-xl" />
-                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
                     <Skeleton className="h-96 rounded-xl" />
                     <Skeleton className="h-96 rounded-xl" />
                 </div>
@@ -80,7 +80,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
     const g = r.guest;
 
     return (
-        <div className="flex min-w-0 flex-col gap-5 p-4 md:p-6">
+        <div className="flex min-w-0 flex-col gap-3.5">
             <div className="flex flex-wrap items-center gap-3">
                 <Button asChild variant="ghost" size="sm" className="-ms-2 text-muted-foreground">
                     <Link href="/dashboard/rsvps">
@@ -117,7 +117,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
             </div>
 
             <div className="flex min-w-0 flex-col gap-1">
-                <h1 className="text-2xl font-semibold tracking-tight">View RSVP</h1>
+                <h1 className="text-[20px] font-bold leading-tight tracking-tight">View RSVP</h1>
                 <p className="text-sm break-words text-muted-foreground">
                     Detailed RSVP information and guest response history.
                 </p>
@@ -125,7 +125,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
             {/* ── Header card ──────────────────────────────────────────────── */}
             <Card className="py-0">
-                <CardContent className="grid min-w-0 gap-5 p-5 sm:grid-cols-2 xl:grid-cols-5">
+                <CardContent className="grid min-w-0 gap-3.5 p-4 sm:grid-cols-2 xl:grid-cols-5">
                     <div className="min-w-0 xl:col-span-1">
                         <p className="text-lg font-semibold break-words">{g.name}</p>
                         {g.email ? (
@@ -163,13 +163,13 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                 </CardContent>
             </Card>
 
-            <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="flex min-w-0 flex-col gap-5">
+            <div className="grid min-w-0 items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Guest information ────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={Users} label="Guest Information" tint="bg-violet-500/15 text-violet-600 dark:text-violet-400" />
-                            <dl className="grid min-w-0 gap-4 sm:grid-cols-3">
+                            <dl className="grid min-w-0 gap-3 sm:grid-cols-3">
                                 <Field label="Full name" value={g.name} />
                                 <Field label="Email" value={g.email} breakAll />
                                 <Field label="Phone" value={g.mobile ? `${g.dial_code ?? ''} ${g.mobile}`.trim() : null} />
@@ -192,10 +192,10 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
                     {/* ── Response details ─────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={CircleCheck} label="Response Details" tint="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" />
 
-                            <dl className="grid min-w-0 gap-4 sm:grid-cols-3">
+                            <dl className="grid min-w-0 gap-3 sm:grid-cols-3">
                                 <div className="min-w-0">
                                     <dt className="text-[11px] text-muted-foreground">RSVP status</dt>
                                     <dd className="mt-1">
@@ -232,7 +232,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
                     {/* ── Custom answers ───────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={Info} label="Custom Answers" tint="bg-amber-500/15 text-amber-600 dark:text-amber-400" />
                             {r.custom_answers && Object.keys(r.custom_answers).length ? (
                                 <dl className="flex min-w-0 flex-col gap-2.5">
@@ -264,7 +264,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
                     {/* ── Invitation history ───────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={Mail} label={`Invitation History (${data.messages.length})`} tint="bg-blue-500/15 text-blue-600 dark:text-blue-400" />
                             {data.messages.length === 0 ? (
                                 <p className="rounded-lg border border-dashed px-3.5 py-5 text-center text-[11.5px] text-muted-foreground">
@@ -325,7 +325,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
                     {/* ── Linked events ────────────────────────────────────── */}
                     <Card className="py-0">
-                        <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                        <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                             <SectionHeading icon={Link2} label={`Linked Events (${data.linked_events.length})`} tint="bg-pink-500/15 text-pink-600 dark:text-pink-400" />
                             {/*
                               ⚠ NOT an RSVP history. This is the same PERSON at
@@ -398,7 +398,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
 
                 {/* ── Timeline rail ────────────────────────────────────────── */}
                 <Card className="py-0">
-                    <CardContent className="flex min-w-0 flex-col gap-4 p-5">
+                    <CardContent className="flex min-w-0 flex-col gap-3 p-4">
                         <SectionHeading icon={Clock} label="Timeline" tint="bg-primary/10 text-primary" />
                         <ol className="flex flex-col">
                             {data.timeline.map((e, i) => (
