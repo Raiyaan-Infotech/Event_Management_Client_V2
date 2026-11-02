@@ -81,6 +81,8 @@ export interface ClientEvent {
     ceremony_venue?: string | null;
     ceremony_description?: string | null;
     organizer: string | null;
+    /** The organizer's photo or logo. */
+    organizer_image?: string | null;
     contact_phone: string | null;
     contact_email: string | null;
     footer_note: string | null;
@@ -384,8 +386,8 @@ export function useCreateEvent(onDone?: (event: ClientEvent) => void) {
             const res = await api.post<{ event: ClientEvent } | ClientEvent>(ENDPOINT, data);
             return (res as { event?: ClientEvent }).event ?? (res as ClientEvent);
         },
-        onSuccess: (event) => {
-            toast.success('Event created successfully');
+        onSuccess: (event, data) => {
+            toast.success(data.status === 'draft' ? 'Draft saved successfully.' : 'Event created successfully');
             // refetchType 'all' also refreshes the dashboard's queries while
             // they are unmounted — otherwise going back shows the old list.
             qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
@@ -443,8 +445,8 @@ export function useUpdateEvent(onDone?: (event: ClientEvent) => void) {
             const res = await api.put<{ event: ClientEvent } | ClientEvent>(`${ENDPOINT}/${id}`, data);
             return (res as { event?: ClientEvent }).event ?? (res as ClientEvent);
         },
-        onSuccess: (event) => {
-            toast.success('Event updated successfully');
+        onSuccess: (event, { data }) => {
+            toast.success(data.status === 'draft' ? 'Draft saved successfully.' : 'Event updated successfully');
             qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
             onDone?.(event);
         },

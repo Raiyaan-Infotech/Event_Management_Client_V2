@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faSearch,
@@ -74,6 +74,9 @@ function initialsOf(name: string | undefined): string {
 
 export default function Header() {
     const router = useRouter();
+    const pathname = usePathname();
+    /** Create / Edit Event wizard open: no "New Event" while one is in progress. */
+    const inWizard = /^\/dashboard\/events\/(create|\d+\/edit)(\/|$)/.test(pathname ?? "");
     // resolvedTheme, not theme: with "system" stored, `theme` is "system" on a
     // dark OS — the icon showed a moon and the first click set "dark" again.
     const { resolvedTheme, setTheme } = useTheme();
@@ -158,6 +161,7 @@ export default function Header() {
             </form>
 
             <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+                {!inWizard && (
                 <Button
                     asChild
                     className="hidden h-9 rounded-md px-4 text-[12.5px] font-semibold sm:inline-flex"
@@ -167,6 +171,7 @@ export default function Header() {
                         New Event
                     </Link>
                 </Button>
+                )}
 
                 <Button
                     variant="ghost"

@@ -14,7 +14,7 @@ import { EditEventHub } from "../_components/edit-event-hub";
 
 // Kept here, not imported: the wizard is a client module, and a server page
 // cannot read a plain value exported from one. Must match SECTION_PAGES there.
-const SECTIONS: EditSectionKey[] = ["basic", "date", "venue", "menus", "organizer", "invitation"];
+const SECTIONS: EditSectionKey[] = ["splash", "basic", "date", "venue", "menus", "organizer", "invitation"];
 export default async function EditEventPage({
     params,
     searchParams,

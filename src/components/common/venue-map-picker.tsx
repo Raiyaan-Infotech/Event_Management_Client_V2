@@ -16,9 +16,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCrosshairs, faLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faCrosshairs, faLocationDot, faMagnifyingGlass, faXmark } from '@fortawesome/free-solid-svg-icons';
 
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const KEY = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim();
 const DEFAULT_CENTER = { lat: 13.0827, lng: 80.2707 }; // Chennai
@@ -78,6 +79,30 @@ async function lookupGoogle(g: G, lat: number, lng: number): Promise<PickedPlace
 }
 
 /** OpenStreetMap fallback — no key. */
+/** Typed place → coordinates: Google's geocoder first, OpenStreetMap after. */
+async function searchPlace(g: G | null, text: string): Promise<{ lat: number; lng: number; name?: string; address?: string } | null> {
+    if (g?.maps?.Geocoder) {
+        try {
+            const { results } = await new g.maps.Geocoder().geocode({ address: text });
+            const r = results?.[0];
+            if (r?.geometry?.location) {
+                return { lat: r.geometry.location.lat(), lng: r.geometry.location.lng(), address: clean(r.formatted_address) };
+            }
+        } catch {
+            /* Geocoding API not enabled for the key — fall back below */
+        }
+    }
+    const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(text)}`,
+        { headers: { Accept: 'application/json' } },
+    );
+    if (!res.ok) return null;
+    const rows = (await res.json()) as { lat: string; lon: string; name?: string; display_name?: string }[];
+    const r = rows?.[0];
+    if (!r) return null;
+    return { lat: Number(r.lat), lng: Number(r.lon), name: clean(r.name), address: clean(r.display_name) };
+}
+
 async function lookupOsm(lat: number, lng: number): Promise<PickedPlace | null> {
     const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${lat}&lon=${lng}`,
@@ -109,7 +134,6 @@ export function VenueMapPicker({
     onClear: () => void;
 }) {
     const mapDiv = useRef<HTMLDivElement>(null);
-    const searchDiv = useRef<HTMLDivElement>(null);
     const mapRef = useRef<G>(null);
     const markerRef = useRef<G>(null);
     const pickRef = useRef(onPick);
@@ -121,6 +145,8 @@ export function VenueMapPicker({
     const [state, setState] = useState<'loading' | 'ready' | 'failed'>(KEY ? 'loading' : 'failed');
     const [locating, setLocating] = useState(false);
     const [looking, setLooking] = useState(false);
+    const [query, setQuery] = useState('');
+    const [searching, setSearching] = useState(false);
 
     const hasPin = lat.trim() !== '' && lng.trim() !== '' && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng));
 
@@ -195,30 +221,6 @@ export function VenueMapPicker({
                 });
                 setState('ready');
 
-                // Search box (Places API New). Optional: the map works without it.
-                try {
-                    const places = await g.maps.importLibrary('places');
-                    if (cancelled || !searchDiv.current || !places?.PlaceAutocompleteElement) return;
-                    const box = new places.PlaceAutocompleteElement();
-                    box.style.width = '100%';
-                    searchDiv.current.replaceChildren(box);
-                    box.addEventListener('gmp-select', async (ev: G) => {
-                        try {
-                            const place = ev.placePrediction.toPlace();
-                            await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] });
-                            if (!place.location) return;
-                            const pos = { lat: place.location.lat(), lng: place.location.lng() };
-                            mapRef.current.setCenter(pos);
-                            mapRef.current.setZoom(16);
-                            // The searched name is a better venue name than the geocoder's.
-                            placePin(g, pos, true, { name: clean(place.displayName), address: clean(place.formattedAddress) });
-                        } catch {
-                            /* a failed lookup leaves the pin where it was */
-                        }
-                    });
-                } catch {
-                    /* Places not enabled for the key — no search box */
-                }
             })
             .catch(() => {
                 if (!cancelled) setState('failed');
@@ -234,6 +236,33 @@ export function VenueMapPicker({
     useEffect(() => {
         if (!hasPin && markerRef.current) markerRef.current.setMap(null);
     }, [hasPin]);
+
+    const runSearch = async () => {
+        const text = query.trim();
+        if (!text || searching) return;
+        setSearching(true);
+        try {
+            const g = (window as unknown as { google?: G }).google ?? null;
+            const hit = await searchPlace(g, text);
+            if (!hit) {
+                toast.error('No place found. Try another name or address.');
+                return;
+            }
+            const p = { lat: hit.lat, lng: hit.lng };
+            if (g && mapRef.current) {
+                mapRef.current.setCenter(p);
+                mapRef.current.setZoom(16);
+                placePin(g, p, true, { name: hit.name, address: hit.address });
+            } else {
+                onPick(p.lat, p.lng);
+                void lookup(null, p, { name: hit.name, address: hit.address });
+            }
+        } catch {
+            toast.error('Search failed. Please try again.');
+        } finally {
+            setSearching(false);
+        }
+    };
 
     const useCurrentLocation = () => {
         if (!navigator.geolocation) return;
@@ -268,9 +297,31 @@ export function VenueMapPicker({
 
     return (
         <div className="flex min-w-0 flex-col gap-2">
-            <div ref={searchDiv} className="min-w-0" />
+            <p className="text-[13px] text-foreground">
+                {hasPin ? 'Pin dropped - tap again to move it' : 'Tap the map to drop the venue pin'}
+            </p>
+            <form
+                className="flex min-w-0 overflow-hidden rounded-md border border-border"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    void runSearch();
+                }}
+            >
+                <span className="grid w-10 shrink-0 place-items-center text-muted-foreground">
+                    <FontAwesomeIcon icon={faMagnifyingGlass} className="!size-[14px]" />
+                </span>
+                <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search a venue, area or address"
+                    className="h-10 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                />
+                <Button type="submit" disabled={searching || !query.trim()} className="h-10 shrink-0 rounded-none px-5 text-[13px]">
+                    {searching ? 'Searching…' : 'Search'}
+                </Button>
+            </form>
             <div className="relative overflow-hidden rounded-lg border border-border">
-                <div ref={mapDiv} className="h-[280px] w-full bg-muted" />
+                <div ref={mapDiv} className="h-[460px] w-full bg-muted" />
                 {state === 'loading' && (
                     <div className="absolute inset-0 grid place-items-center text-[12px] text-muted-foreground">
                         Loading map…

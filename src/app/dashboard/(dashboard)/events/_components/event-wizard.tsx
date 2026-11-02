@@ -46,6 +46,8 @@ import {
 } from "@/hooks/use-client-events";
 import { PRIMARY_SWATCHES } from "@/lib/event-themes";
 import { HomeTemplatePicker } from "./home-template-picker";
+import { SplashStep } from "./splash-step";
+import { EMPTY_SPLASH, saveEventSplash, splashFromRow, useEventSplash, type SplashState } from "@/hooks/use-event-splash";
 import { VenueMapPicker } from "@/components/common/venue-map-picker";
 import {
     resolveArtwork,
@@ -111,8 +113,8 @@ const STEPS = [
     "Basic Details",
     "Date & Time",
     "Venue",
-    "Mobile Splash Screen",
-    "Menus",
+    "Splash Screen",
+    "App Menus",
     "Organizer Details",
     "Review",
     "Event Created",
@@ -148,9 +150,10 @@ const PAGE_TITLES: Record<number, string> = {
  * Edit Event sections, as in the mobile app's Edit Event hub: each opens on its
  * own with Cancel / Save, and the save is the same full update.
  */
-export type EditSectionKey = "basic" | "date" | "venue" | "menus" | "organizer" | "invitation";
+export type EditSectionKey = "splash" | "basic" | "date" | "venue" | "menus" | "organizer" | "invitation";
 
 const SECTION_PAGES: Record<EditSectionKey, { title: string; subtitle: string; pages: number[] }> = {
+    splash: { title: "Splash Screen", subtitle: "The screen guests see while the event opens in the mobile app.", pages: [S_SPLASH] },
     basic: { title: "Basic Details", subtitle: "Update title, hosts and photo.", pages: [S_BASIC] },
     date: { title: "Date & Time", subtitle: "Edit event date and time.", pages: [S_DATE] },
     venue: { title: "Venue", subtitle: "Edit venue details and map location.", pages: [S_VENUE] },
@@ -222,6 +225,8 @@ interface FormState {
     ceremony_venue: string;
     ceremony_description: string;
     organizer: string;
+    /** The organizer's photo or logo; "" = none. */
+    organizer_image: string;
     contact_phone: string;
     contact_email: string;
     footer_note: string;
@@ -259,7 +264,7 @@ const EMPTY: FormState = {
     venue_name: "", venue_address: "",
     venue_landmark: "", venue_map_link: "", venue_image: "", venue_lat: "", venue_lng: "",
     ceremony_title: "", ceremony_venue: "", ceremony_description: "",
-    organizer: "", contact_phone: "", contact_email: "", footer_note: "",
+    organizer: "", organizer_image: "", contact_phone: "", contact_email: "", footer_note: "",
     privacy: "public", status: "upcoming",
     // Blank, not a hardcoded slug: the theme catalogue is whatever the client's
     // PLAN grants, so nothing can be preselected until those templates load.
@@ -398,25 +403,53 @@ export function EventWizard({
     // Advancing is the mutation's onDone, not something goNext() does on its
     // own — the step must not move until the server has actually written the
     // row, or a failed save leaves the user looking at a success screen.
-    const createEvent = useCreateEvent((event) => {
-        // Saved as a draft from the Exit question: back to the list, not on
-        // to the "Event Created" step — a draft is not created yet.
+    /**
+     * Step 5's splash. Saved after the event (it needs the event's id), and
+     * only once the host has touched it or one already exists — an untouched
+     * new event keeps the app's own splash drawn from its design.
+     */
+    const [splash, setSplashState] = useState<SplashState>(EMPTY_SPLASH);
+    const splashTouched = useRef(false);
+    const setSplash = (next: SplashState) => {
+        splashTouched.current = true;
+        setSplashState(next);
+    };
+    const existingSplash = useEventSplash(isEdit ? eventId : null);
+    const splashLoaded = useRef(false);
+    useEffect(() => {
+        if (splashLoaded.current || !existingSplash.isSuccess) return;
+        splashLoaded.current = true;
+        if (existingSplash.data) setSplashState(splashFromRow(existingSplash.data));
+    }, [existingSplash.isSuccess, existingSplash.data]);
+    const storeSplash = async (event: ClientEvent) => {
+        if (!splashTouched.current && !splash.id) return;
+        try {
+            const saved = (await saveEventSplash(event, splash)) as { splash_screen?: { id: number } } | undefined;
+            const id = saved?.splash_screen?.id;
+            if (id) setSplashState((prev) => ({ ...prev, id }));
+            splashTouched.current = false;
+        } catch (e) {
+            toast.error(e instanceof Error ? `Event saved, but the splash screen was not: ${e.message}` : "Event saved, but the splash screen was not.");
+        }
+    };
+
+    const afterSave = async (event: ClientEvent) => {
+        await storeSplash(event);
+        // Saved from the Exit question: leave, not on to "Event Created".
         if (exitAfterSave.current) {
             exitAfterSave.current = false;
-            router.push("/dashboard/events");
+            router.push(isEdit ? hubHref : "/dashboard/events");
             return;
         }
-        setCreated(event);
-        setStep(S_CREATED);
-    });
-    const updateEvent = useUpdateEvent((event) => {
         if (section) {
             router.push(`/dashboard/events/${event.id}/edit`);
             return;
         }
         setCreated(event);
         setStep(S_CREATED);
-    });
+    };
+    const createEvent = useCreateEvent((event) => void afterSave(event));
+    const updateEvent = useUpdateEvent((event) => void afterSave(event));
     const saving = createEvent.isPending || updateEvent.isPending;
 
     /*
@@ -491,6 +524,7 @@ export function EventWizard({
             ceremony_venue: row.ceremony_venue ?? "",
             ceremony_description: row.ceremony_description ?? "",
             organizer: row.organizer ?? "",
+            organizer_image: row.organizer_image ?? "",
             contact_phone: row.contact_phone ?? "",
             contact_email: row.contact_email ?? "",
             footer_note: row.footer_note ?? "",
@@ -875,6 +909,12 @@ export function EventWizard({
         }
         if (need(S_BASIC)) {
             if (!form.name.trim()) next.name = true;
+            if (!form.tagline.trim()) next.tagline = true;
+            if (!form.description.trim()) next.description = true;
+            // Same rule as the mobile app: Groom + Bride on a wedding-type event;
+            // the hosts stay optional on other types (to be decided later).
+            if (isCouple && !form.host_one.trim()) next.host_one = true;
+            if (isCouple && !form.host_two.trim()) next.host_two = true;
             if (!form.cover_image) next.cover_image = true;
         }
         if (need(S_DATE)) {
@@ -882,6 +922,22 @@ export function EventWizard({
             if (!form.end_date) next.end_date = true;
             if (!form.start_time) next.start_time = true;
             if (!form.end_time) next.end_time = true;
+        }
+        // Venue, as in the app: the map pin and every manual field.
+        if (need(S_VENUE)) {
+            if (!form.venue_lat.trim() || !form.venue_lng.trim()) next.venue_pin = true;
+            if (!form.venue_name.trim()) next.venue_name = true;
+            if (!form.venue_address.trim()) next.venue_address = true;
+            if (!form.venue_landmark.trim()) next.venue_landmark = true;
+            if (!form.venue_map_link.trim()) next.venue_map_link = true;
+        }
+        // Organizer, as in the app: every field (plus the photo, per the web design).
+        if (need(S_ORGANIZER)) {
+            if (!form.organizer_image) next.organizer_image = true;
+            if (!form.organizer.trim()) next.organizer = true;
+            if (!form.contact_phone.trim()) next.contact_phone = true;
+            if (!form.contact_email.trim()) next.contact_email = true;
+            if (!form.footer_note.trim()) next.footer_note = true;
         }
         if (need(S_CUSTOM_IMG)) {
             if (isCustomTemplate && !form.custom_image) {
@@ -898,13 +954,19 @@ export function EventWizard({
         }
 
         /**
-         * Format checks, reported separately from the mandatory-field toast.
-         *
-         * Both are OPTIONAL fields, so an empty one is fine — this only fires on
-         * something that was typed and is malformed. The server rejects the same
-         * two, and catching it here saves a round trip that would land the user
-         * back on a step they had already left.
+         * Format checks, reported separately from the mandatory-field toast —
+         * the same checks the mobile app makes.
          */
+        if (need(S_DATE) && form.end_date < form.start_date) {
+            setErrors({ end_date: true });
+            toast.error("The end date cannot be earlier than the start date.");
+            return false;
+        }
+        if (need(S_VENUE) && !/^https?:\/\//i.test(form.venue_map_link.trim())) {
+            setErrors({ venue_map_link: true });
+            toast.error("Please enter a valid map link beginning with http:// or https://.");
+            return false;
+        }
         if (need(S_ORGANIZER)) {
             const phone = form.contact_phone.trim();
             const email = form.contact_email.trim();
@@ -975,6 +1037,7 @@ export function EventWizard({
                 ceremony_venue: form.ceremony_venue.trim() || null,
                 ceremony_description: form.ceremony_description.trim() || null,
                 organizer: form.organizer.trim() || null,
+                organizer_image: form.organizer_image || null,
                 contact_phone: form.contact_phone.trim() || null,
                 contact_email: form.contact_email.trim() || null,
                 footer_note: form.footer_note.trim() || null,
@@ -1024,7 +1087,7 @@ export function EventWizard({
      */
     const started = !!form.category_id || step > 1;
     const askExit = () => {
-        if (isEdit || !started || step === S_CREATED) {
+        if (section || (!isEdit && !started) || step === S_CREATED) {
             router.push(isEdit ? hubHref : "/dashboard/events");
             return;
         }
@@ -1036,10 +1099,14 @@ export function EventWizard({
         !!form.category_id && !!form.name.trim() &&
         !!form.start_date && !!form.end_date && !!form.start_time && !!form.end_time;
 
+    /** Editing a live event saves it as it is — never quietly unpublishes it. */
+    const editingLive = isEdit && existing.data?.status !== "draft";
     const saveDraftAndExit = () => {
         setExitOpen(false);
+        // A live event's save checks every step, as Save Changes does.
+        if (editingLive && !validate(S_CREATED)) return;
         exitAfterSave.current = true;
-        submitEvent("draft");
+        submitEvent(editingLive ? undefined : "draft");
     };
 
     const goNext = () => {
@@ -1124,7 +1191,7 @@ export function EventWizard({
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-                            {section ? `Edit ${SECTION_PAGES[section].title}` : isEdit ? "Edit Event" : "Create New Event"}
+                            {section ? `Edit ${SECTION_PAGES[section].title}` : isEdit ? "Edit Event" : "New Event"}
                         </h1>
                         <p className="mt-1 text-[13.5px] text-muted-foreground">
                             {section
@@ -1214,6 +1281,19 @@ export function EventWizard({
                         );
                     })}
                 </ol>
+                {/* The active step's description, under its own label. */}
+                <div className="relative mt-1.5 hidden h-5 lg:block">
+                    <p
+                        className="absolute whitespace-nowrap text-[12.5px] text-muted-foreground"
+                        style={{
+                            left: `${((step - 0.5) / STEPS.length) * 100}%`,
+                            transform: `translateX(${step <= 1 ? "-25%" : step >= STEPS.length - 1 ? "-75%" : "-50%"})`,
+                        }}
+                    >
+                        {SUBTITLES[step - 1]}
+                    </p>
+                </div>
+                <p className="mt-1.5 text-center text-[12.5px] text-muted-foreground lg:hidden">{SUBTITLES[step - 1]}</p>
             </div>
             )}
 
@@ -1232,14 +1312,10 @@ export function EventWizard({
                             </p>
                         </>
                     ) : (
-                        <>
-                            <p className="text-[12px] font-medium text-muted-foreground">Step {step}</p>
-                            <h2 className="mt-0.5 text-[17px] font-bold text-primary">{STEPS[step - 1]}</h2>
-                            <p className="mt-1 text-[13px] text-muted-foreground">{SUBTITLES[step - 1]}</p>
-                        </>
+                        null
                     )}
 
-                    <div className="mt-6">
+                    <div className={section ? "mt-6" : ""}>
                         {/* ── Step 1 — real taxonomy ─────────────────────────── */}
                         {step === S_TYPE && (
                             // Full card width, not capped: three selects in a row
@@ -1315,6 +1391,8 @@ export function EventWizard({
                         {/* ── Step 2 — Basic Details ─────────────────────────── */}
                         {step === S_BASIC && (
                             <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
+                                {/* Left: the text fields, in order. Right: the photo. */}
+                                <div className="flex min-w-0 flex-col gap-5">
                                 <Field label="Event Title" required error={errors.name}>
                                     <Input
                                         value={form.name}
@@ -1325,46 +1403,46 @@ export function EventWizard({
                                     <Counter value={form.name.length} max={100} />
                                 </Field>
 
-                                {/* Two fields: the app and the invitation print them
-                                    either side of an ampersand. */}
-                                <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label={isCouple ? "Groom Name (Optional)" : "First Host (Optional)"}>
-                                        <Input
-                                            value={form.host_one}
-                                            onChange={(e) => setField("host_one", e.target.value.slice(0, 120))}
-                                            placeholder={isCouple ? "Groom's name" : "First host's name"}
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
-                                    <Field label={isCouple ? "Bride Name (Optional)" : "Second Host (Optional)"}>
-                                        <Input
-                                            value={form.host_two}
-                                            onChange={(e) => setField("host_two", e.target.value.slice(0, 120))}
-                                            placeholder={isCouple ? "Bride's name" : "Second host's name"}
-                                            className="h-11 rounded-md"
-                                        />
-                                    </Field>
-                                </div>
-
-                                <Field label="Tagline (Optional)">
+                                <Field label="Tagline" required error={errors.tagline}>
                                     <Input
                                         value={form.tagline}
                                         onChange={(e) => setField("tagline", e.target.value.slice(0, 100))}
                                         placeholder="Please enter a tagline"
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.tagline && "border-destructive")}
                                     />
                                     <Counter value={form.tagline.length} max={100} />
                                 </Field>
 
-                                <Field label="Short Description (Optional)">
+                                <Field label="Short Description" required error={errors.description}>
                                     <Textarea
                                         value={form.description}
                                         onChange={(e) => setField("description", e.target.value.slice(0, 300))}
                                         placeholder="Please enter a short description"
-                                        className="min-h-[90px] rounded-md"
+                                        className={cn("min-h-[90px] rounded-md", errors.description && "border-destructive")}
                                     />
                                     <Counter value={form.description.length} max={300} />
                                 </Field>
+
+                                {/* Two fields: the app and the invitation print them
+                                    either side of an ampersand. */}
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field label={isCouple ? "Groom Name" : "First Host"} required={isCouple} error={errors.host_one}>
+                                        <Input
+                                            value={form.host_one}
+                                            onChange={(e) => setField("host_one", e.target.value.slice(0, 120))}
+                                            placeholder={isCouple ? "Groom's name" : "First host's name"}
+                                            className={cn("h-11 rounded-md", errors.host_one && "border-destructive")}
+                                        />
+                                    </Field>
+                                    <Field label={isCouple ? "Bride Name" : "Second Host"} required={isCouple} error={errors.host_two}>
+                                        <Input
+                                            value={form.host_two}
+                                            onChange={(e) => setField("host_two", e.target.value.slice(0, 120))}
+                                            placeholder={isCouple ? "Bride's name" : "Second host's name"}
+                                            className={cn("h-11 rounded-md", errors.host_two && "border-destructive")}
+                                        />
+                                    </Field>
+                                </div>
 
                                 {/* Event Status — the app's two cards. */}
                                 <Field label="Event Status" required>
@@ -1397,13 +1475,26 @@ export function EventWizard({
                                             : "A guest is counted as a participant once they complete the RSVP."}
                                     </p>
                                 </Field>
+                                </div>
 
-                                <CoverImageField
-                                    label="Upload Event Photo"
-                                    value={form.cover_image}
-                                    onChange={(url) => setField("cover_image", url)}
-                                    error={errors.cover_image}
-                                />
+                                {/* The photo fills its column; its size guide sits under it. */}
+                                <div className="flex min-w-0 flex-col gap-3">
+                                    <CoverImageField
+                                        label="Upload Event Photo"
+                                        value={form.cover_image}
+                                        onChange={(url) => setField("cover_image", url)}
+                                        error={errors.cover_image}
+                                        previewClassName="aspect-[16/9] w-full"
+                                        emptyClassName="aspect-[16/9] w-full justify-center"
+                                    />
+                                    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+                                        <p className="text-[12.5px] font-semibold text-foreground">Image size</p>
+                                        <p className="mt-0.5 text-[12px] text-muted-foreground">
+                                            Shape 16:9 (landscape) · saved at 1280 × 720 px · JPG, PNG or WEBP.
+                                            After you pick a photo you can zoom and move it to fit before it is uploaded.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -1414,16 +1505,22 @@ export function EventWizard({
                                     <Select value={form.timezone} onValueChange={(v) => setField("timezone", v)}>
                                         <SelectTrigger className="h-11 w-full rounded-md"><SelectValue /></SelectTrigger>
                                         <SelectContent>
-                                            {TIME_ZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                                            {/* A saved zone that is not in the list (the app writes
+                                                longer names) is still offered, or the box shows empty. */}
+                                            {(TIME_ZONES.includes(form.timezone) || !form.timezone ? TIME_ZONES : [form.timezone, ...TIME_ZONES]).map((z) => (
+                                                <SelectItem key={z} value={z}>{z}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </Field>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label="Start Date" required error={errors.start_date}
-                                        hint={isEdit ? "The event date cannot be changed after it is created." : undefined}>
+                                    <Field label="Start Date" required error={errors.start_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.start_date}
                                             disabled={isEdit}
                                             onChange={(v) => confirmDate("start_date", v)} invalid={errors.start_date} />
+                                        <p className="text-[11.5px] font-medium text-destructive">
+                                            * The event date cannot be changed after it is created.
+                                        </p>
                                     </Field>
                                     <Field label="End Date" required error={errors.end_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.end_date}
@@ -1448,8 +1545,12 @@ export function EventWizard({
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
-                                <div className="lg:row-span-6">
-                                <Field label="Venue Location">
+                                <div className="flex flex-col gap-2 lg:row-span-7">
+                                <div>
+                                    <p className="text-[14px] font-semibold text-foreground">Step 1 (Search on Map)</p>
+                                    <p className="text-[12px] text-muted-foreground">Find the venue, then drop or move the pin.</p>
+                                </div>
+                                <Field label="Venue Location" required error={errors.venue_pin}>
                                     <VenueMapPicker
                                         lat={form.venue_lat}
                                         lng={form.venue_lng}
@@ -1488,42 +1589,46 @@ export function EventWizard({
                                     />
                                 </Field>
                                 </div>
-                                <Field label="Venue Name">
+                                <div>
+                                    <p className="text-[14px] font-semibold text-foreground">Step 2 (Want to Edit)</p>
+                                    <p className="text-[12px] text-muted-foreground">Enter manually, or correct what the map filled in.</p>
+                                </div>
+                                <Field label="Venue Name" required error={errors.venue_name}>
                                     <Input
                                         value={form.venue_name}
                                         onChange={(e) => setField("venue_name", e.target.value.slice(0, 255))}
                                         placeholder="e.g. The Grand Palace"
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.venue_name && "border-destructive")}
                                     />
                                 </Field>
-                                <Field label="Address">
+                                <Field label="Address" required error={errors.venue_address}>
                                     <Textarea
                                         value={form.venue_address}
                                         onChange={(e) => setField("venue_address", e.target.value.slice(0, 500))}
                                         placeholder="Please enter the venue address"
-                                        className="min-h-[90px] rounded-md"
+                                        className={cn("min-h-[90px] rounded-md", errors.venue_address && "border-destructive")}
                                     />
                                     <Counter value={form.venue_address.length} max={500} />
                                 </Field>
-                                <Field label="Landmark (Optional)">
+                                <Field label="Landmark" required error={errors.venue_landmark}>
                                     <Input
                                         value={form.venue_landmark}
                                         onChange={(e) => setField("venue_landmark", e.target.value.slice(0, 255))}
                                         placeholder="e.g. Near Marina Beach"
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.venue_landmark && "border-destructive")}
                                     />
                                 </Field>
-                                <Field label="Google Map Link (Optional)">
+                                <Field label="Google Map Link" required error={errors.venue_map_link}>
                                     <Input
                                         value={form.venue_map_link}
                                         onChange={(e) => setField("venue_map_link", e.target.value.slice(0, 500))}
                                         placeholder="https://maps.google.com/..."
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.venue_map_link && "border-destructive")}
                                     />
                                 </Field>
                                 {/* The app drops this pin on its map; here it is typed. */}
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label="Latitude (Optional)">
+                                    <Field label="Latitude">
                                         <Input
                                             inputMode="decimal"
                                             value={form.venue_lat}
@@ -1532,7 +1637,7 @@ export function EventWizard({
                                             className="h-11 rounded-md"
                                         />
                                     </Field>
-                                    <Field label="Longitude (Optional)">
+                                    <Field label="Longitude">
                                         <Input
                                             inputMode="decimal"
                                             value={form.venue_lng}
@@ -1543,7 +1648,7 @@ export function EventWizard({
                                     </Field>
                                 </div>
                                 <CoverImageField
-                                    label="Venue Image (Optional)"
+                                    label="Venue Image"
                                     required={false}
                                     hint="JPG, PNG or WEBP. A photo of the venue, shown to guests in the app."
                                     value={form.venue_image}
@@ -1554,17 +1659,18 @@ export function EventWizard({
 
                         {/* ── Step 7 — Organizer Details ─────────────────────── */}
                         {step === S_ORGANIZER && (
-                            <div className="grid gap-5 lg:grid-cols-2 lg:gap-x-8">
-                                <Field label="Organizer / Hosted By">
+                            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-10">
+                                <div className="flex min-w-0 flex-col gap-5">
+                                <Field label="Organizer / Hosted By" required error={errors.organizer}>
                                     <Input
                                         value={form.organizer}
                                         onChange={(e) => setField("organizer", e.target.value.slice(0, 200))}
                                         placeholder="Please enter who is hosting this event"
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.organizer && "border-destructive")}
                                     />
                                 </Field>
                                 <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label="Contact Number" error={errors.contact_phone}>
+                                    <Field label="Contact Number" required error={errors.contact_phone}>
                                         <Input
                                             value={form.contact_phone}
                                             onChange={(e) => setField("contact_phone", e.target.value.slice(0, 30))}
@@ -1573,7 +1679,7 @@ export function EventWizard({
                                             className={cn("h-11 rounded-md", errors.contact_phone && "border-destructive")}
                                         />
                                     </Field>
-                                    <Field label="Contact Email" error={errors.contact_email}>
+                                    <Field label="Contact Email" required error={errors.contact_email}>
                                         <Input
                                             value={form.contact_email}
                                             onChange={(e) => setField("contact_email", e.target.value.slice(0, 150))}
@@ -1583,21 +1689,45 @@ export function EventWizard({
                                         />
                                     </Field>
                                 </div>
-                                <Field label="Footer Note">
+                                <Field label="Footer Note" required error={errors.footer_note}>
                                     <Input
                                         value={form.footer_note}
                                         onChange={(e) => setField("footer_note", e.target.value.slice(0, 300))}
                                         placeholder="Please enter a footer note"
-                                        className="h-11 rounded-md"
+                                        className={cn("h-11 rounded-md", errors.footer_note && "border-destructive")}
                                     />
                                     <Counter value={form.footer_note.length} max={300} />
                                 </Field>
+                                </div>
+                                <CoverImageField
+                                    label="Upload Organizer Photo"
+                                    value={form.organizer_image}
+                                    onChange={(url) => setField("organizer_image", url)}
+                                    error={errors.organizer_image}
+                                    hint="JPG, PNG or WEBP. Cropped square. The organizer's photo or logo."
+                                    aspect={1}
+                                    outputSize={600}
+                                    cropTitle="Crop organizer photo"
+                                    previewClassName="aspect-square w-full"
+                                    emptyClassName="aspect-square w-full justify-center"
+                                />
                             </div>
                         )}
 
-                        {/* ── Step 5 — Mobile Splash Screen (empty for now) ─── */}
+                        {/* ── Step 5 — Splash Screen ──────────────────────────── */}
                         {step === S_SPLASH && (
-                            <div className="min-h-[220px]" />
+                            <SplashStep
+                                value={splash}
+                                onChange={setSplash}
+                                title={
+                                    form.host_one.trim() && form.host_two.trim()
+                                        ? `${form.host_one.trim()} & ${form.host_two.trim()}`
+                                        : form.host_one.trim() || form.name
+                                }
+                                dateText={form.start_date ? formatDate(form.start_date) : ""}
+                                tagline={form.tagline}
+                                venue={form.venue_name}
+                            />
                         )}
 
                         {/* ── Step 6 — Menus (real event_menus) ───────────────── */}
@@ -1609,11 +1739,14 @@ export function EventWizard({
                                   Add-on = the client switches it per event.
                                 */}
                                 {([
-                                    { key: "addon", title: "Additional Menus", rows: addonRows, empty: "No additional menus in your plan." },
-                                    { key: "default", title: "Default Menus", rows: defaultRows, empty: "No menus are configured for this event type yet." },
+                                    { key: "addon", title: "Additional Menus", text: "Enable or disable the menus for this event.", rows: addonRows, empty: "No additional menus in your plan." },
+                                    { key: "default", title: "Default Menus", text: "These are default menus, so they can't be disabled.", rows: defaultRows, empty: "No menus are configured for this event type yet." },
                                 ] as const).map((panel) => (
                                     <div key={panel.key} className="flex min-w-0 flex-col gap-3">
-                                        <h3 className="text-[13px] font-semibold text-foreground">{panel.title}</h3>
+                                        <div>
+                                            <h3 className="text-[13.5px] font-semibold text-foreground">{panel.title}</h3>
+                                            <p className="mt-0.5 text-[12.5px] text-muted-foreground">{panel.text}</p>
+                                        </div>
                                         {options.isLoading ? (
                                             <div className="flex flex-col gap-3">
                                                 {Array.from({ length: 6 }).map((_, i) => (
@@ -2239,13 +2372,20 @@ export function EventWizard({
                         {/* ── Step 8 — Review ────────────────────────────────── */}
                         {step === S_REVIEW && (
                             <div className="grid gap-4 lg:grid-cols-2">
+                                {/* Same order as the steps. */}
                                 {([
                                     {
-                                        title: "Basic Details", go: S_BASIC, rows: [
+                                        title: "Event Type", go: S_TYPE, rows: [
                                             ["Event Type", selectedCategory?.name ?? "—"],
+                                            ["Home Template", form.home_screen_template_id ? "Selected" : "—"],
+                                        ],
+                                    },
+                                    {
+                                        title: "Basic Details", go: S_BASIC, rows: [
                                             ["Event Title", form.name || "—"],
                                             [isCouple ? "Couple" : "Hosts", [form.host_one, form.host_two].filter((v) => v.trim()).join(" & ") || "—"],
                                             ["Tagline", form.tagline || "—"],
+                                            ["Short Description", form.description || "—"],
                                             ["Event Status", form.privacy === "private" ? "Private" : "Public"],
                                             ["Event Photo", form.cover_image ? "Added" : "—"],
                                         ],
@@ -2265,12 +2405,20 @@ export function EventWizard({
                                         ],
                                     },
                                     {
-                                        title: "Menus", go: S_MENUS, rows: [
+                                        title: "Splash Screen", go: S_SPLASH, rows: [
+                                            ["Background", splash.background === "image" ? (splash.image_url ? "Image" : "Image (none chosen)") : splash.background === "gradient" ? "Gradient" : "Color"],
+                                            ["Animation", { fade: "Fade", zoom: "Zoom", slide: "Slide", particles: "Particle Effect" }[splash.animation]],
+                                            ["Music", splash.music_enabled && splash.music_url ? splash.music_name || "Added" : "Off"],
+                                        ],
+                                    },
+                                    {
+                                        title: "App Menus", go: S_MENUS, rows: [
                                             ["Menus on", String(menuRows.filter((m) => isDefaultMenu(m) || (menus[m.id] ?? true)).length)],
                                         ],
                                     },
                                     {
                                         title: "Organizer Details", go: S_ORGANIZER, rows: [
+                                            ["Organizer Photo", form.organizer_image ? "Added" : "—"],
                                             ["Hosted By", form.organizer || "—"],
                                             ["Contact Number", form.contact_phone || "—"],
                                             ["Contact Email", form.contact_email || "—"],
@@ -2504,11 +2652,13 @@ export function EventWizard({
             <Dialog open={exitOpen} onOpenChange={setExitOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-[15px]">Exit Create Event?</DialogTitle>
+                        <DialogTitle className="text-[15px]">Do you want to exit?</DialogTitle>
                         <DialogDescription className="text-[13px]">
-                            {canDraft
-                                ? "Your event is not saved yet. Save it as a draft to finish later, or exit without saving."
-                                : "Your event is not saved yet. A draft needs the event type, name, date and time — fill those in to save one. Exiting now will lose what you entered."}
+                            {editingLive
+                                ? "Save your changes before you leave, or exit without saving them."
+                                : canDraft
+                                    ? "Save it as a draft to finish later, or exit without saving."
+                                    : "A draft needs the event type, title, date and time — fill those in to save one. Exiting now will lose what you entered."}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2">
@@ -2516,8 +2666,9 @@ export function EventWizard({
                             <Button
                                 className="h-10 w-full rounded-md text-[13px] font-semibold"
                                 onClick={saveDraftAndExit}
+                                disabled={saving}
                             >
-                                Save as Draft
+                                {editingLive ? "Save Changes" : "Save as Draft"}
                             </Button>
                         )}
                         <Button
@@ -2525,10 +2676,10 @@ export function EventWizard({
                             className="h-10 w-full rounded-md text-[13px] text-destructive hover:text-destructive"
                             onClick={() => {
                                 setExitOpen(false);
-                                router.push("/dashboard/events");
+                                router.push(isEdit ? hubHref : "/dashboard/events");
                             }}
                         >
-                            Exit without Saving
+                            Exit
                         </Button>
                         <Button
                             variant="ghost"
@@ -2616,9 +2767,12 @@ function CoverImageField({
     hint = "JPG, PNG or WEBP. Cropped to 16:9 before upload. Shown on the event card and event page in the app.",
     aspect = 16 / 9, outputSize = 1280,
     previewClassName = "aspect-[16/9] max-w-sm", cropTitle = "Crop event image",
+    emptyClassName = "max-w-sm",
 }: {
     value: string; onChange: (url: string) => void; error?: boolean;
     label?: string; required?: boolean; hint?: string;
+    /** The empty upload box's size. */
+    emptyClassName?: string;
     /** The crop's width / height, and the longest side of the saved file. */
     aspect?: number; outputSize?: number;
     /** The preview's shape and width — keep it the same shape as `aspect`. */
@@ -2663,7 +2817,8 @@ function CoverImageField({
                     disabled={upload.isPending}
                     onClick={() => inputRef.current?.click()}
                     className={cn(
-                        "flex max-w-sm flex-col items-center gap-1.5 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40 disabled:opacity-60",
+                        "flex flex-col items-center gap-1.5 rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/40 disabled:opacity-60",
+                        emptyClassName,
                         error && "border-destructive"
                     )}
                 >

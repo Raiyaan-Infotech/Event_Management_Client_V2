@@ -63,7 +63,7 @@ export function EditEventHub({ eventId }: { eventId: number }) {
     // Same order as the app's Edit Event (Organizer Settings added: on the web
     // it is the only place to edit hosted-by, contact email and footer note).
     const rows: Row[] = [
-        { icon: faMobileScreenButton, title: "Mobile Splash Screen", description: "Change the app splash screen" },
+        { icon: faMobileScreenButton, title: "Splash Screen", description: "Change the app splash screen", href: section("splash") },
         { icon: faEnvelopeOpenText, title: "Invitation Card", description: "Choose template, card settings and colour", href: section("invitation") },
         { icon: faCircleInfo, title: "Basic Details", description: "Update title, hosts and photo", href: section("basic") },
         { icon: faQrcode, title: "Event QR", description: "Show the event QR code for guests to scan", onClick: () => setQrOpen(true) },

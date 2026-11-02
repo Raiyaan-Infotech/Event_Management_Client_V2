@@ -12,7 +12,8 @@
  *   Select   chooses it (saved on the event as home_screen_template_id)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faEye, faCircleInfo, faMobileScreenButton } from '@fortawesome/free-solid-svg-icons';
 
@@ -64,6 +65,13 @@ export function HomeTemplatePicker({
         templates.find((t) => t.id === previewId) ?? selected ?? shown[0] ?? templates[0] ?? null;
 
     const label = categoryName || 'Event';
+
+    /** The card row scrolls sideways; each arrow moves it by most of its width. */
+    const railRef = useRef<HTMLDivElement>(null);
+    const slide = (dir: -1 | 1) => {
+        const rail = railRef.current;
+        if (rail) rail.scrollBy({ left: dir * Math.max(240, rail.clientWidth * 0.8), behavior: 'smooth' });
+    };
 
     return (
         <section className="min-w-0 border-t border-border pt-5">
@@ -117,21 +125,30 @@ export function HomeTemplatePicker({
                         {shown.length === 0 ? (
                             <p className="mt-4 text-[12.5px] text-muted-foreground">No templates in this style.</p>
                         ) : (
-                            <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                                {shown.map((t) => (
-                                    <TemplateCard
-                                        key={t.id}
-                                        template={t}
-                                        selected={String(t.id) === value}
-                                        previewing={previewed?.id === t.id}
-                                        hostNames={hostNames}
-                                        onPreview={() => setPreviewId(t.id)}
-                                        onSelect={() => {
-                                            onChange(String(t.id));
-                                            setPreviewId(t.id);
-                                        }}
-                                    />
-                                ))}
+                            // A slider: one row of cards, arrows either side.
+                            <div className="relative mt-4 min-w-0">
+                                <SlideArrow side="left" onClick={() => slide(-1)} />
+                                <div
+                                    ref={railRef}
+                                    className="flex min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                >
+                                    {shown.map((t) => (
+                                        <div key={t.id} className="w-[240px] shrink-0 snap-start">
+                                            <TemplateCard
+                                                template={t}
+                                                selected={String(t.id) === value}
+                                                previewing={previewed?.id === t.id}
+                                                hostNames={hostNames}
+                                                onPreview={() => setPreviewId(t.id)}
+                                                onSelect={() => {
+                                                    onChange(String(t.id));
+                                                    setPreviewId(t.id);
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <SlideArrow side="right" onClick={() => slide(1)} />
                             </div>
                         )}
                     </div>
@@ -172,6 +189,22 @@ export function HomeTemplatePicker({
                 </div>
             )}
         </section>
+    );
+}
+
+function SlideArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={side === 'left' ? 'Previous templates' : 'Next templates'}
+            className={cn(
+                'absolute top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-border bg-card text-primary shadow-sm transition hover:bg-primary hover:text-primary-foreground',
+                side === 'left' ? '-left-3' : '-right-3',
+            )}
+        >
+            {side === 'left' ? <ChevronLeft className="size-5" /> : <ChevronRight className="size-5" />}
+        </button>
     );
 }
 
