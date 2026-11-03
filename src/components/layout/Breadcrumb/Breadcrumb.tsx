@@ -6,11 +6,21 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Fragment, useMemo } from "react";
 import { navMain } from "@/lib/navigation";
+import { useClientEvent } from "@/hooks/use-client-events";
+
+/** An event id in the path (/events/36/…, /messages/notification-templates/36): its name is shown instead. */
+function eventIdIn(pathname: string | null): number | null {
+  const m = pathname?.match(/\/(?:events|notification-templates)\/(\d+)(?:\/|$)/);
+  return m ? Number(m[1]) : null;
+}
 
 export default function Breadcrumb() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const screenParam = searchParams.get("screen");
+  const eventId = eventIdIn(pathname);
+  const { data: event } = useClientEvent(eventId);
+  const eventName = event?.name?.trim() || null;
 
   const breadcrumbItems = useMemo(() => {
     const items: { label: string; url: string; isLast: boolean }[] = [
@@ -59,7 +69,10 @@ export default function Breadcrumb() {
         const url = `/dashboard/${segments.slice(0, index + 1).join("/")}`;
         // Known words keep their own spelling ("rsvps" → "RSVPs", not "Rsvps").
         const NAMES: Record<string, string> = { rsvps: "RSVPs" };
-        const label = NAMES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+        // The event's id → its name ("36" → "Jamal And Fahmi"); the id stays until it loads.
+        const label = eventName && eventId !== null && segment === String(eventId)
+          ? eventName
+          : NAMES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
         items.push({ label, url, isLast: index === segments.length - 1 });
       });
     }
@@ -70,7 +83,7 @@ export default function Breadcrumb() {
     }
 
     return items;
-  }, [pathname, screenParam]);
+  }, [pathname, screenParam, eventId, eventName]);
 
   // Current page title (last segment or 'Dashboard' as fallback)
   const currentTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label || "Dashboard";

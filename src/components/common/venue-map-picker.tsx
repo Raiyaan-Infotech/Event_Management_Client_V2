@@ -79,30 +79,158 @@ async function lookupGoogle(g: G, lat: number, lng: number): Promise<PickedPlace
     };
 }
 
-/** OpenStreetMap fallback — no key. */
-/** Typed place → coordinates: Google's geocoder first, OpenStreetMap after. */
-async function searchPlace(g: G | null, text: string): Promise<{ lat: number; lng: number; name?: string; address?: string } | null> {
-    if (g?.maps?.Geocoder) {
+type LatLng = { lat: number; lng: number };
+type SearchHit = LatLng & { name?: string; address?: string; km?: number };
+
+/** Straight-line distance in km. */
+function distanceKm(a: LatLng, b: LatLng): number {
+    const rad = (d: number) => (d * Math.PI) / 180;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+/** How far around the person a search looks first (Google's maximum bias radius). */
+const NEAR_RADIUS_M = 50000;
+
+/** Google Places (New) text search, biased to `near`. */
+async function searchGooglePlaces(g: G, text: string, near: LatLng): Promise<SearchHit[]> {
+    const { Place } = await g.maps.importLibrary('places');
+    const { places } = await Place.searchByText({
+        textQuery: text,
+        fields: ['displayName', 'formattedAddress', 'location'],
+        locationBias: { center: near, radius: NEAR_RADIUS_M },
+        maxResultCount: 8,
+    });
+    return (places ?? [])
+        .filter((p: G) => p.location)
+        .map((p: G) => ({
+            lat: p.location.lat(),
+            lng: p.location.lng(),
+            name: clean(p.displayName),
+            address: clean(p.formattedAddress),
+        }));
+}
+
+/** Google geocoder, biased to a box around `near`. */
+async function searchGoogleGeocoder(g: G, text: string, near: LatLng): Promise<SearchHit[]> {
+    const d = 0.45; // ~50 km
+    const bounds = new g.maps.LatLngBounds(
+        { lat: near.lat - d, lng: near.lng - d },
+        { lat: near.lat + d, lng: near.lng + d },
+    );
+    const { results } = await new g.maps.Geocoder().geocode({ address: text, bounds });
+    return (results ?? [])
+        .filter((r: G) => r.geometry?.location)
+        .map((r: G) => ({
+            lat: r.geometry.location.lat(),
+            lng: r.geometry.location.lng(),
+            address: clean(r.formatted_address),
+        }));
+}
+
+/** OpenStreetMap — no key. Looks around `near` first, then anywhere. */
+async function searchOsm(text: string, near: LatLng): Promise<SearchHit[]> {
+    const d = 0.45;
+    const viewbox = [near.lng - d, near.lat + d, near.lng + d, near.lat - d].join(',');
+    const get = async (extra: string) => {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&q=${encodeURIComponent(text)}${extra}`,
+            { headers: { Accept: 'application/json' } },
+        );
+        if (!res.ok) return [];
+        const rows = (await res.json()) as { lat: string; lon: string; name?: string; display_name?: string }[];
+        return (rows ?? []).map((r) => ({
+            lat: Number(r.lat),
+            lng: Number(r.lon),
+            name: clean(r.name),
+            address: clean(r.display_name),
+        }));
+    };
+    const nearby = await get(`&viewbox=${viewbox}&bounded=1`);
+    return nearby.length ? nearby : get('');
+}
+
+/**
+ * Typed place → matching places, NEAREST to `near` first. Google Places
+ * first (gives the venue's name), then Google's geocoder, then OpenStreetMap —
+ * whichever the key allows. Every one is biased to `near`, so "JK Mahal"
+ * finds the one near you, not the best-known one in another city.
+ */
+async function searchPlaces(g: G | null, text: string, near: LatLng): Promise<SearchHit[]> {
+    let hits: SearchHit[] = [];
+    if (g?.maps?.importLibrary) {
         try {
-            const { results } = await new g.maps.Geocoder().geocode({ address: text });
-            const r = results?.[0];
-            if (r?.geometry?.location) {
-                return { lat: r.geometry.location.lat(), lng: r.geometry.location.lng(), address: clean(r.formatted_address) };
-            }
+            hits = await searchGooglePlaces(g, text, near);
         } catch {
-            /* Geocoding API not enabled for the key — fall back below */
+            hits = []; // Places API (New) not allowed for the key
         }
     }
-    const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(text)}`,
-        { headers: { Accept: 'application/json' } },
-    );
-    if (!res.ok) return null;
-    const rows = (await res.json()) as { lat: string; lon: string; name?: string; display_name?: string }[];
-    const r = rows?.[0];
-    if (!r) return null;
-    return { lat: Number(r.lat), lng: Number(r.lon), name: clean(r.name), address: clean(r.display_name) };
+    if (!hits.length) {
+        // No Places: a geocoder finds a bare name only where it is best known
+        // (often another city), so also ask for "<text>, <your town>".
+        const town = await townAt(g, near);
+        const queries = town && !text.toLowerCase().includes(town.toLowerCase()) ? [`${text}, ${town}`, text] : [text];
+        for (const q of queries) {
+            if (g?.maps?.Geocoder) {
+                try {
+                    hits.push(...(await searchGoogleGeocoder(g, q, near)));
+                } catch {
+                    /* Geocoding API not enabled for the key */
+                }
+            }
+            try {
+                hits.push(...(await searchOsm(q, near)));
+            } catch {
+                /* OpenStreetMap unreachable */
+            }
+        }
+    }
+    // The same spot from two sources (within ~150 m): keep the one with a name.
+    const unique: SearchHit[] = [];
+    for (const h of hits) {
+        const i = unique.findIndex((u) => distanceKm(u, h) < 0.15);
+        if (i < 0) unique.push(h);
+        else if (!unique[i].name && h.name) unique[i] = h;
+    }
+    return unique
+        .map((h) => ({ ...h, km: distanceKm(near, h) }))
+        .sort((a, b) => a.km - b.km)
+        .slice(0, 6);
 }
+
+/** The town at a point (Google's geocoder, else OpenStreetMap), or undefined. */
+async function townAt(g: G | null, p: LatLng): Promise<string | undefined> {
+    try {
+        if (g?.maps?.Geocoder) {
+            const t = (await lookupGoogle(g, p.lat, p.lng))?.landmark;
+            if (t) return t;
+        }
+    } catch {
+        /* fall through */
+    }
+    try {
+        return (await lookupOsm(p.lat, p.lng))?.landmark;
+    } catch {
+        return undefined;
+    }
+}
+
+/** The browser's location, or null (denied / unavailable / too slow). */
+function getPosition(timeoutMs: number): Promise<LatLng | null> {
+    return new Promise((resolve) => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => resolve(null),
+            { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: timeoutMs },
+        );
+    });
+}
+
+const formatKm = (km?: number) =>
+    km === undefined ? '' : km < 1 ? `${Math.round(km * 1000)} m` : `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
 
 async function lookupOsm(lat: number, lng: number): Promise<PickedPlace | null> {
     const res = await fetch(
@@ -148,6 +276,11 @@ export function VenueMapPicker({
     const [looking, setLooking] = useState(false);
     const [query, setQuery] = useState('');
     const [searching, setSearching] = useState(false);
+    const [hits, setHits] = useState<SearchHit[] | null>(null);
+    /** Where the person is, once known — searches look around it. */
+    const nearRef = useRef<LatLng | null>(null);
+    /** The location prompt is shown at most once per page from a search. */
+    const askedRef = useRef(false);
 
     const hasPin = lat.trim() !== '' && lng.trim() !== '' && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng));
 
@@ -222,6 +355,21 @@ export function VenueMapPicker({
                 });
                 setState('ready');
 
+                // Location already allowed: learn it quietly (no prompt) and, with
+                // no pin yet, open the map there instead of on Chennai.
+                try {
+                    const perm = await navigator.permissions?.query({ name: 'geolocation' as PermissionName });
+                    if (perm?.state !== 'granted') return;
+                    const me = await getPosition(8000);
+                    if (!me || cancelled) return;
+                    nearRef.current = me;
+                    if (!markerRef.current?.getMap?.() && mapRef.current) {
+                        mapRef.current.setCenter(me);
+                        mapRef.current.setZoom(13);
+                    }
+                } catch {
+                    /* Permissions API not supported — searches will ask instead */
+                }
             })
             .catch(() => {
                 if (!cancelled) setState('failed');
@@ -254,26 +402,53 @@ export function VenueMapPicker({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lat, lng, hasPin, state]);
 
+    /** Where to search around: the person's location, else what the map shows. */
+    const searchCentre = async (): Promise<LatLng> => {
+        if (nearRef.current) return nearRef.current;
+        if (!askedRef.current) {
+            askedRef.current = true;
+            const me = await getPosition(8000);
+            if (me) {
+                nearRef.current = me;
+                return me;
+            }
+        }
+        const c = mapRef.current?.getCenter?.();
+        if (c) return { lat: c.lat(), lng: c.lng() };
+        if (hasPin) return { lat: Number(lat), lng: Number(lng) };
+        return DEFAULT_CENTER;
+    };
+
+    const choose = (hit: SearchHit) => {
+        setHits(null);
+        const g = (window as unknown as { google?: G }).google ?? null;
+        const p = { lat: hit.lat, lng: hit.lng };
+        const known = { name: hit.name, address: hit.address };
+        if (g && mapRef.current) {
+            mapRef.current.setCenter(p);
+            mapRef.current.setZoom(16);
+            placePin(g, p, true, known);
+        } else {
+            onPick(p.lat, p.lng);
+            void lookup(null, p, known);
+        }
+    };
+
     const runSearch = async () => {
         const text = query.trim();
         if (!text || searching) return;
         setSearching(true);
+        setHits(null);
         try {
             const g = (window as unknown as { google?: G }).google ?? null;
-            const hit = await searchPlace(g, text);
-            if (!hit) {
+            const found = await searchPlaces(g, text, await searchCentre());
+            if (!found.length) {
                 toast.error('No place found. Try another name or address.');
                 return;
             }
-            const p = { lat: hit.lat, lng: hit.lng };
-            if (g && mapRef.current) {
-                mapRef.current.setCenter(p);
-                mapRef.current.setZoom(16);
-                placePin(g, p, true, { name: hit.name, address: hit.address });
-            } else {
-                onPick(p.lat, p.lng);
-                void lookup(null, p, { name: hit.name, address: hit.address });
-            }
+            // One match: straight to it. Several: let the person pick (nearest first).
+            if (found.length === 1) choose(found[0]);
+            else setHits(found);
         } catch {
             toast.error('Search failed. Please try again.');
         } finally {
@@ -307,6 +482,7 @@ export function VenueMapPicker({
             }
             const g = (window as unknown as { google?: G }).google;
             const p = { lat: best.coords.latitude, lng: best.coords.longitude };
+            nearRef.current = p; // later searches look around here
             const accuracy = best.coords.accuracy;
             if (g && mapRef.current) {
                 mapRef.current.setCenter(p);
@@ -359,7 +535,10 @@ export function VenueMapPicker({
                 </span>
                 <input
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                        setQuery(e.target.value);
+                        setHits(null);
+                    }}
                     placeholder="Search a venue, area or address"
                     className="h-10 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
                 />
@@ -367,6 +546,35 @@ export function VenueMapPicker({
                     {searching ? 'Searching…' : 'Search'}
                 </Button>
             </form>
+            {hits && hits.length > 0 && (
+                <div className="flex min-w-0 flex-col overflow-hidden rounded-md border border-border bg-background">
+                    <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[11.5px] text-muted-foreground">
+                        <span>Nearest to you first - pick the venue</span>
+                        <button type="button" onClick={() => setHits(null)} aria-label="Close results" className="p-1 hover:text-foreground">
+                            <FontAwesomeIcon icon={faXmark} className="!size-[11px]" />
+                        </button>
+                    </div>
+                    {hits.map((h, i) => (
+                        <button
+                            key={`${h.lat},${h.lng},${i}`}
+                            type="button"
+                            onClick={() => choose(h)}
+                            className="flex min-w-0 items-start gap-2.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-muted"
+                        >
+                            <FontAwesomeIcon icon={faLocationDot} className="mt-0.5 !size-[12px] shrink-0 text-primary" />
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-medium text-foreground">
+                                    {h.name ?? h.address?.split(',')[0] ?? 'Unnamed place'}
+                                </span>
+                                {h.address && (
+                                    <span className="block truncate text-[11.5px] text-muted-foreground">{h.address}</span>
+                                )}
+                            </span>
+                            <span className="shrink-0 text-[11.5px] text-muted-foreground">{formatKm(h.km)}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
             <div className="relative overflow-hidden rounded-lg border border-border">
                 <div ref={mapDiv} className="h-[340px] w-full bg-muted xl:h-[400px]" />
                 {state === 'loading' && (

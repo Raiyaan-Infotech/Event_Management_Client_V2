@@ -2406,7 +2406,7 @@ export function EventWizard({
                                     {
                                         title: "Event Type", go: S_TYPE, rows: [
                                             ["Event Type", selectedCategory?.name ?? "—"],
-                                            ["Home Template", form.home_screen_template_id ? "Selected" : "—"],
+                                            ["Home Template", selectedHomeTemplate?.name ?? (form.home_screen_template_id ? "Selected" : "—")],
                                         ],
                                     },
                                     {
@@ -2442,7 +2442,7 @@ export function EventWizard({
                                     },
                                     {
                                         title: "App Menus", go: S_MENUS, rows: [
-                                            ["Menus on", String(menuRows.filter((m) => isDefaultMenu(m) || (menus[m.id] ?? true)).length)],
+                                            ["Menus on", String(previewMenus.length)],
                                         ],
                                     },
                                     {
@@ -2471,6 +2471,38 @@ export function EventWizard({
                                                 <SummaryRow key={label} label={label} value={value} />
                                             ))}
                                         </dl>
+
+                                        {/* The chosen home template, as the app will draw it. */}
+                                        {section.title === "Event Type" && selectedHomeTemplate && (
+                                            <div className="mt-3 flex justify-center rounded-lg bg-muted/40 py-3">
+                                                <HomeScreenPreview
+                                                    imageUrl={selectedHomeTemplate.image_url}
+                                                    colors={selectedHomeTemplate.colors}
+                                                    title={
+                                                        form.host_one.trim() && form.host_two.trim()
+                                                            ? `${form.host_one.trim()} & ${form.host_two.trim()}`
+                                                            : form.name || undefined
+                                                    }
+                                                    date={form.start_date ? formatDate(form.start_date) : undefined}
+                                                    menus={previewMenus}
+                                                    size="sm"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Every menu that is on, in the app's order. */}
+                                        {section.title === "App Menus" && previewMenus.length > 0 && (
+                                            <ol className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-border pt-2.5">
+                                                {previewMenus.map((m, i) => (
+                                                    <li key={m.id} className="flex min-w-0 items-center gap-1.5 text-[12px] text-foreground">
+                                                        <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-primary/10 text-[9.5px] font-semibold text-primary">
+                                                            {i + 1}
+                                                        </span>
+                                                        <span className="truncate" title={m.name}>{m.name}</span>
+                                                    </li>
+                                                ))}
+                                            </ol>
+                                        )}
                                     </div>
                                 ))}
                             </div>
