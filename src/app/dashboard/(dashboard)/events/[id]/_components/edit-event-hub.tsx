@@ -69,7 +69,7 @@ export function EditEventHub({ eventId }: { eventId: number }) {
         { icon: faQrcode, title: "Event QR", description: "Show the event QR code for guests to scan", onClick: () => setQrOpen(true) },
         { icon: faCalendarDays, title: "Date & Time", description: "Edit event date and time", href: section("date") },
         { icon: faLocationDot, title: "Venue", description: "Edit venue details and map location", href: section("venue") },
-        { icon: faListCheck, title: "Agenda", description: "Add, edit and manage event agenda", href: tab("schedule") },
+        { icon: faListCheck, title: "Agenda", description: "Add, edit and manage event agenda", href: tab("agenda") },
         { icon: faPeopleGroup, title: "Family", description: "Manage family members", href: tab("family") },
         { icon: faUsers, title: "Participants", description: "Manage event participants", href: tab("rsvps") },
         { icon: faSquareCheck, title: "RSVP", description: "Configure RSVP settings", href: tab("settings") },

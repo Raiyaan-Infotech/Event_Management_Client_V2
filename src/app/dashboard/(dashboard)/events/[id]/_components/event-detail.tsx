@@ -51,7 +51,7 @@ import { SettingsPanel } from "./settings-panel";
  * changes the code — which is correct, the code encodes when the event is.
  *
  * ── WHAT EACH TAB ACTUALLY HAS ───────────────────────────────────────────────
- * Overview, Event Information, Schedule (with the Agenda), Venue, Gallery,
+ * Overview, Event Information, Agenda (was Schedule, renamed 2026-11-02), Venue, Gallery,
  * Family, RSVPs and Settings (Organizer Contact, Participants, RSVP) read and
  * write real data — the same endpoints the mobile app uses. Activity Log has no
  * table behind it and says so. Messages is ON HOLD by decision, not by
@@ -61,7 +61,7 @@ import { SettingsPanel } from "./settings-panel";
 const TABS = [
     { value: "overview", label: "Overview" },
     { value: "information", label: "Event Information" },
-    { value: "schedule", label: "Schedule" },
+    { value: "agenda", label: "Agenda" },
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Gallery" },
     { value: "family", label: "Family" },
@@ -127,7 +127,9 @@ export function EventDetail({ eventId }: { eventId: number }) {
     // `?tab=` opens a tab directly — how the Edit Event hub links to Agenda,
     // Family, Gallery, RSVPs and Settings.
     useEffect(() => {
-        const wanted = new URLSearchParams(window.location.search).get("tab");
+        const asked = new URLSearchParams(window.location.search).get("tab");
+        // Old links say ?tab=schedule — the tab is Agenda now.
+        const wanted = asked === "schedule" ? "agenda" : asked;
         if (wanted && PAGE_TABS.includes(wanted as TabValue)) router.replace(`/dashboard/events/${eventId}/${wanted}`);
         else if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
     }, []);
@@ -311,7 +313,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         <TabsTrigger
                             key={t.value}
                             value={t.value}
-                            className="h-auto rounded-none px-4 py-3 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
+                            className="h-auto rounded-none px-3 py-2.5 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
                         >
                             {t.label}
                         </TabsTrigger>
@@ -491,8 +493,8 @@ export function EventDetail({ eventId }: { eventId: number }) {
                 </div>
             )}
 
-            {/* ── Schedule ────────────────────────────────────────────────── */}
-            {tab === "schedule" && (
+            {/* ── Agenda ──────────────────────────────────────────────────── */}
+            {tab === "agenda" && (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     <Panel title="Date & Time">
                         <Row label="Start Date" value={fmt(event.start_date)} />

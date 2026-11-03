@@ -3,7 +3,7 @@
 /**
  * Agenda — per event, as in the mobile app (2026-10-31). Pick an event, then
  * add, edit and order its agenda items. The editor is the same AgendaPanel the
- * event page's Schedule tab uses, so the two never disagree.
+ * event page's Agenda tab uses, so the two never disagree.
  */
 
 import { useEffect, useMemo, useState } from "react";
