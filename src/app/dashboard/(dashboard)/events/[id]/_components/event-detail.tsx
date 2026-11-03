@@ -254,8 +254,10 @@ export function EventDetail({ eventId }: { eventId: number }) {
             </div>
 
             {/* ── Hero ────────────────────────────────────────────────────── */}
+            {/* Compact hero (Jamal, 2026-11-03): landscape invitation on the
+                left; status + code, name, and small fact chips on the right. */}
             <Card className="border border-border py-0 shadow-none">
-                <CardContent className="flex flex-col gap-5 p-5 lg:flex-row">
+                <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
                     <EventThumbnail
                         themeId={event.theme_id}
                         customImage={eventCustomImage(event)}
@@ -263,26 +265,27 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         primaryColor={event.primary_color}
                         startDate={event.start_date}
                         venueName={event.venue_name}
-                        className="h-[200px] w-full shrink-0 rounded-lg lg:w-[206px]"
+                        className="h-[130px] w-full shrink-0 rounded-lg sm:w-[230px]"
                     />
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-3">
-                        <Badge
-                            variant="ghost"
-                            className={cn("w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", status.className)}
-                        >
-                            <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
-                            {status.label}
-                        </Badge>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                                variant="ghost"
+                                className={cn("w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold", status.className)}
+                            >
+                                <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                                {status.label}
+                            </Badge>
+                            <span className="font-mono text-[11.5px] text-muted-foreground">{code}</span>
+                        </div>
 
                         {/* break-words, never truncate — a long name must wrap. */}
-                        <h2 className="text-[24px] font-bold leading-tight tracking-tight text-foreground break-words">
+                        <h2 className="text-[20px] font-bold leading-tight tracking-tight text-foreground break-words">
                             {event.name}
                         </h2>
 
-                        <p className="font-mono text-[12.5px] text-muted-foreground">{code}</p>
-
-                        <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="mt-1 flex flex-wrap gap-2">
                             <FactBox
                                 icon={faCalendarDays}
                                 title={fmt(event.start_date)}
@@ -292,7 +295,9 @@ export function EventDetail({ eventId }: { eventId: number }) {
                             <FactBox
                                 icon={faLocationDot}
                                 title={event.venue_name || "Venue not set"}
-                                sub={event.venue_address || "—"}
+                                // The city reads better on a chip than the full address
+                                // (which is on the Overview tab).
+                                sub={event.venue_landmark || event.venue_address || "—"}
                                 tint="#EC4899"
                             />
                             <FactBox
@@ -717,14 +722,15 @@ function FactBox({
     icon: typeof faCalendarDays; title: string; sub: string; tint: string;
 }) {
     return (
-        <div className="flex min-w-0 items-center gap-3 rounded-md border border-border p-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md"
+        // A compact chip: one line each, the full text on hover.
+        <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 sm:max-w-[280px]">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
                 style={{ backgroundColor: `${tint}1A` }}>
-                <FontAwesomeIcon icon={icon} className="!size-[13px]" style={{ color: tint }} />
+                <FontAwesomeIcon icon={icon} className="!size-[12px]" style={{ color: tint }} />
             </span>
             <div className="min-w-0">
-                <p className="text-[12.5px] font-semibold text-foreground break-words">{title}</p>
-                <p className="text-[11px] text-muted-foreground break-words">{sub}</p>
+                <p className="truncate text-[12.5px] font-semibold text-foreground" title={title}>{title}</p>
+                <p className="truncate text-[11px] text-muted-foreground" title={sub}>{sub}</p>
             </div>
         </div>
     );

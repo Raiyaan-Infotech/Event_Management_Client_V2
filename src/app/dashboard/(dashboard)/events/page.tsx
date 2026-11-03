@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCalendarDays,
@@ -18,7 +18,7 @@ import {
     faQrcode,
     faArrowRight,
     faPen,
-    faCopy,
+    faUserPlus,
     faShareNodes,
     faTrash,
     faCircle,
@@ -46,7 +46,6 @@ import {
     useClientEvents,
     useDashboardStats,
     useDeleteEvent,
-    useDuplicateEvent,
     type ClientEvent,
     type DerivedStatus,
 } from "@/hooks/use-client-events";
@@ -56,7 +55,7 @@ import { SignInPrompt } from '@/components/common/sign-in-prompt';
 /**
  * My Events — Jamal's V2 design (2026-10-31): full-width stat tiles, status
  * tabs with counts, and one card per event with its pre-event setup progress
- * and the actions View / Edit / Duplicate / Share / Delete.
+ * and the actions View / Edit / Add Guest / Share / Delete.
  *
  *   tiles + tab counts   GET /client/events/stats   (guests = participants)
  *   rows                 GET /client/events          tab + category + sort + search
@@ -159,7 +158,6 @@ export default function MyEventsPage() {
 }
 
 function MyEventsContent() {
-    const router = useRouter();
     // The top bar's search box navigates here with ?search= (initial value only).
     const searchParams = useSearchParams();
     const initialSearch = searchParams.get("search") ?? "";
@@ -194,8 +192,6 @@ function MyEventsContent() {
     });
 
     const remove = useDeleteEvent();
-    // A copy is a draft, finished through the full Create Event steps.
-    const duplicate = useDuplicateEvent((copy) => router.push(`/dashboard/events/${copy.id}/edit?section=all`));
 
     const rows = events.data?.data ?? [];
     const pagination = events.data?.pagination;
@@ -383,8 +379,6 @@ function MyEventsContent() {
                         <EventRow
                             key={event.id}
                             event={event}
-                            duplicating={duplicate.isPending && duplicate.variables === event.id}
-                            onDuplicate={() => duplicate.mutate(event.id)}
                             onShare={() => setShareFor(event)}
                             onDelete={() => setPendingDelete(event)}
                         />
@@ -494,14 +488,10 @@ function MyEventsContent() {
 
 function EventRow({
     event,
-    duplicating,
-    onDuplicate,
     onShare,
     onDelete,
 }: {
     event: ClientEvent;
-    duplicating: boolean;
-    onDuplicate: () => void;
     onShare: () => void;
     onDelete: () => void;
 }) {
@@ -618,9 +608,12 @@ function EventRow({
                         Edit Event
                     </Link>
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 justify-start text-[12px]" disabled={duplicating} onClick={onDuplicate}>
-                    <FontAwesomeIcon icon={faCopy} className="!size-[10px]" />
-                    {duplicating ? "Duplicating..." : "Duplicate"}
+                {/* Add Guest replaces Duplicate (Jamal, 2026-11-03): opens Add Guest for THIS event. */}
+                <Button asChild variant="outline" size="sm" className="h-7 justify-start text-[12px]">
+                    <Link href={`/dashboard/guests/add?event=${event.id}`}>
+                        <FontAwesomeIcon icon={faUserPlus} className="!size-[10px]" />
+                        Add Guest
+                    </Link>
                 </Button>
                 <Button variant="outline" size="sm" className="h-7 justify-start text-[12px]" onClick={onShare}>
                     <FontAwesomeIcon icon={faShareNodes} className="!size-[10px]" />
