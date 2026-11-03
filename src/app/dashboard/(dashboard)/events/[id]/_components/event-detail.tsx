@@ -40,6 +40,9 @@ import { AgendaPanel } from "./agenda-panel";
 import { FamilyPanel } from "./family-panel";
 import { GalleryPanel } from "./gallery-panel";
 import { SettingsPanel } from "./settings-panel";
+import { WishesPanel } from "./wishes-panel";
+import { LivePanel } from "./live-panel";
+import { SocialLinksPanel } from "./social-links-panel";
 
 /**
  * Event Details — the View Event screen.
@@ -65,6 +68,9 @@ const TABS = [
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Gallery" },
     { value: "family", label: "Family" },
+    { value: "wishes", label: "Wed Wishes" },
+    { value: "live", label: "Live Streaming" },
+    { value: "social", label: "Social Links" },
     { value: "guests", label: "Guests" },
     { value: "rsvps", label: "RSVPs" },
     { value: "participants", label: "Participants" },
@@ -542,6 +548,11 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
             {/* ── Family ──────────────────────────────────────────────────── */}
             {tab === "family" && <FamilyPanel event={event} />}
+
+            {/* Wed Wishes, Live Streaming, Social Links — as the app (2026-11-03). */}
+            {tab === "wishes" && <WishesPanel event={event} />}
+            {tab === "live" && <LivePanel event={event} />}
+            {tab === "social" && <SocialLinksPanel event={event} />}
 
             {/* ── Settings ────────────────────────────────────────────────── */}
             {tab === "settings" && <SettingsPanel event={event} />}
