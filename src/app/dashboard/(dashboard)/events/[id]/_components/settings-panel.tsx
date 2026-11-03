@@ -2,13 +2,16 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, User } from "lucide-react";
+import { Camera, Eye, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { PhoneInput } from "@/components/common/phone-input";
 import { joinPhone, mobileNumberError, splitPhone } from "@/lib/phone";
@@ -22,12 +25,17 @@ import type { ClientEvent } from "@/hooks/use-client-events";
 import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
 
 /**
- * Event settings the mobile app already had and this portal did not:
- * Organizer Contact, Participants Settings and RSVP Settings.
- *
- * Each card loads from, and saves to, the same endpoint the app uses. A card's
- * form is seeded from props and re-mounted by `key` when the saved value
- * changes — never by an effect — so a save shows what the server stored.
+ * RSVP Settings, Participants Settings and Contact Person — the SAME as the V1
+ * app's screens (Jamal, 2026-11-03), each loading from and saving to the
+ * endpoint the app uses:
+ *   · RSVP: Response Options, Response Deadline, then Allow Number of Guests /
+ *     Food Preference / to Specify the Relationship / Special Requests (the
+ *     app's order); Save + Preview. No "Enable RSVP" — always on in the app.
+ *   · Participants: Profile Screen + the fields other participants see
+ *     (Profile Photo, Name, Relationship, Mobile, Email).
+ *   · Contact Person: the app's Edit Contact — Full Name *, Designation / Role *,
+ *     Mobile *, WhatsApp (Same as mobile), Email *, Address / Base Location,
+ *     Preferred Contact Time *, Languages, About *.
  */
 
 export function SettingsPanel({ event }: { event: ClientEvent }) {
@@ -70,12 +78,13 @@ function RsvpForm({
     eventId, settings, eventEnd,
 }: { eventId: number; settings: RsvpSettings; eventEnd: string | null }) {
     const save = useSaveRsvpSettings(eventId);
-    const [enabled, setEnabled] = useState(settings.enabled);
     const [options, setOptions] = useState<RsvpAnswer[]>(settings.response_options);
     const [deadline, setDeadline] = useState(settings.deadline ?? "");
     const [guestCount, setGuestCount] = useState(settings.allow_guest_count);
-    const [requests, setRequests] = useState(settings.allow_special_requests);
+    const [food, setFood] = useState(settings.allow_food_preference ?? false);
     const [relationship, setRelationship] = useState(settings.allow_relationship);
+    const [requests, setRequests] = useState(settings.allow_special_requests);
+    const [preview, setPreview] = useState(false);
 
     const toggleOption = (value: RsvpAnswer, on: boolean) => {
         const next = on ? [...options, value] : options.filter((o) => o !== value);
@@ -85,9 +94,11 @@ function RsvpForm({
 
     return (
         <Section title="RSVP Settings">
-            <SwitchRow id="rsvp-enabled" label="Enable RSVP" hint="Guests can answer from the app" checked={enabled} onChange={setEnabled} />
-            <div className="flex flex-col gap-2.5 border-t py-3">
-                <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Response options</p>
+            <div className="flex flex-col gap-2.5 pb-3">
+                <div>
+                    <p className="text-[13px] font-medium">Response Options</p>
+                    <p className="text-[11.5px] text-muted-foreground">Allow guests to choose their response</p>
+                </div>
                 {ANSWERS.map((a) => (
                     <label key={a.value} className="flex items-center gap-2.5 text-[13px]">
                         <Checkbox checked={options.includes(a.value)} onCheckedChange={(v) => toggleOption(a.value, v === true)} /> {a.label}
@@ -95,29 +106,67 @@ function RsvpForm({
                 ))}
             </div>
             <div className="flex flex-col gap-1.5 border-t py-3">
-                <Label className="text-[12.5px]">Response deadline</Label>
+                <Label className="text-[13px]">Response Deadline</Label>
                 <Input type="date" value={deadline} max={eventEnd ?? undefined} onChange={(e) => setDeadline(e.target.value)} className="max-w-[200px]" />
                 <p className="text-[11.5px] text-muted-foreground">
                     Leave empty to close on the day the event ends{settings.effective_deadline ? ` (${settings.effective_deadline})` : ""}.
                 </p>
             </div>
             <div className="border-t">
-                <SwitchRow id="rsvp-count" label="Number of guests" hint="Ask how many are coming" checked={guestCount} onChange={setGuestCount} />
-                <SwitchRow id="rsvp-requests" label="Special requests" hint="Let guests add a note" checked={requests} onChange={setRequests} />
-                <SwitchRow id="rsvp-relation" label="Groom / Bride side and relationship" hint="Ask which side and how they are related" checked={relationship} onChange={setRelationship} />
+                <SwitchRow id="rsvp-count" label="Allow Number of Guests" hint="Let guests specify total number" checked={guestCount} onChange={setGuestCount} />
+                <SwitchRow id="rsvp-food" label="Allow Food Preference" hint="Let guests choose their food preference" checked={food} onChange={setFood} />
+                <SwitchRow id="rsvp-relation" label="Allow to Specify the Relationship" hint="Let guests say how they are related" checked={relationship} onChange={setRelationship} />
+                <SwitchRow id="rsvp-requests" label="Allow Special Requests" hint="Special needs, notes, etc." checked={requests} onChange={setRequests} />
             </div>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => setPreview(true)}><Eye className="size-3.5" /> Preview</Button>
                 <Button
                     disabled={save.isPending}
                     onClick={() => save.mutate({
-                        enabled, response_options: options, deadline: deadline || null,
-                        allow_guest_count: guestCount, allow_special_requests: requests, allow_relationship: relationship,
+                        enabled: true, response_options: options, deadline: deadline || null,
+                        allow_guest_count: guestCount, allow_food_preference: food,
+                        allow_relationship: relationship, allow_special_requests: requests,
                     })}
                 >
-                    Save RSVP Settings
+                    Save
                 </Button>
             </div>
+
+            {preview && (
+                <Dialog open onOpenChange={(o) => !o && setPreview(false)}>
+                    <DialogContent className="sm:max-w-sm">
+                        <DialogHeader>
+                            <DialogTitle>RSVP Preview</DialogTitle>
+                            <DialogDescription>What your guests see with these settings (not saved yet).</DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                            <p className="text-[13px] font-semibold">Will you attend?</p>
+                            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+                                {ANSWERS.filter((a) => options.includes(a.value)).map((a, i) => (
+                                    <span key={a.value} className={cn("rounded-md border px-2 py-2 text-center text-[12px] font-medium", i === 0 ? "border-primary bg-primary/10 text-primary" : "border-border")}>{a.label}</span>
+                                ))}
+                            </div>
+                            {guestCount && <PreviewField label="Number of Guests" value="1" />}
+                            {food && <PreviewField label="Food Preference" value="Choose…" />}
+                            {relationship && <PreviewField label="Relationship" value="Choose…" />}
+                            {requests && <PreviewField label="Special Requests" value="Any special needs…" tall />}
+                            <span className="rounded-md bg-primary py-2 text-center text-[12.5px] font-semibold text-primary-foreground">Submit RSVP</span>
+                            {deadline && <p className="text-center text-[11px] text-muted-foreground">Please respond by {deadline}</p>}
+                        </div>
+                        <DialogFooter><Button variant="outline" onClick={() => setPreview(false)}>Close</Button></DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
         </Section>
+    );
+}
+
+function PreviewField({ label, value, tall }: { label: string; value: string; tall?: boolean }) {
+    return (
+        <div className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium">{label}</span>
+            <span className={cn("rounded-md border border-border px-2.5 text-[12px] text-muted-foreground", tall ? "py-3" : "py-1.5")}>{value}</span>
+        </div>
     );
 }
 
@@ -137,7 +186,15 @@ function ParticipantsForm({ eventId, settings }: { eventId: number; settings: Pa
     const [profileScreen, setProfileScreen] = useState(settings.profile_screen);
     const [photo, setPhoto] = useState(settings.profile_photo);
     const [relationship, setRelationship] = useState(settings.relationship);
-    const [attendance, setAttendance] = useState(settings.attendance_status);
+    const [mobile, setMobile] = useState(settings.mobile ?? false);
+    const [email, setEmail] = useState(settings.email ?? false);
+
+    const field = (label: string, checked: boolean, set?: (v: boolean) => void) => (
+        <label className={cn("flex items-center gap-2.5 text-[13px]", !set && "opacity-70")}>
+            <Checkbox checked={checked} disabled={!set} onCheckedChange={(v) => set?.(v === true)} /> {label}
+            {!set && <span className="text-[11.5px] text-muted-foreground">(always shown)</span>}
+        </label>
+    );
 
     return (
         <Section title="Participants Settings">
@@ -148,30 +205,33 @@ function ParticipantsForm({ eventId, settings }: { eventId: number; settings: Pa
             />
             <div className="flex flex-col gap-3 border-t pt-3">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Participant fields</p>
-                <label className="flex items-center gap-2.5 text-[13px]"><Checkbox checked={photo} onCheckedChange={(v) => setPhoto(v === true)} /> Profile Photo</label>
-                <label className="flex items-center gap-2.5 text-[13px] opacity-70"><Checkbox checked disabled /> Name <span className="text-[11.5px] text-muted-foreground">(always shown)</span></label>
-                <label className="flex items-center gap-2.5 text-[13px]"><Checkbox checked={relationship} onCheckedChange={(v) => setRelationship(v === true)} /> Relationship</label>
-                <label className="flex items-center gap-2.5 text-[13px]"><Checkbox checked={attendance} onCheckedChange={(v) => setAttendance(v === true)} /> Attendance Status</label>
+                {field("Profile Photo", photo, setPhoto)}
+                {field("Name", true)}
+                {field("Relationship", relationship, setRelationship)}
+                {field("Mobile", mobile, setMobile)}
+                {field("Email", email, setEmail)}
             </div>
             <div className="mt-4 flex justify-end">
                 <Button
                     disabled={save.isPending}
-                    onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship, attendance_status: attendance })}
+                    onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship, mobile, email })}
                 >
-                    Save Participant Settings
+                    Save
                 </Button>
             </div>
         </Section>
     );
 }
 
-/* ── Organizer Contact ─────────────────────────────────────────────────────── */
+/* ── Contact Person ────────────────────────────────────────────────────────── */
+
+const LANGUAGES = ["English", "Tamil", "Hindi", "Malayalam", "Telugu", "Kannada", "Urdu", "Arabic", "Bengali", "Marathi", "Gujarati", "Punjabi"];
 
 function ContactCard({ eventId }: { eventId: number }) {
     const query = useOrganizerContact(eventId);
-    if (query.isLoading) return <Section title="Organizer Contact"><PanelLoading /></Section>;
+    if (query.isLoading) return <Section title="Contact Person"><PanelLoading /></Section>;
     if (query.isError || !query.data) {
-        return <Section title="Organizer Contact"><Empty title="Could not load the organizer contact" /></Section>;
+        return <Section title="Contact Person"><Empty title="Could not load the contact person" /></Section>;
     }
     return <ContactForm key={JSON.stringify(query.data)} eventId={eventId} contact={query.data} />;
 }
@@ -182,35 +242,52 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
     const fileRef = useRef<HTMLInputElement>(null);
     const [name, setName] = useState(contact.name ?? "");
     const [photo, setPhoto] = useState<string | null>(contact.photo);
+    const [designation, setDesignation] = useState(contact.designation ?? "");
     const [mobile, setMobile] = useState(contact.mobile ?? "");
+    const [whatsapp, setWhatsapp] = useState(contact.whatsapp ?? "");
+    const [sameAsMobile, setSameAsMobile] = useState(!!contact.whatsapp && contact.whatsapp === contact.mobile);
     const [email, setEmail] = useState(contact.email ?? "");
     const [address, setAddress] = useState(contact.address ?? "");
-    const [description, setDescription] = useState(contact.description ?? "");
+    const [from, setFrom] = useState(contact.time_from?.slice(0, 5) ?? "");
+    const [to, setTo] = useState(contact.time_to?.slice(0, 5) ?? "");
+    const [languages, setLanguages] = useState<string[]>(contact.languages ?? []);
+    const [about, setAbout] = useState(contact.about ?? "");
+    const [tried, setTried] = useState(false);
+
+    const toggleLanguage = (l: string) =>
+        setLanguages((p) => (p.includes(l) ? p.filter((x) => x !== l) : LANGUAGES.filter((x) => p.includes(x) || x === l)));
 
     const submit = () => {
+        setTried(true);
         const phone = splitPhone(mobile);
+        if (!name.trim() || !designation.trim() || !phone.number || !email.trim() || !from || !to || !about.trim()) {
+            toast.error("Please fill all mandatory fields.");
+            return;
+        }
         const phoneError = mobileNumberError(phone.iso, phone.number);
-        if (phoneError) {
-            toast.error(phoneError);
-            return;
+        if (phoneError) return toast.error(phoneError);
+        const wa = splitPhone(whatsapp);
+        if (!sameAsMobile && wa.number) {
+            const waError = mobileNumberError(wa.iso, wa.number);
+            if (waError) return toast.error(`WhatsApp: ${waError}`);
         }
-        if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
-            toast.error("Please enter a valid email address.");
-            return;
-        }
-        // Empty strings clear a field; the server treats them as null.
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) return toast.error("Please enter a valid email address.");
+
+        // Every key sent, so an emptied field is cleared — as the app.
         save.mutate({
-            name: name.trim(), photo: photo ?? "", mobile: phone.number ? mobile.trim() : "",
-            email: email.trim(), address: address.trim(), description: description.trim(),
+            name: name.trim(), photo: photo ?? "", mobile: mobile.trim(), email: email.trim(),
+            designation: designation.trim(),
+            whatsapp: sameAsMobile ? mobile.trim() : (wa.number ? whatsapp.trim() : ""),
+            address: address.trim(), time_from: from, time_to: to, languages, about: about.trim(),
         });
     };
 
+    const bad = (v: string) => tried && !v.trim();
+    const req = <span className="text-destructive">*</span>;
+
     return (
-        <Section title="Organizer Contact">
-            <p className="mb-3 text-[12px] text-muted-foreground">
-                The contact card guests see in the app&apos;s Contact Person section.
-                The role, contact time, languages and responsibilities are edited in the mobile app.
-            </p>
+        <Section title="Contact Person">
+            <p className="mb-3 text-[12px] text-muted-foreground">The contact card guests see in the app&apos;s Contact Person section.</p>
             <div className="flex flex-col items-center gap-2 pb-3">
                 <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-full" aria-label="Choose a photo">
                     <Avatar className="size-20">
@@ -237,35 +314,76 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
                 </div>
             </div>
             <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                    <Label className="text-[12.5px]">Name</Label>
-                    <Input value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
-                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Mobile</Label>
-                        <PhoneInput
-                            country={splitPhone(mobile).iso}
-                            number={splitPhone(mobile).number}
-                            onChange={(iso, num) => setMobile(joinPhone(iso, num))}
-                        />
+                        <Label className="text-[12.5px]">Full Name {req}</Label>
+                        <Input value={name} maxLength={200} placeholder="Enter full name" onChange={(e) => setName(e.target.value)} className={cn(bad(name) && "border-destructive")} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Email</Label>
-                        <Input type="email" value={email} maxLength={150} onChange={(e) => setEmail(e.target.value)} />
+                        <Label className="text-[12.5px]">Designation / Role {req}</Label>
+                        <Input value={designation} maxLength={100} placeholder="Event Organizer" onChange={(e) => setDesignation(e.target.value)} className={cn(bad(designation) && "border-destructive")} />
                     </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <Label className="text-[12.5px]">Address</Label>
-                    <Input value={address} maxLength={500} onChange={(e) => setAddress(e.target.value)} />
+                    <Label className="text-[12.5px]">Mobile Number {req}</Label>
+                    <PhoneInput
+                        country={splitPhone(mobile).iso}
+                        number={splitPhone(mobile).number}
+                        onChange={(iso, num) => setMobile(joinPhone(iso, num))}
+                    />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                    <Label className="text-[12.5px]">About Contact Person</Label>
-                    <Textarea value={description} rows={3} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
+                    <Label className="text-[12.5px]">WhatsApp Number</Label>
+                    {!sameAsMobile && (
+                        <PhoneInput
+                            country={splitPhone(whatsapp).iso}
+                            number={splitPhone(whatsapp).number}
+                            onChange={(iso, num) => setWhatsapp(joinPhone(iso, num))}
+                        />
+                    )}
+                    <label className="flex items-center gap-2 text-[12.5px]">
+                        <Checkbox checked={sameAsMobile} onCheckedChange={(v) => setSameAsMobile(v === true)} /> Same as mobile number
+                    </label>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-[12.5px]">Email Address {req}</Label>
+                    <Input type="email" value={email} maxLength={150} placeholder="contact@example.com" onChange={(e) => setEmail(e.target.value)} className={cn(bad(email) && "border-destructive")} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-[12.5px]">Address / Base Location</Label>
+                    <Input value={address} maxLength={500} placeholder="City, State, Country" onChange={(e) => setAddress(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-[12.5px]">Preferred Contact Time {req}</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <Input type="time" value={from} aria-label="From" onChange={(e) => setFrom(e.target.value)} className={cn(tried && !from && "border-destructive")} />
+                        <Input type="time" value={to} aria-label="To" onChange={(e) => setTo(e.target.value)} className={cn(tried && !to && "border-destructive")} />
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-[12.5px]">Languages</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                        {LANGUAGES.map((l) => (
+                            <button
+                                key={l} type="button" onClick={() => toggleLanguage(l)}
+                                className={cn(
+                                    "rounded-full border px-3 py-1 text-[12px] transition",
+                                    languages.includes(l) ? "border-primary bg-primary/10 font-medium text-primary" : "border-border text-foreground hover:bg-muted",
+                                )}
+                            >
+                                {l}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-[12.5px]">About Contact Person {req}</Label>
+                    <Textarea value={about} rows={3} maxLength={300} placeholder="How this person helps your guests" onChange={(e) => setAbout(e.target.value)} className={cn(bad(about) && "border-destructive")} />
+                    <p className="text-right text-[11px] text-muted-foreground">{about.length}/300</p>
                 </div>
             </div>
-            <div className={cn("mt-4 flex justify-end")}>
-                <Button disabled={save.isPending || upload.isPending} onClick={submit}>Save Organizer Contact</Button>
+            <div className="mt-4 flex justify-end">
+                <Button disabled={save.isPending || upload.isPending} onClick={submit}>Save Changes</Button>
             </div>
         </Section>
     );

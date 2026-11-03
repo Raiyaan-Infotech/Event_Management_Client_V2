@@ -70,6 +70,7 @@ export interface FamilyMember {
     mobile: string | null;
     email: string | null;
     notes: string | null;
+    created_at?: string | null;
 }
 
 export interface FamilyPage {
@@ -111,11 +112,14 @@ function invalidate(qc: ReturnType<typeof useQueryClient>, eventId: number, part
 export function useSaveFamilyMember(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id?: number; data: FamilyPayload }) => (id
+        // A partial body on update (Change Photo sends only `photo`).
+        mutationFn: ({ id, data }: { id?: number; data: FamilyPayload | Partial<FamilyPayload>; done?: string | null }) => (id
             ? api.put(`/client/family-members/${id}`, data)
             : api.post(`/client/events/${eventId}/family-members`, data)),
         onSuccess: (_r, v) => {
-            toast.success(v.id ? 'Family member updated' : 'Family member added');
+            // `done`: the toast; null = none (the form shows its own result page).
+            const msg = v.done === undefined ? (v.id ? 'Family member updated' : 'Family member added') : v.done;
+            if (msg) toast.success(msg);
             invalidate(qc, eventId, 'family');
         },
         onError: (e) => report(e, 'Could not save this family member'),
@@ -205,11 +209,13 @@ export function useEventAgenda(eventId: number) {
 export function useSaveAgendaItem(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id?: number; data: AgendaPayload }) => (id
+        // `done`: the toast ("Agenda moved"); null = none (the Add success page).
+        mutationFn: ({ id, data }: { id?: number; data: AgendaPayload; done?: string | null }) => (id
             ? api.put(`/client/agenda/${id}`, data)
             : api.post(`/client/events/${eventId}/agenda`, data)),
         onSuccess: (_r, v) => {
-            toast.success(v.id ? 'Agenda updated' : 'Agenda added');
+            const msg = v.done === undefined ? (v.id ? 'Agenda updated' : 'Agenda added') : v.done;
+            if (msg) toast.success(msg);
             invalidate(qc, eventId, 'agenda');
         },
         onError: (e) => report(e, 'Could not save this agenda item'),
@@ -228,6 +234,27 @@ export function useDeleteAgendaItem(eventId: number) {
     });
 }
 
+/** The app's Actions → Duplicate Agenda. */
+export function useDuplicateAgendaItem(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id: number) => api.post(`/client/agenda/${id}/duplicate`),
+        onSuccess: () => {
+            toast.success('Agenda duplicated');
+            invalidate(qc, eventId, 'agenda');
+        },
+        onError: (e) => report(e, 'Could not duplicate this agenda item'),
+    });
+}
+
+/** One agenda image; returns its stored URL for the item's `images`. */
+export async function uploadAgendaImage(eventId: number, file: File): Promise<string> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post<{ url: string }>(`/client/events/${eventId}/agenda/media`, form);
+    return res.url;
+}
+
 /* ── Gallery ───────────────────────────────────────────────────────────────── */
 
 export interface GalleryItem {
@@ -241,6 +268,12 @@ export interface GalleryItem {
     category_id: number | null;
     caption: string | null;
     show_in_app: boolean;
+    /** A Short (Upload Short), and a video's / short's own title and description. */
+    is_short?: boolean;
+    title?: string | null;
+    description?: string | null;
+    duration_seconds?: number | null;
+    created_at?: string | null;
 }
 
 export interface GalleryCategory {
@@ -253,6 +286,7 @@ export interface GalleryCategory {
     cover_url: string | null;
     is_default: boolean;
     item_count: number;
+    sort_order?: number;
 }
 
 export interface GalleryUsage {
@@ -298,7 +332,7 @@ export function useUploadGalleryItem(eventId: number) {
 export function useUpdateGalleryItem(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: Partial<Pick<GalleryItem, 'caption' | 'show_in_app' | 'category_id'>> }) =>
+        mutationFn: ({ id, data }: { id: number; data: Partial<Pick<GalleryItem, 'caption' | 'show_in_app' | 'category_id' | 'title' | 'description'>> }) =>
             api.put(`/client/gallery/${id}`, data),
         onSuccess: () => invalidate(qc, eventId, 'gallery'),
         onError: (e) => report(e, 'Could not update that item'),
@@ -345,7 +379,7 @@ export function useUploadGalleryCover(eventId: number) {
 export function useSaveGalleryCategory(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null; cover_image?: string | null } }) => (id
+        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null; cover_image?: string | null; position?: number | null } }) => (id
             ? api.put(`/client/gallery/categories/${id}`, data)
             : api.post(`/client/events/${eventId}/gallery/categories`, data)),
         onSuccess: (_r, v) => {
@@ -370,13 +404,19 @@ export function useDeleteGalleryCategory(eventId: number) {
 
 /* ── Organizer Contact ─────────────────────────────────────────────────────── */
 
+/** The event's Contact Person — the app's Edit Contact fields. */
 export interface OrganizerContact {
     name: string | null;
     photo: string | null;
     mobile: string | null;
     email: string | null;
+    designation: string | null;
+    whatsapp: string | null;
     address: string | null;
-    description: string | null;
+    time_from: string | null;
+    time_to: string | null;
+    languages: string[];
+    about: string | null;
 }
 
 export function useOrganizerContact(eventId: number) {
@@ -417,7 +457,9 @@ export interface ParticipantSettings {
     profile_photo: boolean;
     name: true;
     relationship: boolean;
-    attendance_status: boolean;
+    /** Shown to other participants (off by default) — as the app. */
+    mobile: boolean;
+    email: boolean;
 }
 
 export function useParticipantSettings(eventId: number) {
@@ -455,6 +497,7 @@ export interface RsvpSettings {
     allow_guest_count: boolean;
     allow_special_requests: boolean;
     allow_relationship: boolean;
+    allow_food_preference: boolean;
 }
 
 export function useRsvpSettings(eventId: number) {
@@ -507,4 +550,48 @@ export function relationSuitsSide(name: string, side: 'groom' | 'bride' | null):
     if (side === 'groom' && n.startsWith('bride')) return false;
     if (side === 'bride' && n.startsWith('groom')) return false;
     return true;
+}
+
+
+/** Edit Media → Change Cover: a video's / short's poster, after upload. */
+export function useReplaceGalleryCover(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, file }: { id: number; file: File }) => {
+            const form = new FormData();
+            form.append('file', file);
+            return api.post(`/client/gallery/${id}/cover`, form);
+        },
+        onSuccess: () => { toast.success('Cover updated'); invalidate(qc, eventId, 'gallery'); },
+        onError: (e) => report(e, 'Could not change the cover'),
+    });
+}
+
+/**
+ * Upload Short — the app's flow on the web: a video of up to a minute, optional
+ * background music (it replaces the clip's sound, fitted by the server from
+ * `musicStart` seconds), Remove Audio, an optional cover, title * and
+ * description, into one album.
+ */
+export function useUploadShort(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (v: {
+            file: File; music?: File | null; musicStart?: number; mute?: boolean; cover?: File | null;
+            title: string; description?: string; categoryId?: number;
+        }) => {
+            const form = new FormData();
+            form.append('file', v.file);
+            if (v.music) form.append('music', v.music);
+            if (v.cover) form.append('cover', v.cover);
+            form.append('title', v.title);
+            if (v.description) form.append('description', v.description);
+            if (v.music && v.musicStart) form.append('music_start', String(v.musicStart));
+            if (v.mute && !v.music) form.append('mute', 'true');
+            if (v.categoryId !== undefined && v.categoryId > 0) form.append('category_id', String(v.categoryId));
+            return api.post(`/client/events/${eventId}/gallery/shorts`, form);
+        },
+        onSuccess: () => invalidate(qc, eventId, 'gallery'),
+        onError: (e) => report(e, 'Could not upload the short'),
+    });
 }

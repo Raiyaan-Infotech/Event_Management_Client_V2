@@ -2,13 +2,12 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ExternalLink, Link2, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, EyeOff, Link2, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFacebook, faInstagram, faXTwitter, faYoutube } from "@fortawesome/free-brands-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -20,7 +19,7 @@ import {
     SOCIAL_PRESETS, uploadSocialIcon, useDeleteSocialLink, useReorderSocialLinks, useSaveSocialLink, useSocialLinks,
     type SocialLink,
 } from "@/hooks/use-event-engagement";
-import { Empty, FieldError, PanelLoading, Section, ShowInAppRow, SwitchRow } from "./module-ui";
+import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui";
 
 /**
  * Social Links — as the app's Social Links screen (V1, Jamal's mockup
@@ -57,11 +56,11 @@ export function SocialIcon({ link, size = 40 }: { link: Pick<SocialLink, "platfo
 
 export function SocialLinksPanel({ event }: { event: ClientEvent }) {
     const query = useSocialLinks(event.id);
-    const save = useSaveSocialLink(event.id);
     const remove = useDeleteSocialLink(event.id);
     const reorder = useReorderSocialLinks(event.id);
     const [editing, setEditing] = useState<SocialLink | "new" | null>(null);
     const [deleting, setDeleting] = useState<SocialLink | null>(null);
+    const [viewing, setViewing] = useState<SocialLink | null>(null);
 
     if (query.isLoading) return <PanelLoading />;
     if (query.isError || !query.data) {
@@ -86,10 +85,6 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
                     <Button size="sm" onClick={() => setEditing("new")}><Plus className="size-3.5" /> Add Social Link</Button>
                 )}
             >
-                <ShowInAppRow
-                    eventId={event.id} menuIds={event.menu_ids ?? []} menuId={page.menu_id}
-                    isDefault={page.is_default} show={page.show_in_app} label="Social Links"
-                />
                 {links.length === 0 ? (
                     <Empty title="No social links yet">Add the event&apos;s Instagram, Facebook, X or YouTube page, or any other link.</Empty>
                 ) : (
@@ -99,29 +94,24 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
                             return (
                                 <li key={link.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border p-3">
                                     <SocialIcon link={link} />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-[13px] font-semibold">{link.title || link.platform_name}</p>
+                                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => has && setViewing(link)}>
+                                        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold">
+                                            <span className="truncate">{link.title || link.platform_name}</span>
+                                            {/* As the app: a link kept out of the app is marked, not switched here. */}
+                                            {has && !link.show_in_app && (
+                                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground">
+                                                    <EyeOff className="size-2.5" /> Hidden
+                                                </span>
+                                            )}
+                                        </p>
                                         {has ? (
-                                            <a href={link.url!} target="_blank" rel="noreferrer"
-                                                className="flex min-w-0 items-center gap-1 text-[12px] text-primary hover:underline">
-                                                <span className="truncate">{shortUrl(link.url)}</span>
-                                                <ExternalLink className="size-3 shrink-0" />
-                                            </a>
+                                            <p className="truncate text-[12px] text-primary">{shortUrl(link.url)}</p>
                                         ) : (
                                             <p className="text-[12px] italic text-muted-foreground">Not added yet</p>
                                         )}
                                     </div>
                                     {page.can_edit && (
                                         <div className="flex shrink-0 items-center gap-1">
-                                            <div className="mr-1 hidden items-center gap-2 sm:flex">
-                                                <span className="text-[11px] text-muted-foreground">Show</span>
-                                                <Switch
-                                                    checked={link.show_in_app}
-                                                    disabled={!has || save.isPending}
-                                                    onCheckedChange={(v) => save.mutate({ id: link.id, data: { show_in_app: v }, quiet: true })}
-                                                    aria-label="Show in app"
-                                                />
-                                            </div>
                                             <Button size="icon" variant="ghost" className="size-8" aria-label="Move up" disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)}>
                                                 <ArrowUp className="size-3.5" />
                                             </Button>
@@ -144,6 +134,17 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
                     </ul>
                 )}
             </Section>
+
+            {viewing && (
+                <SocialLinkDetails
+                    link={links.find((l) => l.id === viewing.id) ?? viewing}
+                    order={links.findIndex((l) => l.id === viewing.id) + 1}
+                    canEdit={page.can_edit}
+                    onClose={() => setViewing(null)}
+                    onEdit={() => { const l = viewing; setViewing(null); setEditing(l); }}
+                    onDelete={() => { const l = viewing; setViewing(null); setDeleting(l); }}
+                />
+            )}
 
             {editing && (
                 <SocialLinkDialog
@@ -287,6 +288,73 @@ function SocialLinkDialog({ eventId, link, onClose }: { eventId: number; link: S
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button disabled={save.isPending || uploading} onClick={submit}>{link ? "Save Changes" : "Add Link"}</Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+const stamp = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, {
+    day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+}) : "—");
+
+/** Social Link Details — as the app's screen. */
+function SocialLinkDetails({
+    link, order, canEdit, onClose, onEdit, onDelete,
+}: {
+    link: SocialLink; order: number; canEdit: boolean;
+    onClose: () => void; onEdit: () => void; onDelete: () => void;
+}) {
+    const yesNo = (v: boolean) => <span className={v ? "text-success" : "text-muted-foreground"}>{v ? "Yes" : "No"}</span>;
+    const row = (label: string, value: React.ReactNode) => (
+        <div className="flex items-center justify-between gap-4 py-1.5 text-[12.5px]">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="text-right font-medium">{value}</span>
+        </div>
+    );
+    return (
+        <Dialog open onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Social Link Details</DialogTitle>
+                    <DialogDescription className="sr-only">{link.title}</DialogDescription>
+                </DialogHeader>
+                <div className="flex items-center gap-3">
+                    <SocialIcon link={link} size={48} />
+                    <div className="min-w-0">
+                        <p className="truncate text-[15px] font-bold">{link.title || link.platform_name}</p>
+                        <p className="text-[12px] text-muted-foreground">{link.platform_name}</p>
+                    </div>
+                </div>
+                <div>
+                    <p className="text-[12.5px] font-bold">URL</p>
+                    <div className="mt-1 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+                        <a href={link.url ?? "#"} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[12.5px] text-primary hover:underline">{link.url}</a>
+                        <Button size="icon" variant="ghost" className="size-7" aria-label="Copy link"
+                            onClick={() => { void navigator.clipboard?.writeText(link.url ?? ""); toast.success("Link copied"); }}>
+                            <Copy className="size-3.5" />
+                        </Button>
+                        <a href={link.url ?? "#"} target="_blank" rel="noreferrer" aria-label="Open" className="text-muted-foreground hover:text-foreground"><ExternalLink className="size-3.5" /></a>
+                    </div>
+                </div>
+                {link.description && (
+                    <div>
+                        <p className="text-[12.5px] font-bold">Description</p>
+                        <p className="mt-1 whitespace-pre-line break-words text-[12.5px] text-foreground/85">{link.description}</p>
+                    </div>
+                )}
+                <div className="divide-y divide-border rounded-lg border border-border px-3">
+                    {order > 0 && row("Display Order", order)}
+                    {row("Open in External App", yesNo(link.open_external))}
+                    {row("Show in App", yesNo(link.show_in_app))}
+                    {row("Created On", stamp(link.created_at))}
+                    {row("Last Updated", stamp(link.updated_at))}
+                </div>
+                {canEdit && (
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> {link.platform_key ? "Remove Link" : "Delete"}</Button>
+                        <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
+                    </DialogFooter>
+                )}
             </DialogContent>
         </Dialog>
     );

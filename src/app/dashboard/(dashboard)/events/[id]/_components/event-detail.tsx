@@ -505,19 +505,8 @@ export function EventDetail({ eventId }: { eventId: number }) {
             )}
 
             {/* ── Agenda ──────────────────────────────────────────────────── */}
-            {tab === "agenda" && (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    <Panel title="Date & Time">
-                        <Row label="Start Date" value={fmt(event.start_date)} />
-                        <Row label="End Date" value={fmt(event.end_date)} />
-                        <Row label="Start Time" value={formatTime(event.start_time)} />
-                        <Row label="End Time" value={formatTime(event.end_time)} />
-                        <Row label="Time Zone" value={event.timezone || "—"} />
-                    </Panel>
-
-                    <AgendaPanel event={event} />
-                </div>
-            )}
+            {/* Agenda only, as in the app (no extra Date & Time box). */}
+            {tab === "agenda" && <AgendaPanel event={event} />}
 
             {/* ── Venue ───────────────────────────────────────────────────── */}
             {tab === "venue" && (

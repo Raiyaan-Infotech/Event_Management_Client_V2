@@ -3,10 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowDown, ArrowUp, CalendarDays, Clock, ExternalLink, FolderPlus, Loader2, Pencil, Plus, Search, Trash2, Upload, X,
+    ArrowDown, ArrowUp, CalendarDays, Clock, Copy, ExternalLink, FolderPlus, Loader2, Mail, Pencil, Plus, Power, QrCode, Search,
+    Share2, Trash2, Upload, X,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFacebook, faGoogle, faInstagram, faYoutube, faZoom } from "@fortawesome/free-brands-svg-icons";
+import { faFacebook, faGoogle, faInstagram, faWhatsapp, faYoutube, faZoom } from "@fortawesome/free-brands-svg-icons";
 import { faTowerBroadcast } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +28,7 @@ import {
     useReorderLiveTypes, useSaveLiveStream, useSaveLiveType,
     type LivePlatform, type LiveStream, type LiveStreamType,
 } from "@/hooks/use-event-engagement";
-import { Empty, FieldError, PanelLoading, Section, ShowInAppRow, SwitchRow } from "./module-ui";
+import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui";
 
 /**
  * Live Streaming — as the app's Live Streaming screen (V1, Jamal 2026-10-21):
@@ -70,6 +72,8 @@ export function LivePanel({ event }: { event: ClientEvent }) {
     const [editing, setEditing] = useState<LiveStream | "new" | null>(null);
     const [deleting, setDeleting] = useState<LiveStream | null>(null);
     const [categoriesOpen, setCategoriesOpen] = useState(false);
+    const [viewing, setViewing] = useState<LiveStream | null>(null);
+    const [sharing, setSharing] = useState<LiveStream | null>(null);
 
     const streams = useMemo(() => streamsQuery.data?.streams ?? [], [streamsQuery.data]);
     const types = typesQuery.data?.types ?? [];
@@ -115,12 +119,7 @@ export function LivePanel({ event }: { event: ClientEvent }) {
                     </div>
                 )}
             >
-                <ShowInAppRow
-                    eventId={event.id} menuIds={event.menu_ids ?? []} menuId={page.menu_id}
-                    isDefault={page.is_default} show={page.show_in_app} label="Live Streaming"
-                />
-
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                     {[
                         { label: "Total Streams", value: counts.total, tone: "text-foreground" },
                         { label: "Live Enabled", value: counts.enabled, tone: "text-success" },
@@ -163,7 +162,7 @@ export function LivePanel({ event }: { event: ClientEvent }) {
                                 <ul className="grid gap-2 lg:grid-cols-2">
                                     {g.items.map((s) => (
                                         <li key={s.id} className={cn("flex min-w-0 gap-3 rounded-lg border border-border p-2.5", !s.is_enabled && "opacity-70")}>
-                                            <div className="h-[72px] w-[110px] shrink-0 overflow-hidden rounded-md bg-muted">
+                                            <div className="h-[72px] w-[110px] shrink-0 cursor-pointer overflow-hidden rounded-md bg-muted" onClick={() => setViewing(s)}>
                                                 {s.cover_image ? (
                                                     // eslint-disable-next-line @next/next/no-img-element
                                                     <img src={mediaUrl(s.cover_image)} alt="" className="h-full w-full object-cover" />
@@ -175,7 +174,7 @@ export function LivePanel({ event }: { event: ClientEvent }) {
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-start justify-between gap-2">
-                                                    <p className="line-clamp-2 break-words text-[13px] font-semibold">{s.title}</p>
+                                                    <button type="button" onClick={() => setViewing(s)} className="line-clamp-2 break-words text-left text-[13px] font-semibold hover:text-primary">{s.title}</button>
                                                     {canEdit && (
                                                         <Switch
                                                             checked={s.is_enabled}
@@ -215,6 +214,23 @@ export function LivePanel({ event }: { event: ClientEvent }) {
             </Section>
 
             {categoriesOpen && <CategoriesDialog eventId={event.id} types={types} onClose={() => setCategoriesOpen(false)} />}
+
+            {viewing && (() => {
+                const s = streams.find((x) => x.id === viewing.id) ?? viewing;
+                return (
+                    <StreamDetailsDialog
+                        stream={s} canEdit={canEdit} busy={save.isPending} dateText={fmt(s.stream_date)}
+                        onClose={() => setViewing(null)}
+                        onEdit={() => { setViewing(null); setEditing(s); }}
+                        onShare={() => setSharing(s)}
+                        onToggle={() => save.mutate(
+                            { id: s.id, data: { is_enabled: !s.is_enabled }, quiet: true },
+                            { onSuccess: () => toast.success(s.is_enabled ? "Live stream disabled" : "Live stream enabled") },
+                        )}
+                    />
+                );
+            })()}
+            {sharing && <ShareStreamDialog stream={sharing} eventName={event.name} dateText={fmt(sharing.stream_date)} onClose={() => setSharing(null)} />}
 
             {editing && (
                 <StreamDialog
@@ -308,6 +324,13 @@ function CategoriesDialog({ eventId, types, onClose }: { eventId: number; types:
                 <ul className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto">
                     {types.map((t, i) => (
                         <li key={t.id} className="flex items-center gap-2 rounded-lg border border-border p-2.5">
+                            {/* A category's cover = its first stream's cover (as the app). */}
+                            <div className="grid h-10 w-14 shrink-0 place-items-center overflow-hidden rounded-md bg-muted">
+                                {t.cover_url
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    ? <img src={mediaUrl(t.cover_url)} alt="" className="h-full w-full object-cover" />
+                                    : <FontAwesomeIcon icon={faTowerBroadcast} className="!size-[14px] text-muted-foreground" />}
+                            </div>
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-[13px] font-semibold">{t.name}</p>
                                 <p className="text-[11.5px] text-muted-foreground">{t.stream_count} stream{t.stream_count === 1 ? "" : "s"} · {t.enabled_count} enabled</p>
@@ -474,6 +497,130 @@ function StreamDialog({
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button disabled={save.isPending || uploading} onClick={submit}>{stream ? "Save Changes" : "Add Live Stream"}</Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/** Live Stream Details — as the app: Watch Live, Edit, Share, Disable / Enable. */
+function StreamDetailsDialog({
+    stream, canEdit, busy, dateText, onClose, onEdit, onShare, onToggle,
+}: {
+    stream: LiveStream; canEdit: boolean; busy: boolean; dateText: string;
+    onClose: () => void; onEdit: () => void; onShare: () => void; onToggle: () => void;
+}) {
+    const p = platformOf(stream.platform);
+    return (
+        <Dialog open onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Live Stream Details</DialogTitle>
+                    <DialogDescription className="sr-only">{stream.title}</DialogDescription>
+                </DialogHeader>
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                    {stream.cover_image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={mediaUrl(stream.cover_image)} alt="" className="h-full w-full object-cover" />
+                        : <div className="grid h-full place-items-center" style={{ backgroundColor: `${p.color}12` }}>
+                            <FontAwesomeIcon icon={PLATFORM_ICON[p.key]} className="!size-[40px]" style={{ color: p.color }} />
+                        </div>}
+                    {stream.is_enabled && (
+                        <span className="absolute left-2 top-2 rounded bg-destructive px-2 py-0.5 text-[10.5px] font-bold text-white">LIVE</span>
+                    )}
+                </div>
+                <div>
+                    <p className="break-words text-[16px] font-bold">{stream.title}</p>
+                    {stream.type_name && <p className="text-[12px] text-muted-foreground">{stream.type_name}</p>}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground">
+                    <PlatformBadge platform={stream.platform} />
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="size-3.5" />{dateText}</span>
+                    <span className="inline-flex items-center gap-1"><Clock className="size-3.5" />{timeLabel(stream.stream_time)}</span>
+                    {!stream.is_enabled && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">Disabled</span>}
+                </div>
+                <div className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-primary">{stream.stream_url}</span>
+                    <Button size="icon" variant="ghost" className="size-7" aria-label="Copy link"
+                        onClick={() => { void navigator.clipboard?.writeText(stream.stream_url); toast.success("Link copied"); }}>
+                        <Copy className="size-3.5" />
+                    </Button>
+                </div>
+                {stream.description && <p className="whitespace-pre-line break-words text-[12.5px] text-foreground/85">{stream.description}</p>}
+                <Button asChild><a href={stream.stream_url} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Watch Live</a></Button>
+                {canEdit && (
+                    <div className="grid grid-cols-3 gap-2">
+                        <Button variant="outline" onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
+                        <Button variant="outline" onClick={onShare}><Share2 className="size-3.5" /> Share</Button>
+                        <Button variant="outline" disabled={busy} onClick={onToggle}>
+                            <Power className="size-3.5" /> {stream.is_enabled ? "Disable" : "Enable"}
+                        </Button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/** Share Live Stream — as the app: QR code, Copy Link, WhatsApp, Email, Share QR Code. */
+function ShareStreamDialog({
+    stream, eventName, dateText, onClose,
+}: { stream: LiveStream; eventName: string; dateText: string; onClose: () => void }) {
+    const qrId = `live-qr-${stream.id}`;
+    const text = `Watch "${stream.title}" live (${eventName})\n${dateText}, ${timeLabel(stream.stream_time)}\n${stream.stream_url}`;
+
+    const downloadQr = () => {
+        const svg = document.getElementById(qrId)?.querySelector("svg");
+        if (!svg) return;
+        const data = new XMLSerializer().serializeToString(svg);
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = canvas.height = 600;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, 600, 600);
+            ctx.drawImage(img, 40, 40, 520, 520);
+            const a = document.createElement("a");
+            a.download = `live-stream-${stream.id}-qr.png`;
+            a.href = canvas.toDataURL("image/png");
+            a.click();
+        };
+        img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(data)}`;
+    };
+
+    const row = (icon: React.ReactNode, title: string, sub: string, onClick: () => void) => (
+        <button type="button" onClick={onClick} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left hover:bg-muted">
+            <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">{icon}</span>
+            <span className="min-w-0">
+                <span className="block text-[13px] font-medium">{title}</span>
+                <span className="block text-[11.5px] text-muted-foreground">{sub}</span>
+            </span>
+        </button>
+    );
+
+    return (
+        <Dialog open onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Share Live Stream</DialogTitle>
+                    <DialogDescription>{stream.title}</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center gap-2">
+                    <div id={qrId} className="rounded-lg border border-border bg-white p-3">
+                        <QRCodeSVG value={stream.stream_url} size={170} />
+                    </div>
+                    <p className="text-[12px] text-muted-foreground">Scan to open the live stream</p>
+                </div>
+                <div className="grid gap-2">
+                    {row(<Copy className="size-4" />, "Copy Link", "Copy live stream link",
+                        () => { void navigator.clipboard?.writeText(stream.stream_url); toast.success("Link copied"); })}
+                    {row(<FontAwesomeIcon icon={faWhatsapp} className="!size-4" />, "Share via WhatsApp", "Share with your guests",
+                        () => window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank"))}
+                    {row(<Mail className="size-4" />, "Share via Email", "Send invitation via email",
+                        () => window.open(`mailto:?subject=${encodeURIComponent(`Live: ${stream.title}`)}&body=${encodeURIComponent(text)}`, "_self"))}
+                    {row(<QrCode className="size-4" />, "Share QR Code", "Let guests scan to open", downloadQr)}
+                </div>
             </DialogContent>
         </Dialog>
     );
