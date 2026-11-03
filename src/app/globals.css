@@ -414,3 +414,27 @@
 .rich-html .ql-align-center { text-align: center; }
 .rich-html .ql-align-right { text-align: right; }
 .rich-html .ql-align-justify { text-align: justify; }
+
+/* Upload Short's trim bar: two range inputs stacked — only their handles take the pointer. */
+.trim-handle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 36px;
+  border-radius: 4px;
+  background: var(--primary);
+  cursor: ew-resize;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+.trim-handle::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 36px;
+  border-radius: 4px;
+  background: var(--primary);
+  cursor: ew-resize;
+  border: 2px solid #fff;
+}
+.trim-handle::-webkit-slider-runnable-track { background: transparent; }
+.trim-handle::-moz-range-track { background: transparent; }

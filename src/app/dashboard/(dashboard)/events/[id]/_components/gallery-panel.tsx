@@ -52,6 +52,9 @@ import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui
 const mb = (bytes: number) => Math.round((bytes / (1024 * 1024)) * 10) / 10;
 const SHORT_MAX_SECONDS = 60;
 const SHORT_MAX_BYTES = 10 * 1024 * 1024;
+/** A longer video may be sent to be TRIMMED on the server (the cut must fit SHORT_MAX_BYTES). */
+const SHORT_SOURCE_MAX_BYTES = 50 * 1024 * 1024;
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 
 /** What is left on the plan for this event (Infinity = unlimited). */
 function leftOf(usage: GalleryUsage) {
@@ -836,6 +839,9 @@ function ShortDialog({
     const musicRef = useRef<HTMLInputElement>(null);
     const coverRef = useRef<HTMLInputElement>(null);
     const [video, setVideo] = useState<{ file: File; url: string; seconds: number } | null>(null);
+    /** The part kept, in seconds of the original (as the app's Trim Short). */
+    const [trim, setTrim] = useState<[number, number]>([0, 0]);
+    const previewRef = useRef<HTMLVideoElement>(null);
     const [mute, setMute] = useState(false);
     const [music, setMusic] = useState<File | null>(null);
     const [musicStart, setMusicStart] = useState("0");
@@ -848,25 +854,28 @@ function ShortDialog({
 
     const pickVideo = (file: File | undefined) => {
         if (!file) return;
-        if (file.size > SHORT_MAX_BYTES) return toast.error(`Shorts must be ${mb(SHORT_MAX_BYTES)} MB or smaller. This file is ${mb(file.size)} MB.`);
+        if (file.size > SHORT_SOURCE_MAX_BYTES) return toast.error(`Please choose a video of ${mb(SHORT_SOURCE_MAX_BYTES)} MB or smaller. This file is ${mb(file.size)} MB.`);
         const url = URL.createObjectURL(file);
         const probe = document.createElement("video");
         probe.preload = "metadata";
         probe.onloadedmetadata = () => {
-            const seconds = Math.round(probe.duration || 0);
-            if (seconds > SHORT_MAX_SECONDS + 1) {
+            // Shorts are vertical, as the server checks.
+            if (probe.videoWidth && probe.videoHeight && probe.videoWidth > probe.videoHeight) {
                 URL.revokeObjectURL(url);
-                toast.error(`A short can be up to 1 minute. This video is ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}.`);
+                toast.error("Shorts must be a vertical (portrait) video.");
                 return;
             }
+            const seconds = Math.round(probe.duration || 0);
             setVideo({ file, url, seconds });
+            // Up to a minute is kept; a longer video starts with its first minute.
+            setTrim([0, Math.min(seconds, SHORT_MAX_SECONDS)]);
         };
         probe.onerror = () => toast.error("That video could not be read. Please choose an MP4, WebM or MOV video.");
         probe.src = url;
     };
 
     const reset = () => {
-        setVideo(null); setMute(false); setMusic(null); setMusicStart("0"); setCover(null);
+        setVideo(null); setTrim([0, 0]); setMute(false); setMusic(null); setMusicStart("0"); setCover(null);
         setTitle(""); setDescription(""); setTried(false); setDone(false);
     };
 
@@ -874,8 +883,15 @@ function ShortDialog({
         setTried(true);
         if (!video || !title.trim()) return toast.error("Please choose a video and enter a title.");
         const album = categories.find((c) => String(c.id) === albumId);
+        const [from, to] = trim;
+        if (to - from > SHORT_MAX_SECONDS + 0.5) return toast.error("A short can be up to 1 minute. Please choose a shorter part.");
+        const trimmed = from > 0 || to < video.seconds;
+        if (!trimmed && video.file.size > SHORT_MAX_BYTES) {
+            return toast.error(`Shorts must be ${mb(SHORT_MAX_BYTES)} MB or smaller. Trim it to a shorter part.`);
+        }
         upload.mutate({
             file: video.file, music, musicStart: Number(musicStart) || 0, mute, cover: cover?.file ?? null,
+            trimStart: trimmed ? from : undefined, trimEnd: trimmed ? to : undefined,
             title: title.trim(), description: description.trim() || undefined,
             categoryId: album && !album.is_default ? album.id : undefined,
         }, { onSuccess: () => setDone(true) });
@@ -911,10 +927,32 @@ function ShortDialog({
                     onChange={(e) => { pickVideo(e.target.files?.[0]); e.target.value = ""; }} />
                 {video ? (
                     <div className="flex flex-col gap-2">
-                        <video src={video.url} controls muted={mute || !!music} className="aspect-video w-full rounded-lg bg-black" />
+                        <video
+                            ref={previewRef} src={video.url} controls muted={mute || !!music}
+                            className="mx-auto max-h-[300px] rounded-lg bg-black"
+                            // The preview plays only the kept part, in a loop.
+                            onLoadedMetadata={(e) => { e.currentTarget.currentTime = trim[0]; }}
+                            onTimeUpdate={(e) => {
+                                const v = e.currentTarget;
+                                if (v.currentTime < trim[0] || v.currentTime > trim[1]) v.currentTime = trim[0];
+                            }}
+                        />
                         <div className="flex items-center justify-between text-[12px] text-muted-foreground">
-                            <span>{Math.floor(video.seconds / 60)}:{String(video.seconds % 60).padStart(2, "0")} · {mb(video.file.size)} MB</span>
+                            <span>{clock(video.seconds)} · {mb(video.file.size)} MB</span>
                             <button type="button" className="text-primary" onClick={() => videoRef.current?.click()}>Change Video</button>
+                        </div>
+                        <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[13px] font-medium">Trim Short</p>
+                                <span className={cn("text-[12px] font-semibold", trim[1] - trim[0] > SHORT_MAX_SECONDS ? "text-destructive" : "text-primary")}>
+                                    {clock(trim[0])} – {clock(trim[1])} · {Math.round(trim[1] - trim[0])}s kept
+                                </span>
+                            </div>
+                            <TrimBar
+                                duration={video.seconds} value={trim} maxLen={SHORT_MAX_SECONDS}
+                                onChange={(v) => { setTrim(v); if (previewRef.current) previewRef.current.currentTime = v[0]; }}
+                            />
+                            <p className="text-[11.5px] text-muted-foreground">Up to 1 minute. Drag the handles to choose the part to keep.</p>
                         </div>
                         <label className="flex items-center gap-2 text-[12.5px]">
                             <Checkbox checked={mute} disabled={!!music} onCheckedChange={(v) => setMute(v === true)} /> Remove Audio
@@ -981,5 +1019,44 @@ function ShortDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/**
+ * The trim bar: a strip over the whole video with the kept part marked; drag
+ * either handle (at most `maxLen` seconds — moving one end past it pulls the
+ * other along, as the app's trim).
+ */
+function TrimBar({
+    duration, value, maxLen, onChange,
+}: { duration: number; value: [number, number]; maxLen: number; onChange: (v: [number, number]) => void }) {
+    const [from, to] = value;
+    const pct = (s: number) => (duration > 0 ? (s / duration) * 100 : 0);
+    const setFrom = (v: number) => {
+        const f = Math.min(Math.max(0, v), to - 1);
+        onChange([f, to - f > maxLen ? f + maxLen : to]);
+    };
+    const setTo = (v: number) => {
+        const t = Math.max(Math.min(duration, v), from + 1);
+        onChange([t - from > maxLen ? t - maxLen : from, t]);
+    };
+    return (
+        <div className="relative h-10">
+            <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 rounded-md bg-muted" />
+            <div
+                className="absolute top-1/2 h-8 -translate-y-1/2 rounded-md border-2 border-primary bg-primary/15"
+                style={{ left: `${pct(from)}%`, width: `${pct(to) - pct(from)}%` }}
+            />
+            <input
+                type="range" min={0} max={duration} step={1} value={from} aria-label="Trim start"
+                onChange={(e) => setFrom(Number(e.target.value))}
+                className="trim-handle pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent"
+            />
+            <input
+                type="range" min={0} max={duration} step={1} value={to} aria-label="Trim end"
+                onChange={(e) => setTo(Number(e.target.value))}
+                className="trim-handle pointer-events-none absolute inset-0 h-10 w-full appearance-none bg-transparent"
+            />
+        </div>
     );
 }

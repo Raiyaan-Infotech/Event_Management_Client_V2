@@ -579,6 +579,8 @@ export function useUploadShort(eventId: number) {
         mutationFn: (v: {
             file: File; music?: File | null; musicStart?: number; mute?: boolean; cover?: File | null;
             title: string; description?: string; categoryId?: number;
+            /** Seconds of the original to keep — the server cuts the clip (the browser cannot). */
+            trimStart?: number; trimEnd?: number;
         }) => {
             const form = new FormData();
             form.append('file', v.file);
@@ -589,6 +591,7 @@ export function useUploadShort(eventId: number) {
             if (v.music && v.musicStart) form.append('music_start', String(v.musicStart));
             if (v.mute && !v.music) form.append('mute', 'true');
             if (v.categoryId !== undefined && v.categoryId > 0) form.append('category_id', String(v.categoryId));
+            if (v.trimEnd !== undefined) { form.append('trim_start', String(v.trimStart ?? 0)); form.append('trim_end', String(v.trimEnd)); }
             return api.post(`/client/events/${eventId}/gallery/shorts`, form);
         },
         onSuccess: () => invalidate(qc, eventId, 'gallery'),
