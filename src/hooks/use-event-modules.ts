@@ -70,6 +70,10 @@ export interface FamilyMember {
     mobile: string | null;
     email: string | null;
     notes: string | null;
+    /** false = Hide from App (the organizer still sees the member). */
+    is_visible: boolean;
+    /** Highlight as Key Family Member. */
+    is_key: boolean;
     created_at?: string | null;
 }
 
@@ -83,7 +87,9 @@ export interface FamilyPage {
 }
 
 export interface FamilyPayload {
-    first_name: string;
+    /** The whole name in one field (the web form); or first_name + last_name (the app). */
+    name?: string;
+    first_name?: string;
     last_name?: string | null;
     title?: string | null;
     side: 'groom' | 'bride';
@@ -95,6 +101,8 @@ export interface FamilyPayload {
     date_of_birth?: string | null;
     notes?: string | null;
     photo?: string | null;
+    is_visible?: boolean;
+    is_key?: boolean;
 }
 
 export function useEventFamily(eventId: number) {

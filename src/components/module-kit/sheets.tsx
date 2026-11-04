@@ -1,0 +1,150 @@
+"use client";
+
+import { useState } from "react";
+import { MoreHorizontal, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { TONE_TEXT, type Tone } from "./tones";
+import { FormField } from "./form";
+
+/**
+ * The slide-in panel every row action opens (View Guest, Send Invitation,
+ * Update RSVP Status, Block Participant, Delete …): pink header with a round
+ * icon, title, subtitle and ✕; scrolling body; Cancel / main button at the foot.
+ */
+export function ActionSheet({
+    open, onClose, icon: Icon, tone = "primary", title, subtitle, children, footer, width = 500,
+}: {
+    open: boolean; onClose: () => void; icon?: LucideIcon; tone?: Tone; title: string; subtitle?: string;
+    children: React.ReactNode; footer?: React.ReactNode; width?: number;
+}) {
+    return (
+        <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+            <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-none" style={{ maxWidth: width }}>
+                <div className="flex items-start gap-3 border-b border-primary/15 bg-primary/5 px-5 py-4">
+                    {Icon && (
+                        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full bg-card", TONE_TEXT[tone])}>
+                            <Icon className="size-5" />
+                        </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                        <SheetTitle className="text-[19px] font-bold">{title}</SheetTitle>
+                        <SheetDescription className={cn("text-[12.5px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>
+                    </div>
+                    <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">{children}</div>
+                {footer && <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-border p-5">{footer}</div>}
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+/** A bordered block with a bold title and label / value rows ("Contact Information"). */
+export function DetailSection({ title, icon: Icon, children }: { title?: string; icon?: LucideIcon; children: React.ReactNode }) {
+    return (
+        <div className="rounded-xl border border-border bg-card p-4">
+            {title && <p className="mb-1 flex items-center gap-2 text-[14px] font-bold">{Icon && <Icon className="size-4 text-primary" />} {title}</p>}
+            <div className="divide-y divide-border">{children}</div>
+        </div>
+    );
+}
+
+export function DetailRow({ label, children, tone }: { label: string; children: React.ReactNode; tone?: Tone }) {
+    return (
+        <div className="flex items-start justify-between gap-4 py-2 text-[12.5px]">
+            <span className="text-muted-foreground">{label}</span>
+            <span className={cn("break-words text-right font-medium", tone && TONE_TEXT[tone])}>{children || "—"}</span>
+        </div>
+    );
+}
+
+/** 2×2 small boxes: "Relationship / Mother", "Invite Count / 2 guests". */
+export function InfoGrid({ items }: { items: { label: string; value: React.ReactNode }[] }) {
+    return (
+        <div className="grid grid-cols-2 gap-2.5">
+            {items.map((i) => (
+                <div key={i.label} className="rounded-lg border border-border bg-card px-3 py-2">
+                    <p className="text-[11.5px] text-muted-foreground">{i.label}</p>
+                    <p className="text-[13px] font-semibold">{i.value || "—"}</p>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * The Delete panel body: "This action cannot be undone", what is affected,
+ * an optional reason, and "I understand…". The confirm button stays off
+ * until the box is ticked; `onConfirm` gets the reason.
+ */
+export function DeleteSheet({
+    open, onClose, title, subtitle, summary, question, effects, confirmLabel, busy, onConfirm,
+}: {
+    open: boolean; onClose: () => void; title: string; subtitle?: string; summary?: React.ReactNode;
+    question: string; effects?: { label: string; value: string; keep?: boolean }[];
+    confirmLabel: string; busy?: boolean; onConfirm: (reason: string) => void;
+}) {
+    const [reason, setReason] = useState("");
+    const [sure, setSure] = useState(false);
+    const close = () => { setReason(""); setSure(false); onClose(); };
+    return (
+        <ActionSheet
+            open={open} onClose={close} icon={X} tone="danger" title={title} subtitle={subtitle}
+            footer={(
+                <>
+                    <Button variant="outline" onClick={close}>Cancel</Button>
+                    <Button variant="destructive" disabled={!sure || busy} onClick={() => onConfirm(reason.trim())}>{confirmLabel}</Button>
+                </>
+            )}
+        >
+            {summary}
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-[12.5px] text-destructive">
+                <p className="flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-3.5" /> This action cannot be undone.</p>
+                <p className="mt-1.5">{question}</p>
+            </div>
+            {effects && effects.length > 0 && (
+                <DetailSection title="Data affected">
+                    {effects.map((e) => <DetailRow key={e.label} label={e.label} tone={e.keep ? "plain" : "danger"}>{e.value}</DetailRow>)}
+                </DetailSection>
+            )}
+            <FormField label="Reason" hint=" (optional)">
+                <Textarea value={reason} maxLength={300} rows={2} onChange={(e) => setReason(e.target.value)} />
+            </FormField>
+            <label className="flex items-center gap-2.5 rounded-lg border border-border p-3 text-[13px] font-semibold">
+                <Checkbox checked={sure} onCheckedChange={(v) => setSure(v === true)} /> I understand this action is permanent
+            </label>
+        </ActionSheet>
+    );
+}
+
+export type RowAction = { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean; divider?: boolean; hidden?: boolean };
+
+/** The ⋯ button on a row and its menu (red item for Delete; `divider` draws a line above). */
+export function RowActions({ items, label = "Actions" }: { items: RowAction[]; label?: string }) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="outline" className="size-8 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary" aria-label={label}>
+                    <MoreHorizontal className="size-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+                {items.filter((i) => !i.hidden).map((i) => (
+                    <div key={i.label}>
+                        {i.divider && <DropdownMenuSeparator />}
+                        <DropdownMenuItem onClick={i.onClick} className={cn("gap-2.5 py-2 text-[13px]", i.danger && "text-destructive focus:text-destructive")}>
+                            <i.icon className={cn("size-4", i.danger ? "text-destructive" : "text-muted-foreground")} /> {i.label}
+                        </DropdownMenuItem>
+                    </div>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}

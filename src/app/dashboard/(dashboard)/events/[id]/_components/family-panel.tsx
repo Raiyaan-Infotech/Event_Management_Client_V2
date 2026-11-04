@@ -1,291 +1,395 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, CheckCircle2, GripVertical, MoreVertical, Pencil, Plus, Settings, Trash2, User } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Star, Trash2, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PhoneInput } from "@/components/common/phone-input";
 import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
-import { mediaUrl } from "@/lib/media-url";
 import {
     relationSuitsSide, useDeleteFamilyMember, useEventFamily, useRelationOptions, useReorderFamily,
-    useSaveFamilyMember, useSaveFamilySettings, useUploadPhoto, type FamilyMember, type FamilySettings,
+    useSaveFamilyMember, useSaveFamilySettings, type FamilyMember, type FamilySettings,
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
-import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui";
+import {
+    ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
+    PhotoDropzone, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+} from "@/components/module-kit";
+import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
 
 /**
- * Family — the SAME as the V1 app's organizer Family list (Jamal, 2026-11-03):
- * "Family Members / Manage family members for your event", the ⚙ settings icon
- * (Family Settings), All / Groom Side / Bride Side, a card per member (photo,
- * name, "Father • Groom Side", the number, ⋮ = Edit / Change Photo / Delete),
- * drag a card to change the order, + Add. A tap opens Family Details. No "Show
- * in Event App" switch — the app removed it (App Menus decides).
- *
- * A family member is a record on the EVENT: no login, no RSVP, not a guest.
+ * Event Family — Jamal's web design (2026-11-04), built from the module kit:
+ *   · "Event Family" heading; Family Overview tiles (Total, Bride Side, Groom
+ *     Side, Visible Groups = sides with a visible member);
+ *   · tabs All Members / Bride Side / Groom Side / Close Family / Hidden, search,
+ *     Sort by; a collapsible card per side ("Bride Side Family (3)") with a row
+ *     per member: photo, name, relation, side pill, "#n Display Order" (place
+ *     within the side), Visible / Hidden, what the app shows, Edit / Delete;
+ *   · right: Add / Edit Family Member — Family Side, Member Name, Relationship,
+ *     Photo (square crop), Mobile (optional), Display Order, Notes, Visibility
+ *     (Show in App / Hide from App), Highlight as Key Family Member.
+ * Visibility and Key are `is_visible` / `is_key` on the member (V2 backend,
+ * 2026-11-04); a hidden member is never sent to a participant. Family Settings
+ * (what participants see) stays behind the ⚙ button. Title, email and date of
+ * birth are not in this form; an edited member keeps them as they are.
  */
 
-const TITLES = ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."];
-const NONE = "__none__";
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+type Side = "groom" | "bride";
+type Tab = "all" | Side | "close" | "hidden";
+type Sort = "order" | "name" | "relation" | "recent";
 
-const sideLabel = (m: FamilyMember) => (m.side === "bride" ? "Bride Side" : "Groom Side");
-const fullName = (m: FamilyMember) => [m.title, m.full_name].filter(Boolean).join(" ");
-const dayText = (iso?: string | null) => {
-    if (!iso) return "—";
-    const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
-    return Number.isNaN(d.getTime()) ? "—" : `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+const PAGE = 10;
+/** "Close Family" = immediate relations, matched on the relation's name. */
+const CLOSE = /\b(father|mother|dad|mom|mum|brother|sister|son|daughter|husband|wife|grand ?father|grand ?mother|grandpa|grandma|parent|sibling)\b/i;
+const isClose = (m: FamilyMember) => CLOSE.test(m.relationship ?? "");
+const SIDES: Side[] = ["bride", "groom"];
+const sideName = (s: Side) => (s === "bride" ? "Bride Side" : "Groom Side");
+const SORTS: { value: Sort; label: string }[] = [
+    { value: "order", label: "Sort by Display Order" },
+    { value: "name", label: "Sort by Name" },
+    { value: "relation", label: "Sort by Relationship" },
+    { value: "recent", label: "Sort by Recently Added" },
+];
+
+type FormState = {
+    id?: number; side: Side; name: string; relation: string; photo: string | null;
+    dial: string; mobile: string; order: string; notes: string; visible: boolean; key: boolean;
 };
+
+/**
+ * The event's full id order with `id` placed at `pos` (1-based) among its side.
+ * The other side's members keep their places.
+ */
+function placeAt(all: FamilyMember[], id: number, side: Side, pos: number): number[] {
+    const others = all.filter((m) => m.id !== id);
+    const sideOthers = others.filter((m) => m.side === side);
+    const ids = others.map((m) => m.id);
+    if (pos - 1 < sideOthers.length) ids.splice(ids.indexOf(sideOthers[Math.max(0, pos - 1)].id), 0, id);
+    else if (sideOthers.length) ids.splice(ids.indexOf(sideOthers[sideOthers.length - 1].id) + 1, 0, id);
+    else ids.push(id);
+    return ids;
+}
 
 export function FamilyPanel({ event }: { event: ClientEvent }) {
     const query = useEventFamily(event.id);
     const remove = useDeleteFamilyMember(event.id);
     const reorder = useReorderFamily(event.id);
     const save = useSaveFamilyMember(event.id);
-    const upload = useUploadPhoto();
-    const [side, setSide] = useState<"all" | "groom" | "bride">("all");
-    const [editing, setEditing] = useState<FamilyMember | "new" | null>(null);
+    const relations = useRelationOptions(event.id);
+    const formRef = useRef<HTMLDivElement>(null);
+
+    const [tab, setTab] = useState<Tab>("all");
+    const [search, setSearch] = useState("");
+    const [sort, setSort] = useState<Sort>("order");
+    const [page, setPage] = useState(1);
+    const [form, setForm] = useState<FormState | null>(null);
+    const [tried, setTried] = useState(false);
     const [deleting, setDeleting] = useState<FamilyMember | null>(null);
-    const [viewing, setViewing] = useState<FamilyMember | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [dragId, setDragId] = useState<number | null>(null);
-    const [photoFor, setPhotoFor] = useState<FamilyMember | null>(null);
-    const photoRef = useRef<HTMLInputElement>(null);
+
+    // A backend without the 2026-11-04 columns sends neither field: treat as visible, not key.
+    const all = useMemo(
+        () => (query.data?.items ?? []).map((m) => ({ ...m, is_visible: m.is_visible !== false, is_key: m.is_key === true })),
+        [query.data],
+    );
+    /** A member's place within its side (the "#n Display Order"). */
+    const place = useMemo(() => {
+        const m = new Map<number, number>();
+        for (const s of SIDES) all.filter((x) => x.side === s).forEach((x, i) => m.set(x.id, i + 1));
+        return m;
+    }, [all]);
 
     if (query.isLoading) return <PanelLoading />;
     if (query.isError || !query.data) {
-        return <Section title="Family"><Empty title="Could not load the family list">Please try again in a moment.</Empty></Section>;
+        return <Section title="Event Family"><Empty title="Could not load the family list">Please try again in a moment.</Empty></Section>;
     }
-    const page = query.data;
-    const all = page.items;
-    const shown = side === "all" ? all : all.filter((m) => m.side === side);
 
-    /** Drop the dragged card where `target` is (the order is the whole list's). */
-    const dropOn = (target: FamilyMember) => {
-        if (dragId === null || dragId === target.id) return setDragId(null);
-        const ids = all.map((m) => m.id);
-        const from = ids.indexOf(dragId);
-        const to = ids.indexOf(target.id);
-        ids.splice(to, 0, ids.splice(from, 1)[0]);
-        setDragId(null);
-        reorder.mutate(ids);
-    };
+    const count = (s: Side) => all.filter((m) => m.side === s).length;
 
-    /** ⋮ Change Photo — straight to the picker, as the app. */
-    const changePhoto = (m: FamilyMember) => {
-        setPhotoFor(m);
-        photoRef.current?.click();
+    // Filter → sort → page; the page's rows are then grouped by side.
+    const q = search.trim().toLowerCase();
+    const filtered = all.filter((m) => {
+        if (tab === "bride" || tab === "groom") { if (m.side !== tab) return false; }
+        else if (tab === "close" && !isClose(m)) return false;
+        else if (tab === "hidden" && m.is_visible) return false;
+        return !q || m.full_name.toLowerCase().includes(q) || (m.relationship ?? "").toLowerCase().includes(q);
+    });
+    const sorter = (a: FamilyMember, b: FamilyMember) => {
+        if (sort === "name") return a.full_name.localeCompare(b.full_name);
+        if (sort === "relation") return (a.relationship ?? "").localeCompare(b.relationship ?? "") || a.full_name.localeCompare(b.full_name);
+        if (sort === "recent") return String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")) || b.id - a.id;
+        return (place.get(a.id) ?? 0) - (place.get(b.id) ?? 0);
     };
-    const photoPicked = (file: File | undefined) => {
-        const m = photoFor;
-        if (!file || !m) return;
-        upload.mutate(file, {
-            onSuccess: (url) => save.mutate({ id: m.id, data: { photo: url }, done: "Photo updated" }),
+    const ordered = SIDES.flatMap((s) => filtered.filter((m) => m.side === s).sort(sorter));
+    const pages = Math.max(1, Math.ceil(ordered.length / PAGE));
+    const current = Math.min(page, pages);
+    const pageRows = ordered.slice((current - 1) * PAGE, current * PAGE);
+    const visibleGroups = SIDES.filter((s) => all.some((m) => m.side === s && m.is_visible)).length;
+
+    // ── Form ──
+    const blank = (side: Side = "bride"): FormState => ({
+        side, name: "", relation: "", photo: null, dial: "+91", mobile: "",
+        order: String(count(side) + 1), notes: "", visible: true, key: false,
+    });
+    const f = form ?? blank();
+    // Functional, so a photo upload that ends while typing does not undo the typing.
+    const set = (patch: Partial<FormState>) => setForm((prev) => ({ ...(prev ?? blank()), ...patch }));
+    const clear = () => { setForm(null); setTried(false); };
+    const edit = (m: FamilyMember) => {
+        setTried(false);
+        setForm({
+            id: m.id, side: m.side, name: m.full_name, relation: m.relationship ?? "", photo: m.photo,
+            dial: m.dial_code || "+91", mobile: m.mobile ?? "", order: String(place.get(m.id) ?? 1),
+            notes: m.notes ?? "", visible: m.is_visible, key: m.is_key,
         });
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    const changeSide = (side: Side) => {
+        const patch: Partial<FormState> = { side };
+        // A relation of the other side does not carry over; a new member goes last on its side.
+        if (f.relation && !relationSuitsSide(f.relation, side)) patch.relation = "";
+        if (!f.id) patch.order = String(count(side) + 1);
+        set(patch);
     };
 
-    const tabs = [
-        { value: "all", label: "All" },
-        { value: "groom", label: "Groom Side" },
-        { value: "bride", label: "Bride Side" },
-    ] as const;
+    // That side's relations only, each name once (the admin's list repeats some).
+    const seen = new Set<string>();
+    const options = (relations.data ?? []).filter((o) => {
+        const k = o.name.trim().toLowerCase();
+        if (!relationSuitsSide(o.name, f.side) || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    });
+    const relationItems = f.relation && !options.some((o) => o.name === f.relation)
+        ? [{ id: 0, name: f.relation }, ...options] : options;
+
+    const orderNum = Number(f.order);
+    const orderBad = !Number.isInteger(orderNum) || orderNum < 1;
+    const submit = () => {
+        setTried(true);
+        if (!f.name.trim() || !f.relation || orderBad) return toast.error("Please fill all mandatory fields.");
+        const phoneError = f.mobile ? mobileNumberError(countryForDial(f.dial), f.mobile) : null;
+        if (phoneError) return toast.error(phoneError);
+        const picked = (relations.data ?? []).find((o) => o.name === f.relation);
+        const before = all;
+        save.mutate(
+            {
+                id: f.id,
+                data: {
+                    name: f.name.trim(), side: f.side, relationship: f.relation, relationship_option_id: picked?.id ?? null,
+                    mobile: f.mobile ? nationalMobile(countryForDial(f.dial), f.mobile) || null : null, dial_code: f.dial,
+                    notes: f.notes.trim() || null, photo: f.photo ?? "", is_visible: f.visible, is_key: f.key,
+                },
+                done: f.id ? "Family member updated" : "Family member added",
+            },
+            {
+                onSuccess: (res) => {
+                    // Put the member at its Display Order within the side, when that changed the order.
+                    const id = f.id ?? Number((res as { id?: number } | undefined)?.id);
+                    if (id) {
+                        const list = f.id ? before : [...before, { id, side: f.side } as FamilyMember];
+                        const ids = placeAt(list, id, f.side, orderNum);
+                        const now = (f.id ? before.map((m) => (m.id === id ? { ...m, side: f.side } : m)) : list).map((m) => m.id);
+                        if (ids.join() !== now.join()) reorder.mutate(ids);
+                    }
+                    clear();
+                },
+            },
+        );
+    };
+
+    const bad = (v: boolean) => tried && v;
+
+    const aside = (
+        <FormPanel
+            panelRef={formRef}
+            icon={UserPlus}
+            title={f.id ? "Edit Family Member" : "Add Family Member"}
+            footer={(
+                <>
+                    <Button variant="outline" onClick={clear}>{f.id ? "Cancel" : "Clear"}</Button>
+                    <Button disabled={save.isPending || reorder.isPending} onClick={submit}>
+                        {f.id ? "Update Family Member" : "Save Family Member"}
+                    </Button>
+                </>
+            )}
+        >
+            <FormField label="Family Side" required>
+                <Select value={f.side} onValueChange={(v) => changeSide(v as Side)}>
+                    <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="bride">Bride Side</SelectItem>
+                        <SelectItem value="groom">Groom Side</SelectItem>
+                    </SelectContent>
+                </Select>
+            </FormField>
+            <FormField label="Member Name" required>
+                <Input value={f.name} maxLength={150} placeholder="Enter full name" onChange={(e) => set({ name: e.target.value })}
+                    className={cn("h-9", bad(!f.name.trim()) && "border-destructive")} />
+            </FormField>
+            <FormField label="Relationship" required>
+                <Select value={f.relation} onValueChange={(v) => set({ relation: v })}>
+                    <SelectTrigger className={cn("h-9 w-full", bad(!f.relation) && "border-destructive")}>
+                        <SelectValue placeholder={relations.isLoading ? "Loading…" : "Select relationship"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {relationItems.map((o) => <SelectItem key={`${o.id}-${o.name}`} value={o.name}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </FormField>
+            <FormField label="Photo Upload">
+                <PhotoDropzone value={f.photo} onChange={(url) => set({ photo: url })} />
+            </FormField>
+            <FormField label="Mobile Number" hint=" (Optional)">
+                <PhoneInput country={countryForDial(f.dial)} number={f.mobile} onChange={(iso, num) => set({ dial: dialOf(iso), mobile: num })} />
+            </FormField>
+            <FormField label="Display Order" required note="Lower number appears first in the app.">
+                <Input type="number" min={1} value={f.order} onChange={(e) => set({ order: e.target.value })}
+                    className={cn("h-9", bad(orderBad) && "border-destructive")} />
+            </FormField>
+            <FormField label="Short Description / Notes">
+                <Textarea value={f.notes} maxLength={500} rows={3} placeholder="E.g. Chief guest, elder brother, etc."
+                    onChange={(e) => set({ notes: e.target.value })} />
+            </FormField>
+            <FormField label="Visibility" required note="You can hide a member without deleting them.">
+                <ChoiceRadio name="family-visibility" value={f.visible} onChange={(v) => set({ visible: v })}
+                    options={[{ value: true, label: "Show in App" }, { value: false, label: "Hide from App" }]} />
+            </FormField>
+            <SwitchField id="family-key" label="Highlight as Key Family Member" hint="Show special emphasis (e.g. with a badge) in the app."
+                checked={f.key} onChange={(v) => set({ key: v })} />
+        </FormPanel>
+    );
 
     return (
-        <div className="flex flex-col gap-5">
-            <Section
-                title="Family Members"
-                action={(
-                    <div className="flex gap-2">
-                        <Button size="icon" variant="outline" className="size-8" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
-                            <Settings className="size-3.5" />
-                        </Button>
-                        <Button size="sm" onClick={() => setEditing("new")}><Plus className="size-3.5" /> Add</Button>
-                    </div>
+        <SplitLayout aside={aside}>
+            <ModuleHeader
+                title="Event Family"
+                subtitle="Manage bride and groom family members, relationships, and display order."
+                actions={(
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button size="icon" variant="outline" className="size-9" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
+                                <Settings className="size-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Family Settings</TooltipContent>
+                    </Tooltip>
                 )}
-            >
-                <p className="mb-1 text-[12px] text-muted-foreground">Manage family members for your event</p>
+            />
 
-                <div className="my-3 flex flex-wrap gap-2">
-                    {tabs.map((t) => (
-                        <button
-                            key={t.value} type="button" onClick={() => setSide(t.value)}
-                            className={cn(
-                                "rounded-lg border px-4 py-1.5 text-[12px] font-semibold transition",
-                                side === t.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground",
-                            )}
-                        >
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
+            <OverviewCard title="Family Overview" icon={Users}>
+                <StatTile icon={Users} value={all.length} label="Total Family Members" tone="primary" />
+                <StatTile icon={User} value={count("bride")} label="Bride Side" tone="primary" />
+                <StatTile icon={User} value={count("groom")} label="Groom Side" tone="violet" />
+                <StatTile icon={Layers} value={visibleGroups} label="Visible Groups" tone="plain" />
+            </OverviewCard>
 
-                <input
-                    ref={photoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                    onChange={(e) => { photoPicked(e.target.files?.[0]); e.target.value = ""; }}
-                />
+            <CountTabs<Tab>
+                value={tab}
+                onChange={(v) => { setTab(v); setPage(1); }}
+                tabs={[
+                    { value: "all", label: "All Members", count: all.length },
+                    { value: "bride", label: "Bride Side", count: count("bride") },
+                    { value: "groom", label: "Groom Side", count: count("groom") },
+                    { value: "close", label: "Close Family", count: all.filter(isClose).length, icon: Star },
+                    { value: "hidden", label: "Hidden", count: all.filter((m) => !m.is_visible).length, icon: EyeOff },
+                ]}
+            />
 
-                {shown.length === 0 ? (
-                    <Empty title="No family members yet">
-                        {all.length === 0 ? "Click Add to add the first one." : "Nobody is on this side yet."}
+            <Toolbar>
+                <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search family members by name or relationship..." />
+                <SortSelect value={sort} onChange={setSort} options={SORTS} />
+            </Toolbar>
+
+            {pageRows.length === 0 ? (
+                <div className="rounded-xl border border-border bg-card">
+                    <Empty title={all.length ? "No family members match" : "No family members yet"}>
+                        {all.length ? "Try another tab or search." : "Add the first one with the form."}
                     </Empty>
-                ) : (
-                    <ul className="flex flex-col gap-2">
-                        {shown.map((m) => {
-                            const place = all.indexOf(m) + 1;
-                            return (
-                                <li
-                                    key={m.id}
-                                    draggable
-                                    onDragStart={() => setDragId(m.id)}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={() => dropOn(m)}
-                                    onDragEnd={() => setDragId(null)}
-                                    className={cn(
-                                        "flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition",
-                                        dragId === m.id && "opacity-50",
-                                    )}
-                                >
-                                    <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground" aria-label="Drag to change the order" />
-                                    <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setViewing(m)}>
-                                        <Avatar className="size-11">
-                                            {m.photo ? <AvatarImage src={mediaUrl(m.photo)} alt="" /> : null}
-                                            <AvatarFallback><User className="size-5" /></AvatarFallback>
-                                        </Avatar>
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-[13px] font-semibold">{fullName(m)}</span>
-                                            <span className="block truncate text-[12px] text-muted-foreground">
-                                                {[m.relationship, sideLabel(m)].filter(Boolean).join(" • ")}
-                                            </span>
-                                        </span>
-                                    </button>
-                                    <span className="w-6 text-center text-[12px] text-muted-foreground">{place}</span>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button size="icon" variant="ghost" className="size-8 shrink-0" aria-label="Actions"><MoreVertical className="size-4" /></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setEditing(m)}><Pencil className="size-3.5" /> Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => changePhoto(m)}><Camera className="size-3.5" /> Change Photo</DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleting(m)}>
-                                                <Trash2 className="size-3.5" /> Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
-            </Section>
-
-            {settingsOpen && (
-                <FamilySettingsDialog eventId={event.id} settings={page.settings} onClose={() => setSettingsOpen(false)} />
-            )}
-
-            {viewing && (() => {
-                const m = all.find((x) => x.id === viewing.id) ?? viewing;
+                </div>
+            ) : SIDES.map((s) => {
+                const rows = pageRows.filter((m) => m.side === s);
+                if (!rows.length) return null;
                 return (
-                    <FamilyDetailsDialog
-                        member={m}
-                        onClose={() => setViewing(null)}
-                        onEdit={() => { setViewing(null); setEditing(m); }}
-                        onDelete={() => { setViewing(null); setDeleting(m); }}
-                    />
+                    <ListCard key={s} collapsible icon={Users} title={`${sideName(s)} Family`} count={filtered.filter((m) => m.side === s).length}>
+                        <ul className="divide-y divide-border">
+                            {rows.map((m) => (
+                                <MemberRow key={m.id} member={m} place={place.get(m.id) ?? 0} editing={f.id === m.id} onEdit={edit} onDelete={setDeleting} />
+                            ))}
+                        </ul>
+                    </ListCard>
                 );
-            })()}
+            })}
 
-            {editing && (
-                <FamilyDialog
-                    key={editing === "new" ? "new" : editing.id}
-                    eventId={event.id}
-                    member={editing === "new" ? null : editing}
-                    onClose={() => setEditing(null)}
-                />
-            )}
+            <Pager page={current} pageSize={PAGE} total={ordered.length} onPage={setPage} noun="family members" />
+
+            {settingsOpen && <FamilySettingsDialog eventId={event.id} settings={query.data.settings} onClose={() => setSettingsOpen(false)} />}
 
             <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Delete Family Member?</DialogTitle>
                         <DialogDescription>
-                            {deleting?.full_name} will be removed from this event&apos;s family list. You can add them again later.
+                            {deleting?.full_name} will be removed from this event&apos;s family list. To keep them but not show them, choose Hide from App instead.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button
-                            variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
-                        >
+                        <Button variant="destructive" disabled={remove.isPending}
+                            onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { if (form?.id === deleting.id) clear(); setDeleting(null); } })}>
                             Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </SplitLayout>
     );
 }
 
-/** Family Details — the organizer's view of one member, with Edit and Delete (as the app). */
-function FamilyDetailsDialog({
-    member, onClose, onEdit, onDelete,
-}: { member: FamilyMember; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
-    const row = (label: string, value: string | null | undefined) => (
-        <div className="flex items-start justify-between gap-4 py-2 text-[12.5px]">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="break-words text-right font-medium">{value || "—"}</span>
-        </div>
-    );
-    const phone = member.mobile ? [member.dial_code, member.mobile].filter(Boolean).join(" ") : null;
+/** One member row: photo · name / relation · side · display order · visibility · app note · Edit / Delete. */
+function MemberRow({
+    member: m, place, editing, onEdit, onDelete,
+}: { member: FamilyMember; place: number; editing: boolean; onEdit: (m: FamilyMember) => void; onDelete: (m: FamilyMember) => void }) {
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Family Details</DialogTitle>
-                    <DialogDescription className="sr-only">{member.full_name}</DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col items-center gap-2 text-center">
-                    <Avatar className="size-20">
-                        {member.photo ? <AvatarImage src={mediaUrl(member.photo)} alt="" /> : null}
-                        <AvatarFallback><User className="size-8" /></AvatarFallback>
-                    </Avatar>
-                    <p className="text-[16px] font-bold">{fullName(member)}</p>
-                </div>
-                <div className="divide-y divide-border rounded-lg border border-border px-3">
-                    {row("Relation", member.relationship)}
-                    {row("Side", sideLabel(member))}
-                    {row("Phone", phone)}
-                    {row("Email", member.email)}
-                    {row("Date of Birth", member.date_of_birth ? dayText(member.date_of_birth) : null)}
-                    {row("Added On", dayText(member.created_at))}
-                    {row("Notes", member.notes)}
-                </div>
-                <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-                    <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> Delete</Button>
-                    <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <li className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 md:grid-cols-[minmax(170px,1fr)_100px_96px_86px_minmax(130px,1fr)_auto]",
+            editing && "bg-primary/5")}>
+            <PersonCell name={m.full_name} photo={m.photo} sub={m.relationship || "—"} badge={m.is_key ? <StarBadge>Key</StarBadge> : undefined} />
+            <div className="hidden md:block">
+                <StatusPill tone={m.side === "bride" ? "primary" : "violet"}>{sideName(m.side)}</StatusPill>
+            </div>
+            <div className="hidden border-l border-border pl-3 md:block">
+                <p className="text-[13px] font-bold">#{place}</p>
+                <p className="text-[11.5px] text-muted-foreground">Display Order</p>
+            </div>
+            <div className="hidden md:block">
+                {m.is_visible
+                    ? <StatusPill tone="success" icon={Eye}>Visible</StatusPill>
+                    : <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill>}
+            </div>
+            <p className="hidden items-center gap-2 text-[12px] leading-4 text-muted-foreground md:flex">
+                <Smartphone className="size-4 shrink-0" />
+                {m.is_visible ? "Appears in family section of the app" : "Not shown in the app"}
+            </p>
+            <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="h-8" onClick={() => onEdit(m)}><Pencil className="size-3.5" /> Edit</Button>
+                <Button size="sm" variant="outline" className="h-8 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => onDelete(m)}>
+                    <Trash2 className="size-3.5" /> Delete
+                </Button>
+            </div>
+        </li>
     );
 }
 
-/** Family Settings — the ⚙ on the list: what a participant is shown (as the app). */
+/** Family Settings — the ⚙ button: what a participant sees of the list (as the app). */
 function FamilySettingsDialog({ eventId, settings, onClose }: { eventId: number; settings: FamilySettings; onClose: () => void }) {
     const save = useSaveFamilySettings(eventId);
     const [profileScreen, setProfileScreen] = useState(settings.profile_screen);
@@ -299,11 +403,8 @@ function FamilySettingsDialog({ eventId, settings, onClose }: { eventId: number;
                     <DialogTitle>Family Settings</DialogTitle>
                     <DialogDescription>What a participant sees of the family list. The name is always shown.</DialogDescription>
                 </DialogHeader>
-                <SwitchRow
-                    id="fam-profile" label="Family Profile Screen"
-                    hint="Let a family member be opened to see their profile"
-                    checked={profileScreen} onChange={setProfileScreen}
-                />
+                <SwitchRow id="fam-profile" label="Family Profile Screen" hint="Let a family member be opened to see their profile"
+                    checked={profileScreen} onChange={setProfileScreen} />
                 <div className="flex flex-col gap-3 border-t pt-3">
                     <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Family fields</p>
                     <label className="flex items-center gap-2.5 text-[13px]">
@@ -318,230 +419,9 @@ function FamilySettingsDialog({ eventId, settings, onClose }: { eventId: number;
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button
-                        disabled={save.isPending}
-                        onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship }, { onSuccess: onClose })}
-                    >
+                    <Button disabled={save.isPending}
+                        onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship }, { onSuccess: onClose })}>
                         Save
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-/** Add / Edit Family Member — the Add Participant form, minus what only a guest has. */
-function FamilyDialog({
-    eventId, member, onClose,
-}: { eventId: number; member: FamilyMember | null; onClose: () => void }) {
-    const save = useSaveFamilyMember(eventId);
-    const upload = useUploadPhoto();
-    const relations = useRelationOptions(eventId);
-    const fileRef = useRef<HTMLInputElement>(null);
-
-    const nameParts = (member?.full_name ?? "").trim().split(/\s+/);
-    const [photo, setPhoto] = useState<string | null>(member?.photo ?? null);
-    const [title, setTitle] = useState(member?.title ?? NONE);
-    const [first, setFirst] = useState(nameParts[0] ?? "");
-    const [last, setLast] = useState(nameParts.slice(1).join(" "));
-    const [dob, setDob] = useState(member?.date_of_birth?.slice(0, 10) ?? "");
-    const [email, setEmail] = useState(member?.email ?? "");
-    const [mobile, setMobile] = useState(member?.mobile ?? "");
-    const [dial, setDial] = useState(member?.dial_code || "+91");
-    const [side, setSide] = useState<"groom" | "bride" | null>(member?.side ?? null);
-    const [relation, setRelation] = useState<string>(member?.relationship ?? "");
-    const [notes, setNotes] = useState(member?.notes ?? "");
-    const [tried, setTried] = useState(false);
-    const [done, setDone] = useState(false);
-
-    // That side's relations only, each name once (the admin's list repeats some).
-    const seen = new Set<string>();
-    const options = (relations.data ?? []).filter((o) => {
-        const key = o.name.trim().toLowerCase();
-        if (!relationSuitsSide(o.name, side) || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-    // An edited member's saved relation stays selectable even if the list changed.
-    const relationItems = relation && !options.some((o) => o.name === relation)
-        ? [{ id: 0, name: relation }, ...options]
-        : options;
-
-    const pickPhoto = (file: File | undefined) => {
-        if (!file) return;
-        upload.mutate(file, { onSuccess: (url) => setPhoto(url) });
-    };
-
-    const submit = () => {
-        setTried(true);
-        if (!first.trim() || !side || !relation) {
-            toast.error("Please fill all mandatory fields.");
-            return;
-        }
-        // Same per-country mobile check as the app (optional field).
-        const phoneError = mobileNumberError(countryForDial(dial), mobile);
-        if (phoneError) {
-            toast.error(phoneError);
-            return;
-        }
-        const picked = (relations.data ?? []).find((o) => o.name === relation);
-        save.mutate(
-            {
-                id: member?.id,
-                data: {
-                    first_name: first.trim(), last_name: last.trim() || null,
-                    title: title === NONE ? null : title,
-                    side, relationship: relation, relationship_option_id: picked?.id ?? null,
-                    email: email.trim() || null, mobile: nationalMobile(countryForDial(dial), mobile) || null, dial_code: dial,
-                    date_of_birth: dob || null, notes: notes.trim() || null,
-                    // '' clears a photo that was removed.
-                    photo: photo ?? "",
-                },
-                done: null,
-            },
-            { onSuccess: () => setDone(true) },
-        );
-    };
-
-    // The app's result page: "Family Member Added / Updated Successfully!".
-    if (done) {
-        return (
-            <Dialog open onOpenChange={(o) => !o && onClose()}>
-                <DialogContent className="sm:max-w-md">
-                    <div className="flex flex-col items-center gap-3 py-4 text-center">
-                        <CheckCircle2 className="size-16 text-success" />
-                        <DialogTitle className="text-[18px]">
-                            {member ? "Family Member Updated Successfully!" : "Family Member Added Successfully!"}
-                        </DialogTitle>
-                        <DialogDescription className="sr-only">Saved</DialogDescription>
-                        <div className="mt-2 grid w-full gap-2">
-                            {!member && (
-                                <Button onClick={() => {
-                                    setDone(false); setTried(false); setPhoto(null); setTitle(NONE); setFirst(""); setLast("");
-                                    setDob(""); setEmail(""); setMobile(""); setSide(null); setRelation(""); setNotes("");
-                                }}>
-                                    Add Another
-                                </Button>
-                            )}
-                            <Button variant="outline" onClick={onClose}>Back to Family List</Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        );
-    }
-
-    return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{member ? "Edit Family Member" : "Add Family Member"}</DialogTitle>
-                    <DialogDescription>Saved and shown only — a family member has no login.</DialogDescription>
-                </DialogHeader>
-
-                <div className="flex flex-col items-center gap-2">
-                    <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-full" aria-label="Choose a photo">
-                        <Avatar className="size-24">
-                            {photo ? <AvatarImage src={mediaUrl(photo)} alt="" /> : null}
-                            <AvatarFallback><User className="size-10" /></AvatarFallback>
-                        </Avatar>
-                        <span className="absolute right-0 bottom-0 grid size-7 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground">
-                            <Camera className="size-3.5" />
-                        </span>
-                    </button>
-                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
-                    <div className="flex gap-3 text-[12px]">
-                        <button type="button" className="text-primary" onClick={() => fileRef.current?.click()}>
-                            {upload.isPending ? "Uploading…" : photo ? "Change Photo" : "Add Photo"}
-                        </button>
-                        {photo && <button type="button" className="text-destructive" onClick={() => setPhoto(null)}>Remove</button>}
-                    </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Title / Salutation</Label>
-                        <Select value={title} onValueChange={setTitle}>
-                            <SelectTrigger className="w-full"><SelectValue placeholder="Select (optional)" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={NONE}>None</SelectItem>
-                                {TITLES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Date of Birth (optional)</Label>
-                        <Input type="date" value={dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDob(e.target.value)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">First Name <span className="text-destructive">*</span></Label>
-                        <Input value={first} onChange={(e) => setFirst(e.target.value)} className={cn(tried && !first.trim() && "border-destructive")} />
-                        <FieldError show={tried && !first.trim()} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Last Name</Label>
-                        <Input value={last} onChange={(e) => setLast(e.target.value)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Email (optional)</Label>
-                        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Phone Number (optional)</Label>
-                        <PhoneInput
-                            country={countryForDial(dial)}
-                            number={mobile}
-                            onChange={(iso, num) => { setDial(dialOf(iso)); setMobile(num); }}
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-1.5 sm:col-span-2">
-                        <Label className="text-[12.5px]">Groom or Bride Side <span className="text-destructive">*</span></Label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {(["groom", "bride"] as const).map((s) => (
-                                <button
-                                    key={s} type="button"
-                                    onClick={() => {
-                                        setSide(s);
-                                        // A relation of the other side does not carry over.
-                                        if (relation && !relationSuitsSide(relation, s)) setRelation("");
-                                    }}
-                                    className={cn(
-                                        "rounded-lg border px-3 py-2 text-[13px] font-medium transition",
-                                        side === s ? "border-primary bg-primary/10 text-primary" : "border-border",
-                                        tried && !side && "border-destructive",
-                                    )}
-                                >
-                                    {s === "groom" ? "Groom" : "Bride"}
-                                </button>
-                            ))}
-                        </div>
-                        <FieldError show={tried && !side} />
-                    </div>
-                    <div className="flex flex-col gap-1.5 sm:col-span-2">
-                        <Label className="text-[12.5px]">
-                            {side ? `Relation with ${side === "bride" ? "Bride" : "Groom"}` : "Relation"} <span className="text-destructive">*</span>
-                        </Label>
-                        <Select value={relation} onValueChange={setRelation} disabled={!side}>
-                            <SelectTrigger className={cn("w-full", tried && !relation && "border-destructive")}>
-                                <SelectValue placeholder={!side ? "Choose Groom or Bride first" : relations.isLoading ? "Loading…" : "Select relation"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {relationItems.map((o) => <SelectItem key={`${o.id}-${o.name}`} value={o.name}>{o.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <FieldError show={tried && !relation} />
-                    </div>
-                    <div className="flex flex-col gap-1.5 sm:col-span-2">
-                        <Label className="text-[12.5px]">Notes (optional)</Label>
-                        <Textarea value={notes} maxLength={500} rows={3} onChange={(e) => setNotes(e.target.value)} />
-                    </div>
-                </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button disabled={save.isPending || upload.isPending} onClick={submit}>
-                        {member ? "Update" : "Add Family Member"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

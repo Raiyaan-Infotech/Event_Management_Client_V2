@@ -111,6 +111,44 @@ export interface Guest {
     event_id?: number | null;
     status?: GuestStatus | null;
     invited_at?: string | null;
+
+    // ── Guests web design (2026-11-04) ──
+    photo?: string | null;
+    relationship?: string | null;
+    relationship_option_id?: number | null;
+    guest_type?: GuestType;
+    side?: 'groom' | 'bride' | null;
+    invite_count?: number;
+    rsvp_required?: boolean;
+    is_visible?: boolean;
+    hidden_reason?: string | null;
+    hidden_note?: string | null;
+    is_vip?: boolean;
+    vip_category?: string | null;
+    vip_label?: string | null;
+    vip_highlight?: VipHighlight[] | null;
+    invite_channels?: InviteChannel[] | null;
+    invite_message?: string | null;
+    /** Single-guest read only: their answer on the event (null = not joined). */
+    rsvp?: GuestRsvp | null;
+}
+
+export type GuestType = 'individual' | 'couple' | 'family' | 'group';
+export type VipHighlight = 'organizer_list' | 'app_directory' | 'invitation_contacts';
+export type InviteChannel = 'whatsapp' | 'email' | 'in_app';
+
+/** View RSVP Response — the participant row behind a guest. */
+export interface GuestRsvp {
+    participant_id: number;
+    rsvp_status: RsvpStatus;
+    response_type: ResponseType;
+    attending_count: number;
+    meal_preference: string | null;
+    special_requests: string | null;
+    notes: string | null;
+    responded_at: string | null;
+    joined_at: string | null;
+    source: string | null;
 }
 
 /**
@@ -147,6 +185,8 @@ export interface GuestStats {
     total_rows: number;
     /** Per-status counts for the selected event. */
     statuses?: Partial<Record<GuestStatus, number>>;
+    /** The design's tabs (2026-11-04). */
+    bride?: number; groom?: number; vip?: number; hidden?: number;
 }
 
 /** The RSVP tiles for participants — one event, or all of them. */
@@ -172,6 +212,11 @@ export interface GuestListParams {
     search?: string;
     page?: number;
     limit?: number;
+    /** The design's tabs + sort (2026-11-04). */
+    side?: 'groom' | 'bride';
+    vip?: boolean;
+    visibility?: 'hidden' | 'visible';
+    sort?: 'name_asc' | 'name_desc' | 'recent' | 'oldest' | 'invite_count';
 }
 
 export interface ParticipantListParams {
@@ -208,6 +253,20 @@ export interface GuestPayload {
     food_preference_option_id?: number | null;
     special_requirements?: string | null;
     notes?: string | null;
+    photo?: string | null;
+    relationship?: string | null;
+    relationship_option_id?: number | null;
+    guest_type?: GuestType;
+    side?: 'groom' | 'bride' | null;
+    invite_count?: number;
+    rsvp_required?: boolean;
+    is_visible?: boolean;
+    hidden_reason?: string | null;
+    hidden_note?: string | null;
+    is_vip?: boolean;
+    vip_category?: string | null;
+    vip_label?: string | null;
+    vip_highlight?: VipHighlight[];
 }
 
 function reportError(error: unknown, verb: string) {
@@ -235,6 +294,10 @@ export function useGuests(params: GuestListParams = {}) {
                 search: params.search,
                 page: params.page ?? 1,
                 limit: params.limit ?? 8,
+                side: params.side,
+                vip: params.vip ? '1' : undefined,
+                visibility: params.visibility,
+                sort: params.sort,
             }),
         retry: false,
     });
@@ -391,7 +454,8 @@ export interface BulkAction {
     guest_ids: number[];
     /** `invite` stamps the invitation as sent (Invited, then Pending after 24h). */
     action: 'delete' | 'group' | 'invite';
-    value?: string | number | null;
+    /** `invite`: the Send Invitation panel's { channels, message } (kept on the guest). */
+    value?: string | number | null | { channels: InviteChannel[]; message?: string };
 }
 
 export function useBulkGuests() {

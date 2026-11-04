@@ -1,729 +1,270 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { toast } from "sonner";
 import {
-    faUsers,
-    faCircleCheck,
-    faClock,
-    faXmark,
-    faUserClock,
-    faSearch,
-    faSliders,
-    faDownload,
-    faEllipsisVertical,
-    faChevronLeft,
-    faChevronRight,
-    faUserPlus,
-    faFileImport,
-    faPeopleGroup,
-    faPaperPlane,
-    faArrowRight,
-    faLightbulb,
-    faTriangleExclamation,
-    faEnvelope,
-    faCheck,
-    faMinus,
-} from "@fortawesome/free-solid-svg-icons";
+    CheckCircle2, Clock, Download, Eye, EyeOff, FileUp, Mail, Star, User, UserPlus, Users, UsersRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-    DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+    CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
+    PhotoDropzone, RowActions, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+} from "@/components/module-kit";
+import { EventMiniCard } from "@/components/common/event-mini-card";
+import { SignInPrompt } from "@/components/common/sign-in-prompt";
+import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import {
-    useGuests, useGuestStats, useAllGuestGroups, useDeleteGuest,
-    useBulkGuests, useExportGuests,
-    type Guest, type GuestTab,
+    useBulkGuests, useCreateGuest, useExportGuests, useGuestCapacity, useGuests, useGuestStats, useUpdateGuest,
+    type Guest, type GuestListParams,
 } from "@/hooks/use-guests";
-import { ApiError } from "@/lib/api-client";
-import { useClientEvents } from "@/hooks/use-client-events";
-import { GUEST_STATUS_LABELS, type GuestStatus } from "@/hooks/use-guests";
-import { SignInPrompt } from '@/components/common/sign-in-prompt';
-import { useDateFormatter } from '@/hooks/use-client-settings';
-import { EventMiniCard } from '@/components/common/event-mini-card';
+import { CHANNELS, GuestFields, blankDraft, draftError, payloadOf, useRelationsFor, type GuestDraft } from "./guest-fields";
+import { GuestActionSheet, StatusPillFor, guestMenu, sideLabel, type GuestAction } from "./guest-actions";
 
 /**
- * Guests — the module's list screen.
- *
- * `/dashboard/guests` had no page and fell through to the `[...slug]`
- * "coming soon" catch-all, which is why the sidebar entry appeared to do
- * nothing.
- *
- * ── GUESTS ARE PER EVENT (V2, 2026-10-31) ───────────────────────────────────
- * Same as the mobile app: pick an event, and its guests show with their status
- * there — Not Invited, Invited, Pending, Confirmed, Declined (computed by the
- * server from the invitation time and the guest's RSVP). New and imported
- * guests go to the selected event (?event= on the Add / Import pages).
+ * Event Guests — Jamal's web design (2026-11-04), built from the module kit:
+ *   · "Event Guests" + Guest Overview (Total, Invited, Confirmed, Pending RSVP);
+ *   · tabs All Guests / Bride Side / Groom Side / VIP / Hidden, search, Sort by;
+ *   · Guest List (photo, name + VIP, relationship, side, invite count, RSVP
+ *     status, app visibility, ⋯ = View / Edit / Send Invitation / View RSVP
+ *     Response / Mark as VIP / Hide / Delete — each a slide-in panel);
+ *   · right: Add Guest (type, name, mobile, email, relationship, side, invite
+ *     count, address, notes, photo, RSVP Required, Visibility, VIP, Send
+ *     Invitation via). Saving with channels marks the guest invited and offers
+ *     to open WhatsApp / Email with the message.
+ * Kept from before, as header buttons: Import, Export, Manage Groups.
+ * Not in the design, so gone: the group filter and the bulk checkboxes.
  */
 
-const STATUS_ORDER: GuestStatus[] = ["added", "invited", "pending", "confirmed", "declined"];
-
-const TABS: { label: string; value: GuestTab }[] = [
-    { label: "All Guests", value: "all" },
-    ...STATUS_ORDER.map((st) => ({ label: GUEST_STATUS_LABELS[st], value: st as GuestTab })),
+type Tab = "all" | "bride" | "groom" | "vip" | "hidden";
+type Sort = NonNullable<GuestListParams["sort"]>;
+const PAGE = 10;
+const SORTS: { value: Sort; label: string }[] = [
+    { value: "name_asc", label: "Sort by Name (A – Z)" },
+    { value: "name_desc", label: "Sort by Name (Z – A)" },
+    { value: "recent", label: "Sort by Recently Added" },
+    { value: "oldest", label: "Sort by Oldest First" },
+    { value: "invite_count", label: "Sort by Invite Count" },
 ];
 
-const STATUS_PILL: Record<GuestStatus, string> = {
-    added: "bg-muted text-muted-foreground",
-    invited: "bg-info/15 text-info",
-    pending: "bg-warning/15 text-warning",
-    confirmed: "bg-success/15 text-success",
-    declined: "bg-destructive/10 text-destructive",
-};
-
-const PAGE_SIZE = 8;
-
-
-function initialsOf(name: string | undefined): string {
-    if (!name) return "?";
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "?";
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/** One event's guests — opened from the event view's Guests tab (2026-11-02). */
-export function GuestsView({ eventId: fixedId }: { eventId: number }) {
-    // Dates follow the client's own Date Format / Time Zone preference.
-    const fmt = useDateFormatter();
-    const [tab, setTab] = useState<GuestTab>("all");
-    // The event is fixed by the page (Event → Guests).
-    const eventId = String(fixedId);
-    const events = useClientEvents({ status: "all", limit: 100 });
-    const eventRows = useMemo(() => events.data?.data ?? [], [events.data]);
-    const eventNum = eventId ? Number(eventId) : null;
-    const [groupId, setGroupId] = useState("all");
+export function GuestsView({ eventId }: { eventId: number }) {
+    const [tab, setTab] = useState<Tab>("all");
     const [search, setSearch] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [debounced, setDebounced] = useState("");
+    const [sort, setSort] = useState<Sort>("name_asc");
     const [page, setPage] = useState(1);
-    const [selected, setSelected] = useState<number[]>([]);
-    const [pendingDelete, setPendingDelete] = useState<Guest | null>(null);
-    const [bulkDelete, setBulkDelete] = useState(false);
+    const [action, setAction] = useState<{ a: GuestAction; g: Guest } | null>(null);
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
-        return () => clearTimeout(timer);
+        const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
+        return () => clearTimeout(t);
     }, [search]);
 
-    // Any filter change resets the page AND the selection — keeping a selection
-    // across a filter change means bulk-deleting rows that are no longer on
-    // screen, which is the worst possible surprise.
-    useEffect(() => { setPage(1); setSelected([]); }, [tab, groupId, debouncedSearch, eventId]);
-
-    const params = useMemo(() => ({
-        event_id: eventNum,
-        status: tab,
-        group_id: groupId === "all" ? null : groupId,
-        search: debouncedSearch || undefined,
-        page,
-        limit: PAGE_SIZE,
-    }), [eventNum, tab, groupId, debouncedSearch, page]);
+    const params = useMemo<GuestListParams>(() => ({
+        event_id: eventId, search: debounced || undefined, sort, page, limit: PAGE,
+        ...(tab === "bride" || tab === "groom" ? { side: tab } : {}),
+        ...(tab === "vip" ? { vip: true } : {}),
+        ...(tab === "hidden" ? { visibility: "hidden" as const } : {}),
+    }), [eventId, debounced, sort, page, tab]);
 
     const guests = useGuests(params);
-    const stats = useGuestStats(eventNum);
-    const groups = useAllGuestGroups();
-
-    const remove = useDeleteGuest();
-    const bulk = useBulkGuests();
+    const stats = useGuestStats(eventId);
     const exportGuests = useExportGuests();
+    const update = useUpdateGuest();
 
     const rows = guests.data?.data ?? [];
-    const pagination = guests.data?.pagination;
-    const totalPages = pagination?.totalPages ?? 1;
-    const totalItems = pagination?.totalItems ?? 0;
-
-    const authError =
-        (guests.error instanceof ApiError && guests.error.isAuthError) ||
-        (stats.error instanceof ApiError && stats.error.isAuthError);
-
-    const allOnPageSelected = rows.length > 0 && rows.every((g) => selected.includes(g.id));
-    const someSelected = selected.length > 0;
-
-    const toggleAll = () => {
-        // Only the CURRENT page — a header checkbox that silently selects 1,248
-        // rows across 156 pages is how people delete their guest list by
-        // accident.
-        setSelected(allOnPageSelected ? [] : rows.map((g) => g.id));
-    };
-
-    const toggleOne = (id: number) => {
-        setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
-    };
-
+    const total = guests.data?.pagination?.totalItems ?? 0;
     const s = stats.data;
-    const count = (st: GuestStatus) => s?.statuses?.[st] ?? 0;
-    const tiles = [
-        { label: "Total Guests", value: s?.total_guests ?? 0, caption: "In this event", icon: faUsers, color: "#7C5AED", bg: "bg-[#7C5AED]/10" },
-        { label: "Invited", value: count("invited"), caption: "Invitation sent", icon: faPaperPlane, color: "#3B82F6", bg: "bg-[#3B82F6]/10" },
-        { label: "Pending", value: count("pending"), caption: "Waiting for a reply", icon: faClock, color: "#F59E0B", bg: "bg-[#F59E0B]/10" },
-        { label: "Confirmed", value: count("confirmed"), caption: "Joined and said Yes", icon: faUserClock, color: "#22C55E", bg: "bg-[#22C55E]/10" },
-        { label: "Declined", value: count("declined"), caption: "Said No", icon: faPeopleGroup, color: "#EF4444", bg: "bg-[#EF4444]/10" },
-    ];
-    const withEvent = (href: string) => {
-        // The list's group filter is pre-chosen on Add Guest, as in the app.
-        const q = new URLSearchParams();
-        if (eventId) q.set("event", eventId);
-        if (groupId !== "all" && groupId !== "0" && href.endsWith("/add")) q.set("group", groupId);
-        const qs = q.toString();
-        return qs ? `${href}?${qs}` : href;
-    };
+    const st = (k: "added" | "invited" | "pending" | "confirmed" | "declined") => s?.statuses?.[k] ?? 0;
+    const all = s?.total_guests ?? 0;
+    const authError = (guests.error instanceof ApiError && guests.error.isAuthError) || (stats.error instanceof ApiError && stats.error.isAuthError);
 
-    const activeFilters = groupId !== "all" ? 1 : 0;
+    // Selected guest kept fresh after a save (the list refetches).
+    const current = action ? (rows.find((g) => g.id === action.g.id) ?? action.g) : null;
+    const open = (a: GuestAction, g: Guest) => setAction({ a, g });
 
     return (
-        <div className="flex flex-col gap-3.5">
-            {/* ── Header: title, Add Guest + Manage Group, then the event ── */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Guests</h1>
-                    <p className="text-[12.5px] text-muted-foreground">
-                        Guests are added to one event, and their status follows the invitation and their RSVP.
-                    </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                    <Button asChild variant="outline" className="h-9 rounded-md px-4 text-[12.5px] font-semibold">
-                        <Link href={withEvent("/dashboard/guests/add")}>
-                            <FontAwesomeIcon icon={faUserPlus} className="mr-2 !size-[12px]" /> Add Guest
-                        </Link>
-                    </Button>
-                    <Button asChild className="h-9 rounded-md px-4 text-[12.5px] font-semibold">
-                        <Link href="/dashboard/guests/groups">Manage Group</Link>
-                    </Button>
-                </div>
-            </div>
-            <EventMiniCard eventId={fixedId} />
-
-            {!events.isLoading && eventRows.length === 0 && (
-                <Card className="border border-border py-0 shadow-none">
-                    <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3.5">
-                        <p className="text-[13px] text-muted-foreground">Guests belong to an event. Create an event first.</p>
-                        <Button asChild size="sm" className="h-8 text-[12px]">
-                            <Link href="/dashboard/events/create">Create Event</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
-
-            {authError && (
-                <Card className="border-warning/40 bg-warning/10 py-0 shadow-none">
-                    <CardContent className="flex items-start gap-3 p-3.5">
-                        <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
-                        <div>
-                            <p className="text-[12.5px] font-semibold text-foreground">You are not signed in</p>
-                            <p className="mt-0.5 text-[12px] text-muted-foreground">
-                                Your session has ended. Sign in again to carry on.
-                            </p>
-                            <SignInPrompt className="mt-2.5" />
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* ── Five tiles ──────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                {tiles.map((tile) => (
-                    <Card key={tile.label} className="min-w-0 border border-border py-0 shadow-none">
-                        <CardContent className="flex items-center gap-2.5 p-3">
-                            <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", tile.bg)}>
-                                <FontAwesomeIcon icon={tile.icon} className="!size-[15px]" style={{ color: tile.color }} />
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-[12.5px] font-medium text-muted-foreground break-words">{tile.label}</p>
-                                {stats.isLoading ? (
-                                    <Skeleton className="my-1 h-6 w-12" />
-                                ) : (
-                                    <p className="text-[22px] font-bold leading-tight tabular-nums text-foreground">
-                                        {tile.value.toLocaleString()}
-                                    </p>
-                                )}
-                                <p className="text-[11px] text-muted-foreground">{tile.caption}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* ── Filter bar ──────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                <Select value={groupId} onValueChange={setGroupId}>
-                    <SelectTrigger className="h-10 w-full rounded-md text-[13px] lg:w-[180px]">
-                        <SelectValue placeholder="All Groups" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Groups</SelectItem>
-                        {/* A real filter, not a blank — "0" means group_id IS NULL. */}
-                        <SelectItem value="0">Ungrouped</SelectItem>
-                        {(groups.data ?? []).map((g) => (
-                            <SelectItem key={g.id} value={String(g.id)}>
-                                {g.name} ({g.members_count})
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                <div className="relative min-w-0 flex-1">
-                    <FontAwesomeIcon
-                        icon={faSearch}
-                        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 !size-[12px] text-muted-foreground"
-                    />
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search guests by name, email or phone..."
-                        className="h-10 rounded-md pl-9 text-[13px]"
-                    />
-                </div>
-
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="h-10 shrink-0 rounded-md px-4 text-[13px] font-medium">
-                            <FontAwesomeIcon icon={faSliders} className="mr-2 !size-[12px]" />
-                            Filters
-                            {activeFilters > 0 && (
-                                <Badge className="ml-2 h-4 min-w-4 px-1 text-[10px]">{activeFilters}</Badge>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-[240px] p-3.5">
-                        <div className="flex flex-col gap-3">
-                            <Label className="text-[12px] font-medium">Active filters</Label>
-                            <p className="text-[11.5px] text-muted-foreground">
-                                {activeFilters === 0
-                                    ? "Showing every guest on your account."
-                                    : "The group filter is applied above."}
-                            </p>
-                            <Separator />
-                            <Button
-                                variant="ghost" size="sm"
-                                disabled={activeFilters === 0 && !search}
-                                onClick={() => { setGroupId("all"); setSearch(""); }}
-                                className="h-8 text-[12px]"
-                            >
-                                Reset filters
+        <div className="flex flex-col gap-4">
+            <EventMiniCard eventId={eventId} />
+            <SplitLayout aside={<AddGuestPanel eventId={eventId} />} asideWidth={440}>
+                <ModuleHeader
+                    title="Event Guests"
+                    subtitle="Manage guest information, invitation status, and RSVP tracking."
+                    actions={(
+                        <>
+                            <Button asChild variant="outline" size="sm"><Link href={`/dashboard/guests/import?event=${eventId}`}><FileUp className="size-3.5" /> Import</Link></Button>
+                            <Button variant="outline" size="sm" disabled={exportGuests.isPending || all === 0} onClick={() => exportGuests.mutate({ event_id: eventId })}>
+                                <Download className="size-3.5" /> {exportGuests.isPending ? "Exporting…" : "Export"}
                             </Button>
+                            <Button asChild variant="outline" size="sm"><Link href="/dashboard/guests/groups"><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
+                        </>
+                    )}
+                />
+
+                {authError && (
+                    <div className="rounded-xl border border-warning/40 bg-warning/10 p-3.5 text-[12.5px]">
+                        <p className="font-semibold">You are not signed in</p>
+                        <p className="text-muted-foreground">Your session has ended. Sign in again to carry on.</p>
+                        <SignInPrompt className="mt-2.5" />
+                    </div>
+                )}
+
+                <OverviewCard title="Guest Overview" icon={Users}>
+                    <StatTile icon={Users} value={all} label="Total Guests" tone="primary" />
+                    <StatTile icon={Mail} value={all - st("added")} label="Invited" tone="violet" />
+                    <StatTile icon={CheckCircle2} value={st("confirmed")} label="Confirmed" tone="success" />
+                    <StatTile icon={Clock} value={st("invited") + st("pending")} label="Pending RSVP" tone="warning" />
+                </OverviewCard>
+
+                <CountTabs<Tab>
+                    value={tab} onChange={(v) => { setTab(v); setPage(1); }}
+                    tabs={[
+                        { value: "all", label: "All Guests", count: all },
+                        { value: "bride", label: "Bride Side", count: s?.bride ?? 0, icon: User },
+                        { value: "groom", label: "Groom Side", count: s?.groom ?? 0, icon: User },
+                        { value: "vip", label: "VIP", count: s?.vip ?? 0, icon: Star },
+                        { value: "hidden", label: "Hidden", count: s?.hidden ?? 0, icon: EyeOff },
+                    ]}
+                />
+
+                <Toolbar>
+                    <SearchBox value={search} onChange={setSearch} placeholder="Search guests by name, relationship, or mobile..." />
+                    <SortSelect value={sort} onChange={(v) => { setSort(v); setPage(1); }} options={SORTS} />
+                </Toolbar>
+
+                <ListCard icon={Users} title="Guest List" count={total} note="Showing all guests for this event.">
+                    {guests.isLoading ? (
+                        <div className="flex flex-col gap-3 p-4">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
+                    ) : guests.isError && !authError ? (
+                        <div className="flex flex-col items-center gap-2 py-10 text-center">
+                            <p className="text-[14px] font-semibold">Could not load your guests</p>
+                            <Button variant="outline" size="sm" onClick={() => guests.refetch()}>Try again</Button>
                         </div>
-                    </PopoverContent>
-                </Popover>
-
-                <Button asChild className="h-10 shrink-0 rounded-md px-5 text-[13px] font-semibold">
-                    <Link href={withEvent("/dashboard/guests/import")}>
-                        <FontAwesomeIcon icon={faFileImport} className="mr-2 !size-[12px]" /> Import
-                    </Link>
-                </Button>
-                <Button
-                    variant="outline"
-                    disabled={exportGuests.isPending || totalItems === 0}
-                    onClick={() => exportGuests.mutate(params)}
-                    className="h-10 shrink-0 rounded-md border-primary/40 px-4 text-[13px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
-                >
-                    <FontAwesomeIcon icon={faDownload} className="mr-2 !size-[12px]" />
-                    {exportGuests.isPending ? "Exporting..." : "Export"}
-                </Button>
-            </div>
-
-            {/* ── Table + rail ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-3.5">
-                <Card className="min-w-0 gap-0 border border-border p-0 shadow-none">
-                    <Tabs value={tab} onValueChange={(v) => setTab(v as GuestTab)}>
-                        <div className="overflow-x-auto border-b border-border px-2">
-                            <TabsList variant="line" className="h-auto gap-0 p-0">
-                                {TABS.map((t) => (
-                                    <TabsTrigger
-                                        key={t.value}
-                                        value={t.value}
-                                        className="h-auto rounded-none px-4 py-2 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
-                                    >
-                                        {t.label}
-                                        {s ? ` (${t.value === "all" ? s.total_guests ?? 0 : count(t.value as GuestStatus)})` : ""}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
+                    ) : rows.length === 0 ? (
+                        <div className="flex flex-col items-center gap-1 py-10 text-center">
+                            <p className="text-[14px] font-semibold">No guests here</p>
+                            <p className="text-[13px] text-muted-foreground">{debounced || tab !== "all" ? "Try another tab or search." : "Add your first guest with the form."}</p>
                         </div>
-                    </Tabs>
-
-                    {/* Bulk bar — only present when something is selected, so it
-                        never takes space it has no use for. */}
-                    {someSelected && (
-                        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-primary/5 px-4 py-2.5">
-                            <span className="text-[12.5px] font-semibold text-foreground">
-                                {selected.length} selected
-                            </span>
-                            <Separator orientation="vertical" className="h-4" />
-                            <Select
-                                onValueChange={(v) => bulk.mutate(
-                                    { guest_ids: selected, action: "group", value: v === "none" ? null : v },
-                                    { onSuccess: () => setSelected([]) }
-                                )}
-                            >
-                                <SelectTrigger className="h-8 w-[150px] rounded-md text-[12px]">
-                                    <SelectValue placeholder="Move to group" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Ungrouped</SelectItem>
-                                    {(groups.data ?? []).map((g) => (
-                                        <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+                                <thead>
+                                    <tr className="border-b border-border text-[12px] font-semibold text-foreground/80">
+                                        <th className="py-2.5 pl-4 text-left font-semibold">Guest Name</th>
+                                        <th className="py-2.5 text-left font-semibold">Relationship</th>
+                                        <th className="py-2.5 text-left font-semibold">Side</th>
+                                        <th className="py-2.5 text-left font-semibold">Invite Count</th>
+                                        <th className="py-2.5 text-left font-semibold">RSVP Status</th>
+                                        <th className="py-2.5 text-left font-semibold">App Visibility</th>
+                                        <th className="py-2.5 pr-4 text-right font-semibold">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((g) => (
+                                        <tr key={g.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30", current?.id === g.id && "bg-primary/5")}>
+                                            <td className="py-2 pl-4">
+                                                <PersonCell name={g.name} photo={g.photo} onClick={() => open("view", g)}
+                                                    badge={g.is_vip ? <StarBadge>{g.vip_label && g.vip_label.length <= 12 ? g.vip_label : "VIP"}</StarBadge> : undefined} />
+                                            </td>
+                                            <td className="py-2">{g.relationship || "—"}</td>
+                                            <td className="py-2">
+                                                {g.side ? <StatusPill tone={g.side === "bride" ? "primary" : "violet"}>{sideLabel(g.side)}</StatusPill> : "—"}
+                                            </td>
+                                            <td className="py-2"><span className="inline-flex items-center gap-1.5"><Users className="size-4 text-muted-foreground" /> {g.invite_count ?? 1}</span></td>
+                                            <td className="py-2"><StatusPillFor status={g.status} /></td>
+                                            <td className="py-2">
+                                                {g.is_visible === false
+                                                    ? <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill>
+                                                    : <StatusPill tone="success" icon={Eye}>Visible</StatusPill>}
+                                            </td>
+                                            <td className="py-2 pr-4 text-right">
+                                                <RowActions label={`Actions for ${g.name}`} items={guestMenu(g, (a) => open(a, g),
+                                                    () => update.mutate({ id: g.id, data: { is_visible: true } }))} />
+                                            </td>
+                                        </tr>
                                     ))}
-                                </SelectContent>
-                            </Select>
-                            <Button
-                                variant="ghost" size="sm"
-                                onClick={() => bulk.mutate(
-                                    { guest_ids: selected, action: "invite" },
-                                    { onSuccess: () => setSelected([]) }
-                                )}
-                                className="h-8 text-[12px] text-primary hover:text-primary"
-                            >
-                                Mark as Invited
-                            </Button>
-                            <Button
-                                variant="ghost" size="sm"
-                                onClick={() => setBulkDelete(true)}
-                                className="h-8 text-[12px] text-destructive hover:text-destructive"
-                            >
-                                Delete
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setSelected([])} className="h-8 text-[12px]">
-                                Clear
-                            </Button>
+                                </tbody>
+                            </table>
                         </div>
                     )}
+                </ListCard>
 
-                    <CardContent className="p-0">
-                        {guests.isLoading ? (
-                            <div className="divide-y divide-border">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-3.5">
-                                        <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
-                                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                            <Skeleton className="h-3.5 w-1/4" />
-                                            <Skeleton className="h-3 w-1/3" />
-                                        </div>
-                                        <Skeleton className="h-6 w-20 shrink-0" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : guests.isError && !authError ? (
-                            <div className="flex flex-col items-center gap-2 py-10 text-center">
-                                <FontAwesomeIcon icon={faTriangleExclamation} className="!size-[26px] text-warning/60" />
-                                <p className="text-[14px] font-semibold text-foreground">Could not load your guests</p>
-                                <p className="text-[13px] text-muted-foreground">
-                                    {guests.error instanceof Error ? guests.error.message : "Unknown error."}
-                                </p>
-                                <Button variant="outline" size="sm" className="mt-2 h-8 text-[12px]" onClick={() => guests.refetch()}>
-                                    Try again
-                                </Button>
-                            </div>
-                        ) : rows.length === 0 ? (
-                            <div className="flex flex-col items-center gap-2 py-10 text-center">
-                                <FontAwesomeIcon icon={faUsers} className="!size-[26px] text-muted-foreground/40" />
-                                <p className="text-[14px] font-semibold text-foreground">No guests here</p>
-                                <p className="max-w-sm text-[13px] text-muted-foreground">
-                                    {debouncedSearch || activeFilters > 0
-                                        ? "Try a different search or filter."
-                                        : tab === "all"
-                                            ? "Add your first guest, or import a list from a CSV."
-                                            : "Nothing in this tab yet."}
-                                </p>
-                                {!debouncedSearch && activeFilters === 0 && tab === "all" && (
-                                    <div className="mt-2 flex flex-wrap justify-center gap-2">
-                                        <Button asChild size="sm" className="h-8 text-[12px]">
-                                            <Link href={withEvent("/dashboard/guests/add")}>Add Guest</Link>
-                                        </Button>
-                                        <Button asChild variant="outline" size="sm" className="h-8 text-[12px]">
-                                            <Link href={withEvent("/dashboard/guests/import")}>Import Guests</Link>
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full min-w-[860px] border-collapse">
-                                    <thead>
-                                        <tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                                            <th className="w-10 py-2 pl-4">
-                                                <Checkbox
-                                                    checked={allOnPageSelected}
-                                                    onCheckedChange={toggleAll}
-                                                    aria-label="Select all guests on this page"
-                                                />
-                                            </th>
-                                            <th className="py-2 text-left font-medium">Guest</th>
-                                            <th className="py-2 text-left font-medium">Group</th>
-                                            <th className="py-2 text-left font-medium">Status</th>
-                                            <th className="py-2 text-left font-medium">Added On</th>
-                                            <th className="py-2 pr-4 text-right font-medium">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rows.map((guest) => {
-                                            return (
-                                                <tr key={guest.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                                                    <td className="py-2 pl-4 align-top">
-                                                        <Checkbox
-                                                            checked={selected.includes(guest.id)}
-                                                            onCheckedChange={() => toggleOne(guest.id)}
-                                                            aria-label={`Select ${guest.name}`}
-                                                        />
-                                                    </td>
+                <Pager page={page} pageSize={PAGE} total={total} onPage={setPage} noun="guests" />
+            </SplitLayout>
 
-                                                    <td className="py-2 pr-3 align-top">
-                                                        <div className="flex min-w-0 items-center gap-2.5">
-                                                            <Avatar className="h-9 w-9 shrink-0">
-                                                                <AvatarFallback className="bg-primary/10 text-[11px] font-bold text-primary">
-                                                                    {initialsOf(guest.name)}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div className="min-w-0">
-                                                                {/*
-                                                                  The NAME goes to the PERSON,
-                                                                  matching the RSVP list and the
-                                                                  group members table. Edit guest
-                                                                  stays in the row menu — the
-                                                                  form is a different question
-                                                                  from the profile.
-
-                                                                  break-words, never truncate.
-                                                                */}
-                                                                <Link
-                                                                    href={`/dashboard/guests/${guest.id}/profile`}
-                                                                    title={`View ${guest.name}'s profile`}
-                                                                    className="block py-1.5 text-[12.5px] font-semibold text-foreground break-words hover:text-primary hover:underline"
-                                                                >
-                                                                    {guest.name}
-                                                                </Link>
-                                                                <p className="text-[11px] text-muted-foreground break-all">
-                                                                    {guest.email}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-
-                                                    <td className="py-2 pr-3 align-top">
-                                                        {guest.group ? (
-                                                            <span className="inline-flex items-center gap-1.5 text-[12px] text-foreground">
-                                                                <span
-                                                                    className="h-2 w-2 shrink-0 rounded-full"
-                                                                    style={{ background: guest.group.color ?? "#CBD5E1" }}
-                                                                />
-                                                                {guest.group.name}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[12px] text-muted-foreground">—</span>
-                                                        )}
-                                                    </td>
-
-                                                    <td className="py-2 pr-3 align-top">
-                                                        {guest.status ? (
-                                                            <span className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", STATUS_PILL[guest.status])}>
-                                                                {GUEST_STATUS_LABELS[guest.status]}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-[12px] text-muted-foreground">—</span>
-                                                        )}
-                                                    </td>
-
-                                                    <td className="py-2 pr-3 align-top text-[12px] text-muted-foreground">
-                                                        {fmt(guest.created_at)}
-                                                    </td>
-
-                                                    <td className="py-2 pr-4 align-top">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost" size="icon"
-                                                                        aria-label={`Actions for ${guest.name}`}
-                                                                        className="h-8 w-8 rounded-md text-muted-foreground"
-                                                                    >
-                                                                        <FontAwesomeIcon icon={faEllipsisVertical} className="!size-[12px]" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end" className="w-[180px]">
-                                                                    <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
-                                                                        {guest.name}
-                                                                    </DropdownMenuLabel>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem asChild className="text-[12.5px]">
-                                                                        <Link href={`/dashboard/guests/${guest.id}/profile`}>View profile</Link>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem asChild className="text-[12.5px]">
-                                                                        <Link href={`/dashboard/guests/${guest.id}`}>Edit guest</Link>
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem
-                                                                        className="text-[12.5px] text-destructive focus:text-destructive"
-                                                                        onClick={() => setPendingDelete(guest)}
-                                                                    >
-                                                                        Remove
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-
-                                                            <Button
-                                                                asChild variant="ghost" size="icon"
-                                                                aria-label={`Message ${guest.name}`}
-                                                                className="h-8 w-8 rounded-md text-muted-foreground"
-                                                            >
-                                                                <Link href={`/dashboard/messages/send?guest=${guest.id}&from=guests`}>
-                                                                    <FontAwesomeIcon icon={faEnvelope} className="!size-[12px]" />
-                                                                </Link>
-                                                            </Button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-
-                        {totalItems > 0 && (
-                            <>
-                                <Separator />
-                                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
-                                    <p className="text-[12.5px] text-muted-foreground">
-                                        Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, totalItems)} of{" "}
-                                        {totalItems.toLocaleString()} guests
-                                    </p>
-                                    <div className="flex items-center gap-1.5">
-                                        <Button
-                                            variant="outline" size="icon" aria-label="Previous page"
-                                            className="h-8 w-8 rounded-md"
-                                            disabled={page <= 1}
-                                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                        >
-                                            <FontAwesomeIcon icon={faChevronLeft} className="!size-[11px]" />
-                                        </Button>
-                                        {/* A window, not every page — 156 buttons is not a
-                                            pagination control, it is a wall. */}
-                                        {pageWindow(page, totalPages).map((n, i) =>
-                                            n === null ? (
-                                                <span key={`gap-${i}`} className="px-1 text-[12px] text-muted-foreground">…</span>
-                                            ) : (
-                                                <Button
-                                                    key={n}
-                                                    variant={n === page ? "default" : "outline"}
-                                                    size="icon"
-                                                    aria-label={`Page ${n}`}
-                                                    aria-current={n === page ? "page" : undefined}
-                                                    className="h-8 w-8 rounded-md text-[12px]"
-                                                    onClick={() => setPage(n)}
-                                                >
-                                                    {n}
-                                                </Button>
-                                            )
-                                        )}
-                                        <Button
-                                            variant="outline" size="icon" aria-label="Next page"
-                                            className="h-8 w-8 rounded-md"
-                                            disabled={page >= totalPages}
-                                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                        >
-                                            <FontAwesomeIcon icon={faChevronRight} className="!size-[11px]" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
-
-            </div>
-
-            {/* ── Delete one ──────────────────────────────────────────────── */}
-            <Dialog open={!!pendingDelete} onOpenChange={(v) => { if (!v && !remove.isPending) setPendingDelete(null); }}>
-                <DialogContent className="sm:max-w-[440px]">
-                    <DialogHeader>
-                        <DialogTitle>Remove guest?</DialogTitle>
-                        <DialogDescription>
-                            {pendingDelete?.name} will be removed from your guest list.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" className="h-10 rounded-md text-[13px]" disabled={remove.isPending}
-                            onClick={() => setPendingDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive" className="h-10 rounded-md text-[13px] font-semibold"
-                            disabled={remove.isPending}
-                            onClick={() => {
-                                if (!pendingDelete) return;
-                                remove.mutate(pendingDelete.id, { onSettled: () => setPendingDelete(null) });
-                            }}
-                        >
-                            {remove.isPending ? "Removing..." : "Remove"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ── Delete many ─────────────────────────────────────────────── */}
-            <Dialog open={bulkDelete} onOpenChange={(v) => { if (!v && !bulk.isPending) setBulkDelete(v); }}>
-                <DialogContent className="sm:max-w-[440px]">
-                    <DialogHeader>
-                        <DialogTitle>Remove {selected.length} guests?</DialogTitle>
-                        <DialogDescription>
-                            They will be removed from your guest list. This cannot be undone from here.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" className="h-10 rounded-md text-[13px]" disabled={bulk.isPending}
-                            onClick={() => setBulkDelete(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive" className="h-10 rounded-md text-[13px] font-semibold"
-                            disabled={bulk.isPending}
-                            onClick={() => bulk.mutate(
-                                { guest_ids: selected, action: "delete" },
-                                { onSettled: () => { setBulkDelete(false); setSelected([]); } }
-                            )}
-                        >
-                            {bulk.isPending ? "Removing..." : `Remove ${selected.length}`}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <GuestActionSheet
+                action={action?.a ?? null} guest={current} eventId={eventId}
+                onClose={() => setAction(null)}
+                onSwitch={(a) => setAction((x) => (x ? { ...x, a } : x))}
+            />
         </div>
     );
 }
 
-/**
- * A windowed page list: 1 … 4 5 6 … 156.
- *
- * `null` is a gap. Rendering every page is fine at 3 and absurd at 156, which
- * is exactly the count the design's own mock shows.
- */
-function pageWindow(current: number, total: number): (number | null)[] {
-    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+/** The right-hand Add Guest panel. */
+function AddGuestPanel({ eventId }: { eventId: number }) {
+    const capacity = useGuestCapacity();
+    const bulk = useBulkGuests();
+    const ref = useRef<HTMLDivElement>(null);
+    const [d, setD] = useState<GuestDraft>(blankDraft);
+    const [tried, setTried] = useState(false);
+    const set = (p: Partial<GuestDraft>) => setD((x) => ({ ...x, ...p }));
+    const rel = useRelationsFor(d.side, d.relation);
+    const clear = () => { setD(blankDraft()); setTried(false); };
+    const create = useCreateGuest((g) => {
+        // "Send Invitation via": mark invited with the channels, then offer to open them (a click, so it is not blocked).
+        const channels = d.channels;
+        if (!channels.length) return clear();
+        const message = `Dear ${g.name.split(/\s+/)[0]}, you are warmly invited to our event. We look forward to celebrating with you!`;
+        bulk.mutate({ guest_ids: [g.id], action: "invite", value: { channels, message } });
+        const phone = `${g.dial_code || "+91"}${g.mobile ?? ""}`.replace(/\D/g, "");
+        if (channels.includes("whatsapp") && g.mobile) {
+            toast("Send the invitation on WhatsApp", { action: { label: "Open WhatsApp", onClick: () => window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank") }, duration: 10000 });
+        }
+        if (channels.includes("email") && g.email) {
+            toast("Send the invitation by email", { action: { label: "Open Email", onClick: () => { window.location.href = `mailto:${g.email}?subject=${encodeURIComponent("You're Invited")}&body=${encodeURIComponent(message)}`; } }, duration: 10000 });
+        }
+        clear();
+    });
+    const full = capacity.data && capacity.data.limit !== null && capacity.data.used >= capacity.data.limit;
 
-    const out: (number | null)[] = [1];
-    const from = Math.max(2, current - 1);
-    const to = Math.min(total - 1, current + 1);
+    const save = () => {
+        setTried(true);
+        const err = draftError(d, { needChannel: true });
+        if (err) return toast.error(err);
+        create.mutate({ ...payloadOf(d, rel.idOf(d.relation)), event_id: eventId } as Parameters<typeof create.mutate>[0]);
+    };
 
-    if (from > 2) out.push(null);
-    for (let i = from; i <= to; i += 1) out.push(i);
-    if (to < total - 1) out.push(null);
-    out.push(total);
-
-    return out;
+    return (
+        <FormPanel
+            panelRef={ref} icon={UserPlus} title="Add Guest"
+            footer={(
+                <>
+                    <Button variant="outline" onClick={clear}>Clear</Button>
+                    <Button disabled={create.isPending || bulk.isPending || !!full} onClick={save}>Save Guest</Button>
+                </>
+            )}
+        >
+            {full && (
+                <p className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-[12px]">
+                    Guest limit reached ({capacity.data?.used} of {capacity.data?.limit}). <Link href="/dashboard/billing" className="font-semibold text-primary">Upgrade your plan</Link> to add more.
+                </p>
+            )}
+            <GuestFields d={d} set={set} tried={tried} />
+            <FormField label="Photo Upload">
+                <PhotoDropzone value={d.photo} onChange={(url) => set({ photo: url })} recommend={null} />
+            </FormField>
+            <SwitchField id="guest-rsvp" label="RSVP Required" hint="Ask this guest to confirm their attendance." checked={d.rsvpRequired} onChange={(v) => set({ rsvpRequired: v })} />
+            <FormField label="Visibility" required note="Control whether this guest appears in the event app guest list.">
+                <ChoiceRadio name="guest-visibility" value={d.visible} onChange={(v) => set({ visible: v })}
+                    options={[{ value: true, label: "Show in App" }, { value: false, label: "Hide from App" }]} />
+            </FormField>
+            <SwitchField id="guest-vip" label="Mark as VIP Guest" hint="Highlight as a VIP guest (e.g. close family, special guest, etc.)." checked={d.vip} onChange={(v) => set({ vip: v })} />
+            <FormField label="Send Invitation via" required note="Select one or more channels to send the invitation.">
+                <CheckChoices value={d.channels} onChange={(v) => set({ channels: v })} options={CHANNELS} />
+            </FormField>
+        </FormPanel>
+    );
 }
