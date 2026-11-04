@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+
 
 import { AppSidebar } from "@/components/layout/Sidebar/AppSidebar";
 import Header from "@/components/layout/Header/Header";
-import Breadcrumb from "@/components/layout/Breadcrumb/Breadcrumb";
 import Footer from "@/components/layout/Footer/Footer";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { ClientAuthGate } from "@/components/common/client-auth-gate";
@@ -44,12 +43,8 @@ export default function DashboardLayout({
       <SidebarInset className="bg-background flex flex-col min-w-0 min-h-screen transition-all duration-300">
         <Header />
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-          {/* Breadcrumb reads useSearchParams(), which opts a page out of
-              prerendering unless it sits behind a Suspense boundary. */}
-          <Suspense fallback={<div className="h-[52px]" />}>
-            <Breadcrumb />
-          </Suspense>
-          <div className="flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 lg:px-6 pt-2.5 pb-4">
+          {/* The breadcrumb is in the top bar now (Header), where the search box was. */}
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 lg:px-6 pt-3 pb-4">
             {/* A section the plan does not include is refused here, the same
                 rule the sidebar uses to hide it — see PlanSectionGate. */}
             <PlanSectionGate>{children}</PlanSectionGate>

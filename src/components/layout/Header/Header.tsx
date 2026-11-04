@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-    faSearch,
     faExpand,
     faCompress,
     faMoon,
@@ -20,7 +19,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import Breadcrumb from "@/components/layout/Breadcrumb/Breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -56,9 +55,8 @@ import { useUnreadCount, useNotifications, timeAgo } from "@/hooks/use-messages"
  * from a guess. An unread count is a claim; the invented red "3" this file
  * shipped with is exactly what trains people to ignore a bell.
  *
- * SEARCH now goes somewhere: it hands the term to My Events, which is the only
- * screen that can search anything. It previously focused on ⌘K and did nothing
- * with what you typed.
+ * The BREADCRUMB sits where the event search box was (Jamal, 2026-11-04); My
+ * Events keeps its own search.
  *
  * SIGN OUT calls the real logout route and leaves the portal.
  */
@@ -73,7 +71,7 @@ function initialsOf(name: string | undefined): string {
 }
 
 export default function Header() {
-    const router = useRouter();
+
     const pathname = usePathname();
     /** Create / Edit Event wizard open: no "New Event" while one is in progress. */
     const inWizard = /^\/dashboard\/events\/(create|\d+\/edit)(\/|$)/.test(pathname ?? "");
@@ -82,8 +80,6 @@ export default function Header() {
     const { resolvedTheme, setTheme } = useTheme();
     const [mounted, setMounted] = React.useState(false);
     const [isFullscreen, setIsFullscreen] = React.useState(false);
-    const [term, setTerm] = React.useState("");
-    const searchRef = React.useRef<HTMLInputElement>(null);
 
     const profile = useClientProfile();
 
@@ -100,27 +96,6 @@ export default function Header() {
     const logout = useLogout();
 
     React.useEffect(() => setMounted(true), []);
-
-    // ⌘K / Ctrl+K focuses search — the hint in the field has to actually work,
-    // or it is decoration that teaches the wrong shortcut.
-    React.useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-                e.preventDefault();
-                searchRef.current?.focus();
-            }
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, []);
-
-    const submitSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        const q = term.trim();
-        // Empty search goes to the unfiltered list rather than doing nothing —
-        // pressing Enter on a blank box should still take you somewhere.
-        router.push(q ? `/dashboard/events?search=${encodeURIComponent(q)}` : "/dashboard/events");
-    };
 
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -139,28 +114,13 @@ export default function Header() {
         <header className="sticky top-0 z-40 flex h-[64px] shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
             <SidebarTrigger className="h-9 w-9 shrink-0 rounded-md text-muted-foreground hover:bg-secondary dark:hover:bg-secondary" />
 
-            {/* Search — a real form, so Enter submits and the browser treats it
-                as one. Events are the only searchable thing today, so it says so
-                rather than promising guests and templates as well. */}
-            <form onSubmit={submitSearch} className="relative hidden min-w-0 max-w-[420px] flex-1 md:block">
-                <FontAwesomeIcon
-                    icon={faSearch}
-                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 !size-[13px] text-muted-foreground"
-                />
-                <Input
-                    ref={searchRef}
-                    value={term}
-                    onChange={(e) => setTerm(e.target.value)}
-                    placeholder="Search your events..."
-                    aria-label="Search your events"
-                    className="h-10 rounded-md border-border bg-secondary/60 pl-9 pr-14 text-[13px] placeholder:text-muted-foreground"
-                />
-                <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 font-sans text-[10px] font-semibold text-muted-foreground">
-                    ⌘K
-                </kbd>
-            </form>
+            {/* Breadcrumb in place of the old event search (Jamal, 2026-11-04) — more room,
+                one bar less. It reads useSearchParams(), hence the Suspense boundary. */}
+            <React.Suspense fallback={<div className="min-w-0 flex-1" />}>
+                <Breadcrumb inline />
+            </React.Suspense>
 
-            <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
                 {!inWizard && (
                 <Button
                     asChild

@@ -22,6 +22,17 @@ export interface ParticipantRow extends Participant {
     relationship?: string | null;
     relationship_option_id?: number | null;
     has_joined: boolean;
+    // ── Participants web design (2026-11-04) ──
+    /** blocked > active (joined in the app) > pending (added, not joined). */
+    access?: 'active' | 'pending' | 'blocked';
+    invite_status?: 'invited' | 'pending';
+    is_blocked?: boolean;
+    block_reason?: string | null;
+    block_note?: string | null;
+    is_hidden?: boolean;
+    hide_reason?: string | null;
+    hide_note?: string | null;
+    guest?: { id: number; name: string; side?: 'groom' | 'bride' | null; is_vip?: boolean; vip_label?: string | null; invited_at?: string | null } | null;
 }
 
 export interface ParticipantPayload {

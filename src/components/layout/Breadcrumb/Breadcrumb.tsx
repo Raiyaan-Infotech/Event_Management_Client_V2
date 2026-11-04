@@ -14,7 +14,7 @@ function eventIdIn(pathname: string | null): number | null {
   return m ? Number(m[1]) : null;
 }
 
-export default function Breadcrumb() {
+export default function Breadcrumb({ inline = false }: { inline?: boolean } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const screenParam = searchParams.get("screen");
@@ -89,8 +89,11 @@ export default function Breadcrumb() {
   const currentTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label || "Dashboard";
 
   return (
-    <div className="h-[30px] flex items-center bg-card border-b border-border w-full px-2 md:px-4 min-w-0 overflow-hidden">
-      <div className="flex-1 flex items-center min-w-0 text-[10px]">
+    // `inline`: inside the top bar, where the search box was (Jamal, 2026-11-04).
+    <div className={inline
+      ? "flex min-w-0 flex-1 items-center overflow-hidden"
+      : "h-[30px] flex items-center bg-card border-b border-border w-full px-2 md:px-4 min-w-0 overflow-hidden"}>
+      <div className={inline ? "flex min-w-0 flex-1 items-center text-[13px]" : "flex-1 flex items-center min-w-0 text-[10px]"}>
         {/* Breadcrumb Links */}
         <div className="flex items-center gap-1 font-medium truncate min-w-0">
           {breadcrumbItems.map((item, index) => (

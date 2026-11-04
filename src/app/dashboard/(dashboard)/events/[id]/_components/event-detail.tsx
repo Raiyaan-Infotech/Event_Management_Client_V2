@@ -17,7 +17,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,6 +42,10 @@ import { SettingsPanel } from "./settings-panel";
 import { WishesPanel } from "./wishes-panel";
 import { LivePanel } from "./live-panel";
 import { SocialLinksPanel } from "./social-links-panel";
+import { GuestsView } from "../../../guests/_components/guests-view";
+import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
+import { ParticipantsView } from "../../../participants/_components/participants-view";
+import { ScrollTabs } from "./scroll-tabs";
 
 /**
  * Event Details — the View Event screen.
@@ -81,8 +84,6 @@ const TABS = [
 
 type TabValue = (typeof TABS)[number]["value"];
 
-/** These three live INSIDE the event as their own pages (Jamal, 2026-11-02). */
-const PAGE_TABS: TabValue[] = ["guests", "rsvps", "participants"];
 
 const STATUS_META: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
     live: { label: "Live", dot: "bg-destructive", className: "bg-destructive/10 text-destructive" },
@@ -136,8 +137,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
         const asked = new URLSearchParams(window.location.search).get("tab");
         // Old links say ?tab=schedule — the tab is Agenda now.
         const wanted = asked === "schedule" ? "agenda" : asked;
-        if (wanted && PAGE_TABS.includes(wanted as TabValue)) router.replace(`/dashboard/events/${eventId}/${wanted}`);
-        else if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
+        if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
     }, []);
     // Guests / RSVPs / Participants show only when the plan grants them (as the sidebar did).
     const planOptions = useEventOptions();
@@ -146,9 +146,14 @@ export function EventDetail({ eventId }: { eventId: number }) {
         const gate = EVENT_SECTIONS.find((e) => e.tab === t.value);
         return !gate || (!!planOptions.data && granted.has(gate.section));
     });
+    // Every tab opens in place (Guests / RSVPs / Participants too, 2026-11-04);
+    // the tab goes in the URL so a refresh or a shared link reopens it.
     const openTab = (v: TabValue) => {
-        if (PAGE_TABS.includes(v)) router.push(`/dashboard/events/${eventId}/${v}`);
-        else setTab(v);
+        setTab(v);
+        const url = new URL(window.location.href);
+        if (v === "overview") url.searchParams.delete("tab");
+        else url.searchParams.set("tab", v);
+        window.history.replaceState(window.history.state, "", url);
     };
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
@@ -318,19 +323,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
             </Card>
 
             {/* ── Tabs ────────────────────────────────────────────────────── */}
-            <Tabs value={tab} onValueChange={(v) => openTab(v as TabValue)} className="overflow-x-auto">
-                <TabsList variant="line" className="h-auto gap-0 border-b border-border p-0">
-                    {visibleTabs.map((t) => (
-                        <TabsTrigger
-                            key={t.value}
-                            value={t.value}
-                            className="h-auto rounded-none px-3 py-2.5 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
-                        >
-                            {t.label}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
+            <ScrollTabs value={tab} onChange={(v) => openTab(v as TabValue)} tabs={visibleTabs} />
 
             {/* ── Overview ────────────────────────────────────────────────── */}
             {tab === "overview" && (
@@ -537,6 +530,11 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
             {/* ── Family ──────────────────────────────────────────────────── */}
             {tab === "family" && <FamilyPanel event={event} />}
+
+            {/* Guests / RSVPs / Participants — in place, like Family (2026-11-04). */}
+            {tab === "guests" && <GuestsView key={event.id} eventId={event.id} />}
+            {tab === "rsvps" && <RsvpsView key={event.id} eventId={event.id} />}
+            {tab === "participants" && <ParticipantsView key={event.id} eventId={event.id} />}
 
             {/* Wed Wishes, Live Streaming, Social Links — as the app (2026-11-03). */}
             {tab === "wishes" && <WishesPanel event={event} />}

@@ -12,7 +12,6 @@ import {
     CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
     PhotoDropzone, RowActions, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
-import { EventMiniCard } from "@/components/common/event-mini-card";
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -87,7 +86,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
 
     return (
         <div className="flex flex-col gap-4">
-            <EventMiniCard eventId={eventId} />
             <SplitLayout aside={<AddGuestPanel eventId={eventId} />} asideWidth={440}>
                 <ModuleHeader
                     title="Event Guests"

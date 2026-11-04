@@ -1,10 +1,17 @@
 "use client";
 
-import { use } from "react";
-import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
+import { use, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { PageLoader } from "@/components/common/page-loader";
 
-/** Event → RSVPs (2026-11-02): it lives inside the event. */
-export default function EventRsvpsViewPage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * Event → RSVPs opens INSIDE the event page now, as a tab like Family
+ * (Jamal, 2026-11-04). This old address forwards there, so every link and
+ * Save / Back that points here keeps working.
+ */
+export default function EventRSVPsRedirect({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
-    return <RsvpsView key={id} eventId={Number(id)} />;
+    const router = useRouter();
+    useEffect(() => { router.replace(`/dashboard/events/${id}?tab=rsvps`); }, [id, router]);
+    return <PageLoader />;
 }
