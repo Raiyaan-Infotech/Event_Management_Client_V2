@@ -14,12 +14,12 @@ export function CountTabs<T extends string>({
     value: T; onChange: (v: T) => void; stretch?: boolean;
 }) {
     return (
-        <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2">
+        <div className="flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-card p-1.5">
             {tabs.map((t) => (
                 <button
                     key={t.value} type="button" onClick={() => onChange(t.value)}
                     className={cn(
-                        "flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-[13px] font-medium transition",
+                        "flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1 text-[12.5px] font-medium transition",
                         stretch && "flex-1",
                         value === t.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
                     )}
@@ -37,7 +37,7 @@ export function SearchBox({
     return (
         <div className={cn("relative min-w-[200px] flex-1", className)}>
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-9 pl-9 text-[13px]" />
+            <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-8 pl-9 !text-[12.5px]" />
         </div>
     );
 }
@@ -48,7 +48,7 @@ export function SortSelect<T extends string>({
 }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; className?: string }) {
     return (
         <Select value={value} onValueChange={(v) => onChange(v as T)}>
-            <SelectTrigger className={cn("h-9 w-[210px] text-[13px]", className)}><SelectValue /></SelectTrigger>
+            <SelectTrigger className={cn("!h-8 w-[200px] text-[12.5px]", className)}><SelectValue /></SelectTrigger>
             <SelectContent>
                 {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectContent>
@@ -83,7 +83,7 @@ export function Pager({
     const current = Math.min(Math.max(1, page), pages);
     return (
         <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[12.5px] text-muted-foreground">
                 Showing {((current - 1) * pageSize + 1).toLocaleString()} to {Math.min(current * pageSize, total).toLocaleString()} of {total.toLocaleString()} {noun}
             </p>
             <div className="flex items-center gap-1.5">

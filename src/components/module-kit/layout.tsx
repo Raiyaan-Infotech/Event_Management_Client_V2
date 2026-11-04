@@ -19,8 +19,8 @@ export function ModuleHeader({
     return (
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-                <h3 className="text-[22px] leading-tight font-bold">{title}</h3>
-                {subtitle && <p className="text-[13px] text-muted-foreground">{subtitle}</p>}
+                <h3 className="text-[20px] leading-tight font-bold">{title}</h3>
+                {subtitle && <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
         </div>
@@ -33,13 +33,13 @@ export function OverviewCard({
 }: { title?: string; icon?: LucideIcon; children: React.ReactNode; columns?: 3 | 4 | 5 | 6 }) {
     const grid = { 3: "xl:grid-cols-3", 4: "xl:grid-cols-4", 5: "xl:grid-cols-5", 6: "xl:grid-cols-6" }[columns];
     return (
-        <div className="rounded-xl border border-primary/15 bg-primary/5 p-4">
+        <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
             {title && (
-                <p className="mb-3 flex items-center gap-2 text-[16px] font-bold text-primary">
-                    {Icon && <Icon className="size-5" />} {title}
+                <p className="mb-2.5 flex items-center gap-2 text-[15px] font-bold text-primary">
+                    {Icon && <Icon className="size-[18px]" />} {title}
                 </p>
             )}
-            <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-3", grid)}>{children}</div>
+            <div className={cn("grid grid-cols-2 gap-2.5 md:grid-cols-3", grid)}>{children}</div>
         </div>
     );
 }
@@ -57,15 +57,15 @@ export function StatTile({
             type={onClick ? "button" : undefined}
             onClick={onClick}
             className={cn(
-                "flex min-w-0 items-center gap-3 rounded-lg border bg-card px-4 py-3 text-left",
+                "flex min-w-0 items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left",
                 active ? "border-primary ring-1 ring-primary/30" : "border-border",
                 onClick && "transition hover:border-primary/40",
             )}
         >
-            <Icon className={cn("size-7 shrink-0", TONE_TEXT[tone])} />
+            <Icon className={cn("size-6 shrink-0", TONE_TEXT[tone])} />
             <div className="min-w-0">
-                <p className="text-[20px] leading-6 font-bold tabular-nums">{typeof value === "number" ? value.toLocaleString() : value}</p>
-                <p className="text-[12.5px] leading-4 text-muted-foreground">{label}</p>
+                <p className="text-[17px] leading-5 font-bold tabular-nums">{typeof value === "number" ? value.toLocaleString() : value}</p>
+                <p className="truncate text-[12px] leading-4 text-muted-foreground" title={label}>{label}</p>
                 {caption && <p className="mt-0.5 text-[11px] text-muted-foreground">{caption}</p>}
             </div>
         </Comp>
@@ -85,8 +85,8 @@ export function ListCard({
     const [open, setOpen] = useState(defaultOpen);
     const head = (
         <>
-            <span className="flex min-w-0 items-center gap-2 text-[16px] font-bold text-primary">
-                {Icon && <Icon className="size-5 shrink-0" />}
+            <span className="flex min-w-0 items-center gap-2 text-[14.5px] font-bold text-primary">
+                {Icon && <Icon className="size-[18px] shrink-0" />}
                 <span className="truncate">{title}{count !== undefined && ` (${count.toLocaleString()})`}</span>
             </span>
             <span className="flex items-center gap-3">
@@ -96,7 +96,7 @@ export function ListCard({
             </span>
         </>
     );
-    const headClass = "flex w-full items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-3 text-left";
+    const headClass = "flex w-full items-center justify-between gap-3 border-b border-border bg-primary/5 px-4 py-2.5 text-left";
     return (
         <div className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-card", className)}>
             {collapsible
@@ -119,21 +119,21 @@ export function FormPanel({
 }) {
     return (
         <div ref={panelRef} className={cn("flex h-fit min-w-0 flex-col overflow-hidden rounded-xl border border-primary/15 bg-card lg:sticky lg:top-4", className)}>
-            <div className="border-b border-primary/15 bg-primary/5 px-4 py-3">
-                <p className="flex items-center gap-2 text-[17px] font-bold text-primary">{Icon && <Icon className="size-5" />} {title}</p>
+            <div className="border-b border-primary/15 bg-primary/5 px-4 py-2.5">
+                <p className="flex items-center gap-2 text-[15.5px] font-bold text-primary">{Icon && <Icon className="size-[18px]" />} {title}</p>
                 {subtitle && <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>}
             </div>
-            <div className="flex flex-col gap-3 p-4">{children}</div>
-            {footer && <div className="grid grid-cols-[1fr_1.6fr] gap-3 border-t border-border p-4">{footer}</div>}
+            <div className="flex flex-col gap-2.5 px-4 py-3 text-[12.5px] [&_[data-slot=input]]:!h-8 [&_[data-slot=input]]:!text-[12.5px] [&_[data-slot=select-trigger]]:!h-8 [&_[data-slot=select-trigger]]:!text-[12.5px] [&_textarea]:!text-[12.5px] [&_textarea]:min-h-14">{children}</div>
+            {footer && <div className="grid grid-cols-[1fr_1.6fr] gap-3 border-t border-border px-4 py-3">{footer}</div>}
         </div>
     );
 }
 
 /** Page grid: the list on the left, a FormPanel on the right. */
-export function SplitLayout({ children, aside, asideWidth = 360 }: { children: React.ReactNode; aside: React.ReactNode; asideWidth?: number }) {
+export function SplitLayout({ children, aside, asideWidth = 340 }: { children: React.ReactNode; aside: React.ReactNode; asideWidth?: number }) {
     return (
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_var(--aside)]" style={{ "--aside": `${asideWidth}px` } as React.CSSProperties}>
-            <div className="flex min-w-0 flex-col gap-4">{children}</div>
+            <div className="flex min-w-0 flex-col gap-3">{children}</div>
             {aside}
         </div>
     );

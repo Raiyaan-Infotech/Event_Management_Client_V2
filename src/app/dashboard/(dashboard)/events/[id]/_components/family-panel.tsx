@@ -257,7 +257,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                     className={cn("h-9", bad(orderBad) && "border-destructive")} />
             </FormField>
             <FormField label="Short Description / Notes">
-                <Textarea value={f.notes} maxLength={500} rows={3} placeholder="E.g. Chief guest, elder brother, etc."
+                <Textarea value={f.notes} maxLength={500} rows={2} placeholder="E.g. Chief guest, elder brother, etc."
                     onChange={(e) => set({ notes: e.target.value })} />
             </FormField>
             <FormField label="Visibility" required note="You can hide a member without deleting them.">
@@ -277,7 +277,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                 actions={(
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button size="icon" variant="outline" className="size-9" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
+                            <Button size="icon" variant="outline" className="size-8" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
                                 <Settings className="size-4" />
                             </Button>
                         </TooltipTrigger>
@@ -360,29 +360,29 @@ function MemberRow({
     member: m, place, editing, onEdit, onDelete,
 }: { member: FamilyMember; place: number; editing: boolean; onEdit: (m: FamilyMember) => void; onDelete: (m: FamilyMember) => void }) {
     return (
-        <li className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 md:grid-cols-[minmax(170px,1fr)_100px_96px_86px_minmax(130px,1fr)_auto]",
+        <li className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2 md:grid-cols-[minmax(160px,1fr)_92px_84px_80px_minmax(120px,1fr)_auto]",
             editing && "bg-primary/5")}>
             <PersonCell name={m.full_name} photo={m.photo} sub={m.relationship || "—"} badge={m.is_key ? <StarBadge>Key</StarBadge> : undefined} />
             <div className="hidden md:block">
                 <StatusPill tone={m.side === "bride" ? "primary" : "violet"}>{sideName(m.side)}</StatusPill>
             </div>
             <div className="hidden border-l border-border pl-3 md:block">
-                <p className="text-[13px] font-bold">#{place}</p>
-                <p className="text-[11.5px] text-muted-foreground">Display Order</p>
+                <p className="text-[12.5px] font-bold">#{place}</p>
+                <p className="text-[11px] text-muted-foreground">Display Order</p>
             </div>
             <div className="hidden md:block">
                 {m.is_visible
                     ? <StatusPill tone="success" icon={Eye}>Visible</StatusPill>
                     : <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill>}
             </div>
-            <p className="hidden items-center gap-2 text-[12px] leading-4 text-muted-foreground md:flex">
-                <Smartphone className="size-4 shrink-0" />
+            <p className="hidden items-center gap-1.5 text-[11px] leading-[14px] text-muted-foreground md:flex">
+                <Smartphone className="size-3.5 shrink-0" />
                 {m.is_visible ? "Appears in family section of the app" : "Not shown in the app"}
             </p>
             <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="h-8" onClick={() => onEdit(m)}><Pencil className="size-3.5" /> Edit</Button>
-                <Button size="sm" variant="outline" className="h-8 border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => onDelete(m)}>
-                    <Trash2 className="size-3.5" /> Delete
+                <Button size="sm" variant="outline" className="h-7 px-2.5 text-[12px]" onClick={() => onEdit(m)}><Pencil className="size-3" /> Edit</Button>
+                <Button size="sm" variant="outline" className="h-7 border-destructive/40 px-2.5 text-[12px] text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => onDelete(m)}>
+                    <Trash2 className="size-3" /> Delete
                 </Button>
             </div>
         </li>

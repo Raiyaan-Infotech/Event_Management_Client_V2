@@ -13,7 +13,7 @@ export const initialsOf = (name?: string | null) => {
 
 /** Photo, or the initials on pink ("AB") when there is none. */
 export function PersonAvatar({
-    name, photo, size = 44, rounded = "md",
+    name, photo, size = 40, rounded = "md",
 }: { name?: string | null; photo?: string | null; size?: number; rounded?: "md" | "full" }) {
     return (
         <span
@@ -31,8 +31,8 @@ export function StatusPill({
     tone = "muted", icon: Icon, children, className,
 }: { tone?: Tone; icon?: LucideIcon; children: React.ReactNode; className?: string }) {
     return (
-        <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[12px] font-medium", TONE_PILL[tone], className)}>
-            {Icon && <Icon className="size-3.5" />} {children}
+        <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-medium", TONE_PILL[tone], className)}>
+            {Icon && <Icon className="size-3" />} {children}
         </span>
     );
 }
@@ -54,9 +54,9 @@ export function PersonCell({
         <>
             <PersonAvatar name={name} photo={photo} />
             <span className="min-w-0">
-                <span className="block break-words text-[14px] font-semibold leading-5">{name}</span>
+                <span className="block break-words text-[13px] font-semibold leading-5">{name}</span>
                 {badge && <span className="block">{badge}</span>}
-                {sub && <span className="block truncate text-[12.5px] text-muted-foreground">{sub}</span>}
+                {sub && <span className="block truncate text-[11.5px] text-muted-foreground">{sub}</span>}
             </span>
         </>
     );

@@ -17,7 +17,7 @@ export function FormField({
 }: { label: string; required?: boolean; hint?: string; note?: React.ReactNode; children: React.ReactNode; className?: string }) {
     return (
         <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-            <Label className="text-[13px] font-semibold">
+            <Label className="text-[12px] font-semibold">
                 {label}{required && <span className="text-destructive">*</span>}
                 {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
             </Label>
@@ -29,7 +29,7 @@ export function FormField({
 
 /** ⓘ grey help line under a field. */
 export function FieldNote({ children }: { children: React.ReactNode }) {
-    return <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground"><Info className="size-3.5 shrink-0" /> {children}</p>;
+    return <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Info className="size-3 shrink-0" /> {children}</p>;
 }
 
 /** The pink ⓘ side note next to a field ("Choose the guest type based on…"). */
@@ -52,7 +52,7 @@ export function NumberStepper({
 }: { value: number; onChange: (n: number) => void; min?: number; max?: number; invalid?: boolean }) {
     const clamp = (n: number) => Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
     return (
-        <div className={cn("flex h-9 items-stretch overflow-hidden rounded-md border", invalid ? "border-destructive" : "border-input")}>
+        <div className={cn("flex h-8 items-stretch overflow-hidden rounded-md border", invalid ? "border-destructive" : "border-input")}>
             <button type="button" aria-label="Less" className="grid w-9 place-items-center text-primary hover:bg-muted disabled:opacity-40"
                 disabled={value <= min} onClick={() => onChange(clamp(value - 1))}><Minus className="size-4" /></button>
             <input
@@ -71,7 +71,7 @@ export function ChoiceRadio<T extends string | boolean>({
     name, value, onChange, options,
 }: { name: string; value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }) {
     return (
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-[13px]">
+        <div className="flex flex-wrap gap-x-8 gap-y-2 text-[12.5px]">
             {options.map((o) => (
                 <label key={String(o.value)} className="flex cursor-pointer items-center gap-2">
                     <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} className="size-4 accent-[var(--primary)]" />
@@ -91,8 +91,8 @@ export function SwitchField({
             <div className="flex min-w-0 gap-2">
                 {Icon && <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                 <div className="min-w-0">
-                    <Label htmlFor={id} className="text-[13px] font-semibold">{label}</Label>
-                    {hint && <p className="text-[12px] text-muted-foreground">{hint}</p>}
+                    <Label htmlFor={id} className="text-[12px] font-semibold">{label}</Label>
+                    {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
                 </div>
             </div>
             <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={disabled} />
@@ -108,7 +108,7 @@ export function CheckChoices<T extends string>({
     return (
         <div className={cn("flex flex-wrap", boxed ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "gap-x-6 gap-y-2")}>
             {options.map((o) => (
-                <label key={o.value} className={cn("flex cursor-pointer items-center gap-2 text-[13px]", boxed && "rounded-lg border border-border px-3 py-2.5 font-medium")}>
+                <label key={o.value} className={cn("flex cursor-pointer items-center gap-2 text-[12.5px]", boxed && "rounded-lg border border-border px-3 py-2.5 font-medium")}>
                     <Checkbox checked={value.includes(o.value)} onCheckedChange={() => toggle(o.value)} />
                     {o.icon && <o.icon className="size-4 text-muted-foreground" />} {o.label}
                 </label>
@@ -157,15 +157,15 @@ export function PhotoDropzone({
                     onDragOver={(e) => { e.preventDefault(); setOver(true); }}
                     onDragLeave={() => setOver(false)}
                     onDrop={(e) => { e.preventDefault(); setOver(false); pick(e.dataTransfer.files?.[0]); }}
-                    className={cn("flex w-full flex-col items-center gap-1.5 rounded-lg border border-dashed px-3 py-4 text-center transition",
+                    className={cn("flex w-full flex-col items-center gap-1 rounded-lg border border-dashed px-3 py-2.5 text-center transition",
                         over ? "border-primary bg-primary/10" : "border-primary/40 bg-primary/[0.03] hover:bg-primary/5")}
                 >
-                    <CloudUpload className="size-6 text-primary" />
-                    <span className="text-[12.5px] text-foreground/80">
+                    <CloudUpload className="size-5 text-primary" />
+                    <span className="text-[11.5px] text-foreground/80">
                         {upload.isPending ? "Uploading…" : <>Drag and drop a photo here, or click to upload<br />PNG, JPG or WEBP (Max {maxMb} MB)</>}
                     </span>
                     {recommend && (
-                        <span className="mt-1 flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11.5px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                        <span className="mt-0.5 flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10.5px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                             <Info className="size-3" /> {recommend}
                         </span>
                     )}
