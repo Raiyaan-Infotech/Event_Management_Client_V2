@@ -146,7 +146,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const bad = (v: string) => tried && !v.trim();
 
     return (
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_clamp(280px,31%,340px)]">
             {/* ── Left: header, days, timeline ── */}
             <div className="flex min-w-0 flex-col gap-4">
                 <ModuleHeader

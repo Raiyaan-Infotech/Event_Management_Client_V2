@@ -126,11 +126,13 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[960px] border-collapse text-[12.5px]">
+                        <table className="w-full border-collapse text-[12px]">
                             <thead>
                                 <tr className="border-b border-border bg-primary/[0.03] text-[11.5px] font-semibold text-foreground/80">
-                                    {["Participant Name", "Relationship", "Linked Guest", "Mobile Number", "Invite Status", "RSVP Status", "Access Status", "Joined On"].map((h, i) => (
-                                        <th key={h} className={cn("py-2.5 text-left font-semibold", i === 0 && "pl-4")}>{h}</th>
+                                    {/* Fit view: under xl, Relationship + Mobile fold under the name and Joined On hides. */}
+                                    {[["Participant Name", ""], ["Relationship", "hidden xl:table-cell"], ["Linked Guest", ""], ["Mobile Number", "hidden xl:table-cell"],
+                                        ["Invite Status", ""], ["RSVP Status", ""], ["Access Status", ""], ["Joined On", "hidden 2xl:table-cell"]].map(([h, c], i) => (
+                                        <th key={h} className={cn("py-2.5 pr-2 text-left font-semibold whitespace-nowrap", i === 0 && "pl-3", c)}>{h}</th>
                                     ))}
                                     <th className="py-2.5 pr-4 text-right font-semibold">Actions</th>
                                 </tr>
@@ -138,14 +140,17 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                             <tbody>
                                 {pageRows.map((p) => (
                                     <tr key={p.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30", act?.id === p.id && "bg-primary/5")}>
-                                        <td className="py-2 pl-4"><PersonCell name={p.name} photo={p.photo} onClick={() => setAct({ a: "view", id: p.id })} /></td>
-                                        <td className="py-2">{p.relationship || "—"}</td>
-                                        <td className="py-2"><LinkedPill p={p} /></td>
-                                        <td className="py-2 whitespace-nowrap">{p.mobile ? `${p.dial_code || "+91"} ${p.mobile}` : "—"}</td>
-                                        <td className="py-2"><InvitePill p={p} /></td>
-                                        <td className="py-2"><RsvpPill p={p} /></td>
-                                        <td className="py-2"><AccessPill p={p} /></td>
-                                        <td className="py-2 whitespace-nowrap">{p.created_at ? fmt(p.created_at) : "—"}</td>
+                                        <td className="py-1.5 pr-2 pl-3">
+                                            <PersonCell name={p.name} photo={p.photo} onClick={() => setAct({ a: "view", id: p.id })}
+                                                sub={<span className="xl:hidden">{[p.relationship, p.mobile ? `${p.dial_code || "+91"} ${p.mobile}` : null].filter(Boolean).join(" · ")}</span>} />
+                                        </td>
+                                        <td className="hidden py-1.5 pr-2 xl:table-cell">{p.relationship || "—"}</td>
+                                        <td className="py-1.5 pr-2"><LinkedPill p={p} /></td>
+                                        <td className="hidden py-1.5 pr-2 whitespace-nowrap xl:table-cell">{p.mobile ? `${p.dial_code || "+91"} ${p.mobile}` : "—"}</td>
+                                        <td className="py-1.5 pr-2"><InvitePill p={p} /></td>
+                                        <td className="py-1.5 pr-2"><RsvpPill p={p} /></td>
+                                        <td className="py-1.5 pr-2"><AccessPill p={p} /></td>
+                                        <td className="hidden py-1.5 pr-2 whitespace-nowrap 2xl:table-cell">{p.created_at ? fmt(p.created_at) : "—"}</td>
                                         <td className="py-2 pr-4 text-right">
                                             <RowActions label={`Actions for ${p.name}`} items={participantMenu(p, (a) => setAct({ a, id: p.id }),
                                                 () => save.mutate({ id: p.id, data: { is_hidden: false } as never }))} />

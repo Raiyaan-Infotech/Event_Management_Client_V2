@@ -348,13 +348,13 @@ export default function AnalyticsPage() {
             ) : (
                 <>
                     {/* ── RSVP overview · trend · channels ────────────────── */}
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
                         {/* RSVP Status Overview */}
                         <Card className="min-w-0 border border-border shadow-none py-0">
                             <CardContent className="flex h-full flex-col p-5">
                                 <p className="mb-4 text-[13px] font-bold text-foreground">RSVP Status Overview</p>
 
-                                <div className="flex flex-1 items-center gap-4">
+                                <div className="flex flex-1 flex-wrap items-center justify-center gap-4">
                                     <div className="relative h-[130px] w-[130px] shrink-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
@@ -380,7 +380,7 @@ export default function AnalyticsPage() {
                                         </div>
                                     </div>
 
-                                    <ul className="flex min-w-0 flex-1 flex-col gap-3">
+                                    <ul className="flex min-w-[150px] flex-1 flex-col gap-3">
                                         {data.rsvp_breakdown.map((row) => (
                                             <li key={row.key} className="flex items-center gap-2 text-[12px]">
                                                 <span
@@ -466,7 +466,7 @@ export default function AnalyticsPage() {
                             <CardContent className="flex h-full flex-col p-5">
                                 <p className="mb-4 text-[13px] font-bold text-foreground">Messages by Channel</p>
 
-                                <div className="flex flex-1 items-center gap-4">
+                                <div className="flex flex-1 flex-wrap items-center justify-center gap-4">
                                     <div className="relative h-[130px] w-[130px] shrink-0">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
@@ -490,7 +490,7 @@ export default function AnalyticsPage() {
                                         </div>
                                     </div>
 
-                                    <ul className="flex min-w-0 flex-1 flex-col gap-3">
+                                    <ul className="flex min-w-[150px] flex-1 flex-col gap-3">
                                         {data.messages_by_channel.map((row) => (
                                             <li key={row.key} className="flex items-center gap-2 text-[12px]">
                                                 <span
@@ -520,14 +520,14 @@ export default function AnalyticsPage() {
                     </div>
 
                     {/* ── Top events · message performance · sources ─────── */}
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
                         {/* Top Performing Events */}
                         <Card className="min-w-0 border border-border shadow-none py-0">
                             <CardContent className="flex h-full flex-col p-5">
                                 <p className="mb-3 text-[13px] font-bold text-foreground">Top Performing Events</p>
 
                                 <div className="-mx-1 flex-1 overflow-x-auto px-1">
-                                    <table className="w-full min-w-[300px] border-collapse">
+                                    <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="text-[11px] text-muted-foreground">
                                                 <th className="pb-2 text-left font-normal">Event</th>
@@ -586,7 +586,7 @@ export default function AnalyticsPage() {
                                 <p className="mb-3 text-[13px] font-bold text-foreground">Message Performance</p>
 
                                 <div className="-mx-1 flex-1 overflow-x-auto px-1">
-                                    <table className="w-full min-w-[320px] border-collapse">
+                                    <table className="w-full border-collapse">
                                         <thead>
                                             <tr className="text-[11px] text-muted-foreground">
                                                 <th className="pb-2 text-left font-normal">Channel</th>

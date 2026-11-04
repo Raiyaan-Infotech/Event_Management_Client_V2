@@ -141,13 +141,13 @@ function Overview({
                     </>
                 )} />
 
-            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_minmax(230px,1.5fr)]">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(118px,1fr))] gap-2.5">
                 <StatTile icon={ImageIcon} value={count("image")} label="Images" tone="primary" />
                 <StatTile icon={Video} value={count("video")} label="Videos" tone="violet" />
                 <StatTile icon={Zap} value={count("short")} label="Shorts" tone="primary" />
                 <StatTile icon={Folder} value={folders.length} label="Folders" tone="amber" />
                 <StatTile icon={Images} value={albums.length} label="Albums" tone="violet" />
-                <div className="col-span-2 flex flex-col justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 md:col-span-1">
+                <div className="col-span-2 flex flex-col justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2">
                     <p className="flex items-center justify-between text-[12px]">
                         <span className="flex items-center gap-1 font-semibold">Storage Usage <Info className="size-3 text-muted-foreground" /></span>
                         <span className="text-muted-foreground">{bytes(used)}{limit ? ` of ${bytes(limit)} (${pct}%)` : ""}</span>

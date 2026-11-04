@@ -231,13 +231,13 @@ export default function MessagesPage() {
                                 <Table className={isFetching ? 'opacity-60 transition-opacity' : undefined}>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="min-w-[240px]">Subject / Content</TableHead>
-                                            <TableHead className="min-w-[110px]">Type</TableHead>
-                                            <TableHead className="min-w-[160px]">Event</TableHead>
-                                            <TableHead className="min-w-[110px] text-end">Recipients</TableHead>
-                                            <TableHead className="min-w-[120px]">Status</TableHead>
-                                            <TableHead className="min-w-[140px]">Sent On</TableHead>
-                                            <TableHead className="min-w-[70px] text-end">View</TableHead>
+                                            <TableHead className="min-w-[180px]">Subject / Content</TableHead>
+                                            <TableHead className="min-w-[80px]">Type</TableHead>
+                                            <TableHead className="hidden min-w-[120px] xl:table-cell">Event</TableHead>
+                                            <TableHead className="min-w-[80px] text-end">Recipients</TableHead>
+                                            <TableHead className="min-w-[90px]">Status</TableHead>
+                                            <TableHead className="min-w-[110px]">Sent On</TableHead>
+                                            <TableHead className="min-w-[44px] text-end">View</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -393,7 +393,7 @@ function Row({ campaign: c, fmt }: {
 
     return (
         <TableRow>
-            <TableCell className="max-w-[320px]">
+            <TableCell className="max-w-[220px]">
                 {/* break-all + line-clamp, never truncate: the table is
                     auto-layout, so truncate has nothing to truncate against. */}
                 <p className="text-[12.5px] font-medium break-all">{c.subject}</p>
@@ -409,13 +409,15 @@ function Row({ campaign: c, fmt }: {
                         {snippet}
                     </p>
                 ) : null}
+                {/* Fit view: under xl the event shows here (its column hides). */}
+                {c.event?.name && <p className="mt-0.5 text-[11px] text-primary xl:hidden">{c.event.name}</p>}
             </TableCell>
             <TableCell>
                 <Badge variant="ghost" className={`${meta.tint} gap-1`}>
                     <meta.icon className="size-3" /> {meta.label}
                 </Badge>
             </TableCell>
-            <TableCell className="max-w-[200px] text-[12px] break-words">
+            <TableCell className="hidden max-w-[150px] text-[12px] break-words xl:table-cell">
                 {c.event?.name ?? '—'}
             </TableCell>
             <TableCell className="text-end text-[12.5px] tabular-nums">
@@ -431,7 +433,7 @@ function Row({ campaign: c, fmt }: {
                     </p>
                 ) : null}
             </TableCell>
-            <TableCell className="text-[12px] whitespace-nowrap">
+            <TableCell className="min-w-[96px] text-[12px]">
                 {c.scheduled_at && !c.sent_at
                     ? `Scheduled ${fmt(c.scheduled_at, true)}`
                     : fmt(c.sent_at ?? c.created_at, true)}

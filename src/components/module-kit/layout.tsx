@@ -29,9 +29,10 @@ export function ModuleHeader({
 
 /** The pink "Guest Overview" box that holds the stat tiles. Without `title`, just the tiles. */
 export function OverviewCard({
-    title, icon: Icon, children, columns = 4,
+    title, icon: Icon, children,
 }: { title?: string; icon?: LucideIcon; children: React.ReactNode; columns?: 3 | 4 | 5 | 6 }) {
-    const grid = { 3: "xl:grid-cols-3", 4: "xl:grid-cols-4", 5: "xl:grid-cols-5", 6: "xl:grid-cols-6" }[columns];
+    // Fit view (2026-11-04): as many tiles per row as the card's own width holds.
+    const grid = "grid-cols-[repeat(auto-fit,minmax(112px,1fr))]";
     return (
         <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
             {title && (
@@ -39,7 +40,7 @@ export function OverviewCard({
                     {Icon && <Icon className="size-[18px]" />} {title}
                 </p>
             )}
-            <div className={cn("grid grid-cols-2 gap-2.5 md:grid-cols-3", grid)}>{children}</div>
+            <div className={cn("grid gap-2.5", grid)}>{children}</div>
         </div>
     );
 }
@@ -135,7 +136,7 @@ export function FormPanel({
 /** Page grid: the list on the left, a FormPanel on the right. */
 export function SplitLayout({ children, aside, asideWidth = 340 }: { children: React.ReactNode; aside: React.ReactNode; asideWidth?: number }) {
     return (
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_var(--aside)]" style={{ "--aside": `${asideWidth}px` } as React.CSSProperties}>
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_clamp(280px,31%,var(--aside))]" style={{ "--aside": `${asideWidth}px` } as React.CSSProperties}>
             <div className="flex min-w-0 flex-col gap-3">{children}</div>
             {aside}
         </div>
