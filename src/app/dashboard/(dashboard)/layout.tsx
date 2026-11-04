@@ -38,7 +38,8 @@ export default function DashboardLayout({
         follows the client between their laptop and their phone rather than
         living in one browser's localStorage. Renders nothing. */}
     <ThemeSync />
-    <SidebarProvider>
+    {/* Narrower sidebar (Jamal, 2026-11-04): 13.5rem instead of the default 16rem. */}
+    <SidebarProvider style={{ "--sidebar-width": "13.5rem" } as React.CSSProperties}>
       <AppSidebar />
       <SidebarInset className="bg-background flex flex-col min-w-0 min-h-screen transition-all duration-300">
         <Header />

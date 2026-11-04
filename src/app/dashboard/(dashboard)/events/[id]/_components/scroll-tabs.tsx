@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The event page's tab bar (Jamal, 2026-11-04): one row that scrolls sideways
- * — by wheel, swipe, or the ‹ › buttons, which show only when there is more to
- * see. The active tab is scrolled into view when it changes.
+ * The event page's tab bar (Jamal's mockup, 2026-11-04): a card with one row of
+ * tabs (icon + label; the active one pink with an underline) that scrolls
+ * sideways — wheel, swipe, or the ‹ › buttons, which show only when there is
+ * more to see. The active tab is scrolled into view when it changes.
  */
 export function ScrollTabs<T extends string>({
     tabs, value, onChange,
-}: { tabs: readonly { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+}: { tabs: readonly { value: T; label: string; icon?: LucideIcon }[]; value: T; onChange: (v: T) => void }) {
     const ref = useRef<HTMLDivElement>(null);
     const [edge, setEdge] = useState({ left: false, right: false });
 
@@ -42,11 +43,11 @@ export function ScrollTabs<T extends string>({
         if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) el.scrollLeft += e.deltaY;
     };
 
-    const arrow = "absolute top-0 bottom-px z-10 grid w-8 place-items-center bg-background/95 text-muted-foreground hover:text-primary";
+    const arrow = "absolute inset-y-0 z-10 grid w-8 place-items-center bg-card/95 text-muted-foreground hover:text-primary";
     return (
-        <div className="relative border-b border-border">
+        <div className="relative overflow-hidden rounded-xl border border-primary/10 bg-card">
             {edge.left && <button type="button" aria-label="Scroll tabs left" onClick={() => nudge(-1)} className={cn(arrow, "left-0 shadow-[8px_0_8px_-6px_rgba(0,0,0,0.12)]")}><ChevronLeft className="size-4" /></button>}
-            <div ref={ref} role="tablist" onWheel={onWheel} className="flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div ref={ref} role="tablist" onWheel={onWheel} className="flex gap-1 overflow-x-auto px-1.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {tabs.map((t) => {
                     const on = t.value === value;
                     return (
@@ -54,12 +55,13 @@ export function ScrollTabs<T extends string>({
                             key={t.value} type="button" role="tab" aria-selected={on} data-tab={t.value}
                             onClick={() => onChange(t.value)}
                             className={cn(
-                                "relative shrink-0 whitespace-nowrap px-3 py-2.5 text-[13px] transition-colors",
-                                on ? "font-semibold text-primary" : "text-muted-foreground hover:text-foreground",
+                                "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-[13px] transition-colors",
+                                on ? "bg-primary/10 font-semibold text-primary" : "text-foreground/75 hover:bg-muted hover:text-foreground",
                             )}
                         >
+                            {t.icon && <t.icon className="size-4 shrink-0" />}
                             {t.label}
-                            {on && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
+                            {on && <span className="absolute inset-x-2 -bottom-1 h-0.5 rounded-full bg-primary" />}
                         </button>
                     );
                 })}

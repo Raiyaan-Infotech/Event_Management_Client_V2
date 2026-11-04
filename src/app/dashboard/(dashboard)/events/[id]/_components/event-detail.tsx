@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-    faArrowLeft, faPenToSquare, faShareNodes, faDownload, faTrash,
-    faCalendarDays, faLocationDot, faHeart, faGlobe,
+    faPenToSquare, faDownload,
+    faLocationDot, faGlobe,
     faLock, faEyeSlash, faUsers, faSquareCheck, faComments, faQrcode,
     faLayerGroup, faPalette, faClockRotateLeft, faCircleInfo,
     faTriangleExclamation, faArrowRight, faCircleCheck, faXmark, faMinus,
@@ -18,17 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { themeName } from "@/lib/event-themes";
-import { EventThumbnail } from "@/components/common/event-thumbnail";
-import { eventCustomImage } from "@/lib/event-templates";
 import { EventQr } from "@/components/common/event-qr";
-import { InvitationDownload } from "@/components/common/invitation-download";
 import { downloadQrAsPng, fileSlug } from "@/lib/export-invitation";
-import { useClientEvent, useDeleteEvent, type DerivedStatus } from "@/hooks/use-client-events";
+import { useClientEvent, type DerivedStatus } from "@/hooks/use-client-events";
 import { useParticipantStats } from "@/hooks/use-guests";
 import { useEventOptions } from "@/hooks/use-client-portal";
 import { EVENT_SECTIONS, grantedSections } from "@/lib/navigation";
@@ -46,6 +42,11 @@ import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
+import { EventHero } from "./event-hero";
+import {
+    FileText, Heart, History, Images, ListChecks, Mail, MapPin, Radio, Settings, Share2, SquareCheck, Star,
+    UserRound, Users, UsersRound, type LucideIcon,
+} from "lucide-react";
 
 /**
  * Event Details — the View Event screen.
@@ -83,6 +84,13 @@ const TABS = [
 ] as const;
 
 type TabValue = (typeof TABS)[number]["value"];
+
+/** Tab icons (the mockup's tab bar). */
+const TAB_ICONS: Record<TabValue, LucideIcon> = {
+    overview: Star, information: FileText, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
+    wishes: Heart, live: Radio, social: Share2, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
+    settings: Settings, messages: Mail, activity: History,
+};
 
 
 const STATUS_META: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
@@ -129,7 +137,6 @@ function eventCode(id: number, startDate: string | null): string {
 export function EventDetail({ eventId }: { eventId: number }) {
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
-    const router = useRouter();
     const [tab, setTab] = useState<TabValue>("overview");
     // `?tab=` opens a tab directly — how the Edit Event hub links to Agenda,
     // Family, Gallery, RSVPs and Settings.
@@ -155,14 +162,12 @@ export function EventDetail({ eventId }: { eventId: number }) {
         else url.searchParams.set("tab", v);
         window.history.replaceState(window.history.state, "", url);
     };
-    const [confirmDelete, setConfirmDelete] = useState(false);
     const [qrOpen, setQrOpen] = useState(false);
     // The QR inside the dialog, captured on demand by its Download button.
     const dialogQrRef = useRef<HTMLDivElement>(null);
     const [savingQr, setSavingQr] = useState(false);
 
     const query = useClientEvent(eventId);
-    const remove = useDeleteEvent();
     // The people attending THIS event — participants, not the phone book (§581).
     const rsvp = useParticipantStats(eventId);
 
@@ -203,7 +208,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
     const event = query.data;
     const status = STATUS_META[event.derived_status];
-    const isDraft = event.status === "draft";
     const code = eventCode(event.id, event.start_date);
 
     const shareEvent = async () => {
@@ -226,104 +230,11 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
     return (
         <div className="flex flex-col gap-3">
-            {/* ── Back ── (tight: Jamal, 2026-11-04) */}
-            <div className="-mb-1">
-                <Button asChild variant="ghost" size="sm" className="-ml-2 h-7 px-2 text-[12.5px] text-muted-foreground">
-                    <Link href="/dashboard/events">
-                        <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[11px]" />
-                        Back to Event List
-                    </Link>
-                </Button>
-            </div>
-
-            {/* ── Title row ───────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                <div className="min-w-0">
-                    <h1 className="text-[21px] font-bold leading-tight tracking-tight text-foreground">Event Details</h1>
-                    <p className="text-[12.5px] text-muted-foreground">
-                        View complete information about your event.
-                    </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
-                        <Link href={`/dashboard/events/${event.id}/edit`}>
-                            <FontAwesomeIcon icon={faPenToSquare} className="mr-2 !size-[12px]" />
-                            {isDraft ? "Continue Editing" : "Edit Event"}
-                        </Link>
-                    </Button>
-                    <Button variant="outline" onClick={shareEvent} className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
-                        <FontAwesomeIcon icon={faShareNodes} className="mr-2 !size-[12px]" />
-                        Share Event
-                    </Button>
-                    {/* Was a button that only opened the QR dialog — it said
-                        "Download" and downloaded nothing. It now produces the
-                        real file: the invitation as PNG or SVG, or the QR on
-                        its own. */}
-                    <InvitationDownload event={event} className="h-9 px-3.5" />
-                </div>
-            </div>
-
-            {/* ── Hero ────────────────────────────────────────────────────── */}
-            {/* Compact hero (Jamal, 2026-11-03): landscape invitation on the
-                left; status + code, name, and small fact chips on the right. */}
-            <Card className="border border-border py-0 shadow-none">
-                <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-                    <EventThumbnail
-                        themeId={event.theme_id}
-                        customImage={eventCustomImage(event)}
-                        name={event.name}
-                        primaryColor={event.primary_color}
-                        startDate={event.start_date}
-                        venueName={event.venue_name}
-                        className="h-[104px] w-full shrink-0 rounded-lg sm:w-[184px]"
-                    />
-
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                                variant="ghost"
-                                className={cn("w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold", status.className)}
-                            >
-                                <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
-                                {status.label}
-                            </Badge>
-                            <span className="font-mono text-[11.5px] text-muted-foreground">{code}</span>
-                        </div>
-
-                        {/* break-words, never truncate — a long name must wrap. */}
-                        <h2 className="text-[18px] font-bold leading-tight tracking-tight text-foreground break-words">
-                            {event.name}
-                        </h2>
-
-                        <div className="mt-0.5 flex flex-wrap gap-2">
-                            <FactBox
-                                icon={faCalendarDays}
-                                title={fmt(event.start_date)}
-                                sub={`${formatTime(event.start_time)} - ${formatTime(event.end_time)}`}
-                                tint="#7C5AED"
-                            />
-                            <FactBox
-                                icon={faLocationDot}
-                                title={event.venue_name || "Venue not set"}
-                                // The city reads better on a chip than the full address
-                                // (which is on the Overview tab).
-                                sub={event.venue_landmark || event.venue_address || "—"}
-                                tint="#EC4899"
-                            />
-                            <FactBox
-                                icon={faHeart}
-                                title={event.category?.name ?? "—"}
-                                sub="Event Category"
-                                tint="#F59E0B"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* ── Header card + tabs (Jamal's mockup, 2026-11-04) ── */}
+            <EventHero event={event} status={status} code={code} onShare={shareEvent} onQr={() => setQrOpen(true)} />
 
             {/* ── Tabs ────────────────────────────────────────────────────── */}
-            <ScrollTabs value={tab} onChange={(v) => openTab(v as TabValue)} tabs={visibleTabs} />
+            <ScrollTabs value={tab} onChange={(v) => openTab(v as TabValue)} tabs={visibleTabs.map((t) => ({ ...t, icon: TAB_ICONS[t.value] }))} />
 
             {/* ── Overview ────────────────────────────────────────────────── */}
             {tab === "overview" && (
@@ -583,26 +494,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
                 </Panel>
             )}
 
-            {/* ── Danger zone ─────────────────────────────────────────────── */}
-            <Card className="border-destructive/25 py-0 shadow-none">
-                <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold text-foreground">Delete this event</p>
-                        <p className="text-[11.5px] text-muted-foreground break-words">
-                            Its guests and its QR code go with it. This cannot be undone from here.
-                        </p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => setConfirmDelete(true)}
-                        className="h-9 shrink-0 rounded-md border-destructive/40 px-4 text-[12.5px] font-semibold text-destructive hover:bg-destructive/5 hover:text-destructive"
-                    >
-                        <FontAwesomeIcon icon={faTrash} className="mr-2 !size-[11px]" />
-                        Delete Event
-                    </Button>
-                </CardContent>
-            </Card>
-
             {/* ── QR dialog ───────────────────────────────────────────────── */}
             <Dialog open={qrOpen} onOpenChange={setQrOpen}>
                 <DialogContent className="sm:max-w-[400px]">
@@ -654,35 +545,6 @@ export function EventDetail({ eventId }: { eventId: number }) {
                 </DialogContent>
             </Dialog>
 
-            {/* ── Delete confirm ──────────────────────────────────────────── */}
-            <Dialog open={confirmDelete} onOpenChange={(v) => { if (!v && !remove.isPending) setConfirmDelete(v); }}>
-                <DialogContent className="sm:max-w-[460px]">
-                    <DialogHeader>
-                        <DialogTitle>Delete event?</DialogTitle>
-                        <DialogDescription>
-                            &ldquo;{event.name}&rdquo; will be removed, along with its guests and its QR code.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" className="h-10 rounded-md text-[13px]" disabled={remove.isPending}
-                            onClick={() => setConfirmDelete(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive" className="h-10 rounded-md text-[13px] font-semibold"
-                            disabled={remove.isPending}
-                            onClick={() => remove.mutate(event.id, {
-                                // Only leave on success — routing away after a
-                                // failure would suggest it had gone.
-                                onSuccess: () => router.push("/dashboard/events"),
-                                onError: () => setConfirmDelete(false),
-                            })}
-                        >
-                            {remove.isPending ? "Deleting..." : "Delete"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
@@ -710,26 +572,6 @@ function Row({ label, value }: { label: string; value: string }) {
             <span className="min-w-0 max-w-[62%] text-right text-[12.5px] font-medium capitalize text-foreground break-words">
                 {value}
             </span>
-        </div>
-    );
-}
-
-function FactBox({
-    icon, title, sub, tint,
-}: {
-    icon: typeof faCalendarDays; title: string; sub: string; tint: string;
-}) {
-    return (
-        // A compact chip: one line each, the full text on hover.
-        <div className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-border px-2 py-1.5 sm:max-w-[280px]">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md"
-                style={{ backgroundColor: `${tint}1A` }}>
-                <FontAwesomeIcon icon={icon} className="!size-[12px]" style={{ color: tint }} />
-            </span>
-            <div className="min-w-0">
-                <p className="truncate text-[12.5px] font-semibold text-foreground" title={title}>{title}</p>
-                <p className="truncate text-[11px] text-muted-foreground" title={sub}>{sub}</p>
-            </div>
         </div>
     );
 }

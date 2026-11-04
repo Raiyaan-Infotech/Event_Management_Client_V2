@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { faChevronDown, faGift, faCrown, faHeadset } from "@fortawesome/free-solid-svg-icons"
+import { faChevronDown, faGift, faHeadset } from "@fortawesome/free-solid-svg-icons"
 
 import {
     Collapsible,
@@ -25,10 +25,9 @@ import {
     SidebarGroup,
     useSidebar,
 } from "@/components/ui/sidebar"
-import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { navMain, grantedSections } from "@/lib/navigation"
-import { useClientProfile, useEventOptions } from "@/hooks/use-client-portal"
+import { useEventOptions } from "@/hooks/use-client-portal"
 
 /**
  * Client portal sidebar.
@@ -45,7 +44,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const isCollapsed = state === "collapsed"
     const [openMenu, setOpenMenu] = React.useState<string | null>(null)
     const [mounted, setMounted] = React.useState(false)
-    const profile = useClientProfile()
     const options = useEventOptions()
 
     /**
@@ -284,50 +282,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarContent>
 
             <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:hidden">
-                {/*
-                  The client's ACTUAL plan, from /client/me. This card used to read
-                  "Upgrade to Premium" unconditionally, which is wrong twice over:
-                  it told a client on the top plan to upgrade, and its "Upgrade Now"
-                  button had no href and no handler at all.
-                */}
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-center">
-                    <span className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-primary/10">
-                        <FontAwesomeIcon icon={faCrown} className="!size-[15px] text-primary" />
-                    </span>
-                    {profile.isLoading ? (
-                        <Skeleton className="mx-auto mt-2.5 h-4 w-[110px]" />
-                    ) : (
-                        <p className="mt-2.5 text-[13px] font-bold text-foreground break-words">
-                            {profile.data?.plan?.name ?? "No plan assigned"}
-                        </p>
-                    )}
-                    <p className="mt-1 text-[11.5px] leading-snug text-muted-foreground">
-                        {profile.data?.plan
-                            ? "Your current subscription. What you can create is set by this plan."
-                            : "Contact us to have a subscription plan assigned to your account."}
-                    </p>
-                    {/*
-                      "View Plan" was removed when /dashboard/billing did not
-                      exist and fell through to the [...slug] catch-all.
-                      Reinstated now that Billing is a real screen — it shows the
-                      term, the renewal date and what has been used, none of
-                      which this card can say.
-
-                      Only rendered when a plan is actually assigned: sending
-                      somebody with no subscription to a billing page tells them
-                      nothing they can act on, and the line above already directs
-                      them to get in touch.
-                    */}
-                    {profile.data?.plan ? (
-                        <Link
-                            href="/dashboard/billing"
-                            className="mt-2.5 inline-flex w-full items-center justify-center rounded-md border border-primary/30 bg-background px-2.5 py-1.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/10"
-                        >
-                            View plan &amp; billing
-                        </Link>
-                    ) : null}
-                </div>
-
+                {/* The plan card was removed (Jamal, 2026-11-04) to give the menu room — Billing is in the menu. */}
                 <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/60 p-3">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-background">
                         <FontAwesomeIcon icon={faHeadset} className="!size-[13px] text-primary" />
