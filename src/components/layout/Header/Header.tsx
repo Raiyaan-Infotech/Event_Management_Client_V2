@@ -70,7 +70,11 @@ function initialsOf(name: string | undefined): string {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function Header() {
+/**
+ * `left`: what sits where the breadcrumb is — the event workspace shows the event there
+ * (and has no New Event button).
+ */
+export default function Header({ left }: { left?: React.ReactNode } = {}) {
 
     const pathname = usePathname();
     /** Create / Edit Event wizard open: no "New Event" while one is in progress. */
@@ -116,12 +120,14 @@ export default function Header() {
 
             {/* Breadcrumb in place of the old event search (Jamal, 2026-11-04) — more room,
                 one bar less. It reads useSearchParams(), hence the Suspense boundary. */}
-            <React.Suspense fallback={<div className="min-w-0 flex-1" />}>
-                <Breadcrumb inline />
-            </React.Suspense>
+            {left ?? (
+                <React.Suspense fallback={<div className="min-w-0 flex-1" />}>
+                    <Breadcrumb inline />
+                </React.Suspense>
+            )}
 
             <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-                {!inWizard && (
+                {!inWizard && !left && (
                 <Button
                     asChild
                     className="hidden h-9 rounded-md px-4 text-[12.5px] font-semibold sm:inline-flex"

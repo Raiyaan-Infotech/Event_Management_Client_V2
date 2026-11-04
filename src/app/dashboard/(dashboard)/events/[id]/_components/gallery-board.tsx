@@ -31,6 +31,8 @@ import {
     useUploadGalleryItem, type GalleryCategory, type GalleryFolderType, type GalleryItem,
 } from "@/hooks/use-event-modules";
 import { EditMediaDialog, MediaViewer, ShortDialog } from "./gallery-panel";
+import { AlbumBuilder, AlbumCards } from "./album-builder";
+import { useGalleryAlbums, type GalleryAlbum } from "@/hooks/use-gallery-albums";
 
 /**
  * Gallery — Jamal's web design (2026-11-04), phase 1, from the module kit:
@@ -43,10 +45,10 @@ import { EditMediaDialog, MediaViewer, ShortDialog } from "./gallery-panel";
  *   · Upload Media: folder, Images / Videos / Shorts, queue (status, retry,
  *     remove), Upload Media (n); Shorts use the trim + music Upload Short;
  *   · Create / Edit Folder (type, cover, order, notes) and Move / Copy Files.
- * Not yet: Create Album (slideshow) and the Edit Video text editor.
+ * Create Album = album-builder.tsx. Not yet: the Edit Video text editor.
  */
 
-type View = { kind: "overview" } | { kind: "folder"; id: number | null } | { kind: "upload"; folderId?: number; files?: File[] };
+type View = { kind: "overview" } | { kind: "folder"; id: number | null } | { kind: "upload"; folderId?: number; files?: File[] } | { kind: "album"; album: GalleryAlbum | null };
 type Kind = "image" | "video" | "short";
 const kindOf = (i: GalleryItem): Kind => (i.type === "image" ? "image" : i.is_short ? "short" : "video");
 const KIND_META: Record<Kind, { label: string; icon: LucideIcon; tone: "primary" | "violet" | "warning" }> = {
@@ -69,6 +71,8 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
     const [view, setView] = useState<View>({ kind: "overview" });
     const [folderSheet, setFolderSheet] = useState<GalleryCategory | "new" | null>(null);
     const query = useEventGallery(eventId);
+    const albumsQuery = useGalleryAlbums(eventId);
+    const albums = albumsQuery.data?.albums ?? [];
     const items = useMemo(() => query.data?.items ?? [], [query.data]);
     const folders = useMemo(() => query.data?.categories ?? [], [query.data]);
 
@@ -78,14 +82,18 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
     return (
         <>
             {view.kind === "overview" && (
-                <Overview eventId={eventId} items={items} folders={folders} usage={query.data.usage}
+                <Overview eventId={eventId} items={items} folders={folders} usage={query.data.usage} albums={albums}
                     onOpen={(id) => setView({ kind: "folder", id })} onUpload={(files, folderId) => setView({ kind: "upload", files, folderId })}
-                    onFolder={setFolderSheet} />
+                    onFolder={setFolderSheet} onAlbum={(album) => setView({ kind: "album", album })} />
             )}
             {view.kind === "folder" && (
                 <FolderView eventId={eventId} items={items} folders={folders} folderId={view.id}
                     onBack={() => setView({ kind: "overview" })} onUpload={(folderId) => setView({ kind: "upload", folderId })}
                     onFolder={setFolderSheet} onOpen={(id) => setView({ kind: "folder", id })} />
+            )}
+            {view.kind === "album" && (
+                <AlbumBuilder key={view.album?.id ?? "new"} eventId={eventId} album={view.album} folders={folders}
+                    images={items.filter((i) => i.type === "image")} onBack={() => setView({ kind: "overview" })} />
             )}
             {view.kind === "upload" && (
                 <UploadView eventId={eventId} folders={folders} initialFolder={view.folderId} initialFiles={view.files}
@@ -99,10 +107,11 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
 /* ── Overview ───────────────────────────────────────────────────────────── */
 
 function Overview({
-    eventId, items, folders, usage, onOpen, onUpload, onFolder,
+    eventId, items, folders, usage, albums, onOpen, onUpload, onFolder, onAlbum,
 }: {
     eventId: number; items: GalleryItem[]; folders: GalleryCategory[]; usage: NonNullable<ReturnType<typeof useEventGallery>["data"]>["usage"];
     onOpen: (id: number | null) => void; onUpload: (files?: File[], folderId?: number) => void; onFolder: (f: GalleryCategory | "new") => void;
+    albums: GalleryAlbum[]; onAlbum: (a: GalleryAlbum | null) => void;
 }) {
     const fmt = useDateFormatter();
     const remove = useDeleteGalleryCategory(eventId);
@@ -128,7 +137,7 @@ function Overview({
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={() => onFolder("new")}><FolderPlus className="size-3.5" /> Create Folder</Button>
                         <Button variant="outline" size="sm" className="h-8" onClick={() => onUpload()}><Upload className="size-3.5" /> Upload Media</Button>
-                        <Button size="sm" className="h-8" onClick={() => toast.info("Create Album (slideshow albums) is the next part of the Gallery.")}><Images className="size-3.5" /> Create Album</Button>
+                        <Button size="sm" className="h-8" onClick={() => onAlbum(null)}><Images className="size-3.5" /> Create Album</Button>
                     </>
                 )} />
 
@@ -137,7 +146,7 @@ function Overview({
                 <StatTile icon={Video} value={count("video")} label="Videos" tone="violet" />
                 <StatTile icon={Zap} value={count("short")} label="Shorts" tone="primary" />
                 <StatTile icon={Folder} value={folders.length} label="Folders" tone="amber" />
-                <StatTile icon={Images} value={0} label="Albums" tone="violet" caption="Coming next" />
+                <StatTile icon={Images} value={albums.length} label="Albums" tone="violet" />
                 <div className="col-span-2 flex flex-col justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 md:col-span-1">
                     <p className="flex items-center justify-between text-[12px]">
                         <span className="flex items-center gap-1 font-semibold">Storage Usage <Info className="size-3 text-muted-foreground" /></span>
@@ -186,6 +195,8 @@ function Overview({
                     </table>
                 </div>
             )}
+
+            <AlbumCards eventId={eventId} albums={albums} onEdit={(a) => onAlbum(a)} />
 
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><Upload className="size-4" /></span>

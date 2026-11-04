@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -21,13 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { themeName } from "@/lib/event-themes";
 import { EventQr } from "@/components/common/event-qr";
 import { downloadQrAsPng, fileSlug } from "@/lib/export-invitation";
-import { useClientEvent, type DerivedStatus } from "@/hooks/use-client-events";
+import { useClientEvent } from "@/hooks/use-client-events";
 import { useParticipantStats } from "@/hooks/use-guests";
-import { useEventOptions } from "@/hooks/use-client-portal";
-import { EVENT_SECTIONS, grantedSections } from "@/lib/navigation";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
@@ -42,11 +40,9 @@ import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
+import { EVENT_STATUS, EVENT_TAB_ICONS, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
 import { EventHero } from "./event-hero";
-import {
-    FileText, Heart, History, Images, ListChecks, Mail, MapPin, Radio, Settings, Share2, SquareCheck, Star,
-    UserRound, Users, UsersRound, type LucideIcon,
-} from "lucide-react";
+import { CalendarDays, Info, Link2, MapPin, UsersRound, type LucideIcon } from "lucide-react";
 
 /**
  * Event Details — the View Event screen.
@@ -65,41 +61,9 @@ import {
  * oversight — see the tab body.
  */
 
-const TABS = [
-    { value: "overview", label: "Overview" },
-    { value: "information", label: "Event Information" },
-    { value: "agenda", label: "Agenda" },
-    { value: "venue", label: "Venue" },
-    { value: "gallery", label: "Gallery" },
-    { value: "family", label: "Family" },
-    { value: "wishes", label: "Wed Wishes" },
-    { value: "live", label: "Live Streaming" },
-    { value: "social", label: "Social Links" },
-    { value: "guests", label: "Guests" },
-    { value: "rsvps", label: "RSVPs" },
-    { value: "participants", label: "Participants" },
-    { value: "settings", label: "Settings" },
-    { value: "messages", label: "Messages" },
-    { value: "activity", label: "Activity Log" },
-] as const;
-
-type TabValue = (typeof TABS)[number]["value"];
-
-/** Tab icons (the mockup's tab bar). */
-const TAB_ICONS: Record<TabValue, LucideIcon> = {
-    overview: Star, information: FileText, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
-    wishes: Heart, live: Radio, social: Share2, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
-    settings: Settings, messages: Mail, activity: History,
-};
-
-
-const STATUS_META: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
-    live: { label: "Live", dot: "bg-destructive", className: "bg-destructive/10 text-destructive" },
-    upcoming: { label: "Upcoming", dot: "bg-success", className: "bg-success/12 text-success" },
-    past: { label: "Completed", dot: "bg-muted-foreground", className: "bg-muted text-muted-foreground" },
-    draft: { label: "Draft", dot: "bg-warning", className: "bg-warning/15 text-warning" },
-    cancelled: { label: "Cancelled", dot: "bg-foreground/50", className: "bg-foreground/10 text-foreground/70" },
-};
+type TabValue = EventTab;
+const TAB_ICONS = EVENT_TAB_ICONS;
+const STATUS_META = EVENT_STATUS;
 
 const PRIVACY_ICON = { private: faLock, public: faGlobe, unlisted: faEyeSlash } as const;
 
@@ -134,34 +98,21 @@ function eventCode(id: number, startDate: string | null): string {
     return `#EVT${datePart}-${String(id).padStart(3, "0")}`;
 }
 
-export function EventDetail({ eventId }: { eventId: number }) {
+/**
+ * `workspace`: inside the event workspace (`/event/:id`, opened in its own tab by
+ * View Event — Jamal 2026-11-04), whose top bar and sidebar already show the
+ * event and its sections, so the header card and the tab bar are not drawn.
+ */
+export function EventDetail({ eventId, workspace = false }: { eventId: number; workspace?: boolean }) {
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
-    const [tab, setTab] = useState<TabValue>("overview");
-    // `?tab=` opens a tab directly — how the Edit Event hub links to Agenda,
-    // Family, Gallery, RSVPs and Settings.
-    useEffect(() => {
-        const asked = new URLSearchParams(window.location.search).get("tab");
-        // Old links say ?tab=schedule — the tab is Agenda now.
-        const wanted = asked === "schedule" ? "agenda" : asked;
-        if (wanted && TABS.some((t) => t.value === wanted)) setTab(wanted as TabValue);
-    }, []);
-    // Guests / RSVPs / Participants show only when the plan grants them (as the sidebar did).
-    const planOptions = useEventOptions();
-    const granted = grantedSections(planOptions.data);
-    const visibleTabs = TABS.filter((t) => {
-        const gate = EVENT_SECTIONS.find((e) => e.tab === t.value);
-        return !gate || (!!planOptions.data && granted.has(gate.section));
-    });
-    // Every tab opens in place (Guests / RSVPs / Participants too, 2026-11-04);
-    // the tab goes in the URL so a refresh or a shared link reopens it.
-    const openTab = (v: TabValue) => {
-        setTab(v);
-        const url = new URL(window.location.href);
-        if (v === "overview") url.searchParams.delete("tab");
-        else url.searchParams.set("tab", v);
-        window.history.replaceState(window.history.state, "", url);
-    };
+    const router = useRouter();
+    const pathname = usePathname();
+    // `?tab=` is the open section — the workspace sidebar, the Edit Event hub and
+    // the in-page links all set it; a refresh or a shared link reopens it.
+    const tab = tabFrom(useSearchParams().get("tab"));
+    const visibleTabs = useVisibleEventTabs();
+    const openTab = (v: TabValue) => router.replace(v === "overview" ? pathname : `${pathname}?tab=${v}`, { scroll: false });
     const [qrOpen, setQrOpen] = useState(false);
     // The QR inside the dialog, captured on demand by its Download button.
     const dialogQrRef = useRef<HTMLDivElement>(null);
@@ -230,113 +181,44 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
     return (
         <div className="flex flex-col gap-3">
-            {/* ── Header card + tabs (Jamal's mockup, 2026-11-04) ── */}
-            <EventHero event={event} status={status} code={code} onShare={shareEvent} onQr={() => setQrOpen(true)} />
+            {/* ── Header card + tabs (Jamal's mockup, 2026-11-04) — the workspace has its own. ── */}
+            {!workspace && <EventHero event={event} status={status} code={code} onShare={shareEvent} onQr={() => setQrOpen(true)} />}
+            {!workspace && <ScrollTabs value={tab} onChange={(v) => openTab(v as TabValue)} tabs={visibleTabs.map((t) => ({ ...t, icon: TAB_ICONS[t.value] }))} />}
 
-            {/* ── Tabs ────────────────────────────────────────────────────── */}
-            <ScrollTabs value={tab} onChange={(v) => openTab(v as TabValue)} tabs={visibleTabs.map((t) => ({ ...t, icon: TAB_ICONS[t.value] }))} />
-
-            {/* ── Overview ────────────────────────────────────────────────── */}
+            {/* ── Dashboard (was Overview) — the mockup's six cards (2026-11-04) ── */}
             {tab === "overview" && (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
-                    <div className="flex min-w-0 flex-col gap-5">
-                        <Panel title="Basic Information">
+                <div className="flex flex-col gap-4">
+                    <div>
+                        <h2 className="text-[22px] leading-tight font-bold">Dashboard</h2>
+                        <p className="text-[13px] text-muted-foreground">Overview of your event, guest responses, and key details.</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                        <Panel title="Basic Information" icon={Info}>
                             <Row label="Event Category" value={event.category?.name ?? "—"} />
                             <Row label="Tagline" value={event.tagline || "—"} />
                             <Row label="Short Description" value={event.description || "—"} />
                         </Panel>
 
-                        <Panel title="Date & Time">
-                            <Row label="Start Date" value={fmt(event.start_date)} />
-                            <Row label="End Date" value={fmt(event.end_date)} />
-                            <Row label="Start Time" value={formatTime(event.start_time)} />
-                            <Row label="End Time" value={formatTime(event.end_time)} />
-                            <Row label="Time Zone" value={event.timezone || "—"} />
-                        </Panel>
-                    </div>
-
-                    <div className="flex min-w-0 flex-col gap-5">
-                        <Panel title="Event Status">
-                            <div className="flex items-start justify-between gap-3 py-1.5">
-                                <span className="shrink-0 text-[12px] text-muted-foreground">Status</span>
-                                <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-foreground">
-                                    <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                        <Panel title="Event Status" icon={CalendarDays}>
+                            <div className="flex items-start justify-between gap-3 border-b border-border/70 py-2">
+                                <span className="shrink-0 text-[12.5px] text-muted-foreground">Status</span>
+                                <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                                    <span className={cn("h-2 w-2 rounded-full", status.dot)} />
                                     {status.label}
                                 </span>
                             </div>
                             <Row label="Created On" value={fmt(event.created_at)} />
                             <Row label="Last Updated" value={fmt(event.updated_at)} />
-                            <div className="flex items-start justify-between gap-3 py-1.5">
-                                <span className="shrink-0 text-[12px] text-muted-foreground">Event Privacy</span>
-                                <span className="flex items-center gap-1.5 text-[12.5px] font-medium capitalize text-foreground">
-                                    <FontAwesomeIcon
-                                        icon={PRIVACY_ICON[event.privacy] ?? faLock}
-                                        className="!size-[10px] text-muted-foreground"
-                                    />
+                            <div className="flex items-start justify-between gap-3 py-2">
+                                <span className="shrink-0 text-[12.5px] text-muted-foreground">Event Privacy</span>
+                                <span className="flex items-center gap-1.5 text-[13px] font-medium capitalize text-foreground">
+                                    <FontAwesomeIcon icon={PRIVACY_ICON[event.privacy] ?? faLock} className="!size-[11px] text-muted-foreground" />
                                     {event.privacy}
                                 </span>
                             </div>
                         </Panel>
 
-                        <Panel title="RSVP Summary">
-                            {rsvp.isLoading ? (
-                                <Skeleton className="h-[160px] w-full rounded-md" />
-                            ) : totalRsvp === 0 ? (
-                                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                                    <FontAwesomeIcon icon={faUsers} className="!size-[22px] text-muted-foreground/40" />
-                                    <p className="text-[12.5px] font-semibold text-foreground">No RSVPs yet</p>
-                                    <p className="max-w-[220px] text-[11.5px] text-muted-foreground">
-                                        Add guests to this event and their responses appear here.
-                                    </p>
-                                    <Button asChild size="sm" className="mt-1 h-8 text-[12px]">
-                                        <Link href={`/dashboard/guests/add`}>Add a guest</Link>
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-4 py-2">
-                                    <div className="relative h-[132px] w-[132px] shrink-0">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie data={donut} dataKey="value" nameKey="label"
-                                                    innerRadius={44} outerRadius={64} strokeWidth={0}>
-                                                    {donut.map((s) => <Cell key={s.key} fill={s.color} />)}
-                                                </Pie>
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        {/* Centre label as DOM, not an SVG <text> — it
-                                            inherits the app font and stays readable. */}
-                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-[20px] font-bold leading-none tabular-nums text-foreground">
-                                                {totalRsvp}
-                                            </span>
-                                            <span className="mt-0.5 text-[10px] text-muted-foreground">Total</span>
-                                        </div>
-                                    </div>
-
-                                    <ul className="flex min-w-0 flex-1 flex-col gap-3">
-                                        {RSVP_SLICES.map((s) => {
-                                            const value = (rsvp.data?.[s.key] as number | undefined) ?? 0;
-                                            const pct = totalRsvp ? Math.round((value / totalRsvp) * 100) : 0;
-                                            return (
-                                                <li key={s.key} className="min-w-0">
-                                                    <p className="flex items-center gap-2 text-[12px] text-foreground">
-                                                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
-                                                        {s.label}
-                                                    </p>
-                                                    <p className="ml-4 text-[11.5px] tabular-nums text-muted-foreground">
-                                                        {pct}% ({value})
-                                                    </p>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            )}
-                        </Panel>
-                    </div>
-
-                    <div className="flex min-w-0 flex-col gap-5">
-                        <Panel title="Quick Links">
+                        <Panel title="Quick Links" icon={Link2}>
                             <div className="flex flex-col gap-2 pt-1">
                                 <QuickLink icon={faUsers} label="View Guests" onClick={() => openTab("guests")} />
                                 <QuickLink icon={faSquareCheck} label="View RSVPs" onClick={() => openTab("rsvps")} />
@@ -346,19 +228,60 @@ export function EventDetail({ eventId }: { eventId: number }) {
                             </div>
                         </Panel>
 
-                        <Panel title="Design">
-                            <Row label="Template" value={themeName(event.theme_id)} />
-                            <div className="flex items-center justify-between gap-3 py-1.5">
-                                <span className="text-[12px] text-muted-foreground">Primary colour</span>
-                                <span className="flex items-center gap-2">
-                                    <span className="h-4 w-4 rounded-full border border-border"
-                                        style={{ backgroundColor: event.primary_color ?? undefined }} />
-                                    <span className="text-[12.5px] font-medium uppercase text-foreground">
-                                        {event.primary_color || "—"}
-                                    </span>
-                                </span>
+                        <Panel title="Date & Time" icon={CalendarDays}>
+                            <Row label="Start Date" value={fmt(event.start_date)} />
+                            <Row label="Start Time" value={formatTime(event.start_time)} />
+                            <Row label="End Date" value={fmt(event.end_date)} />
+                            <Row label="End Time" value={formatTime(event.end_time)} />
+                        </Panel>
+
+                        <Panel title="RSVP Summary" icon={UsersRound}>
+                            {rsvp.isLoading ? (
+                                <Skeleton className="h-[160px] w-full rounded-md" />
+                            ) : totalRsvp === 0 ? (
+                                <div className="flex flex-col items-center gap-2 py-6 text-center">
+                                    <FontAwesomeIcon icon={faUsers} className="!size-[22px] text-muted-foreground/40" />
+                                    <p className="text-[12.5px] font-semibold text-foreground">No RSVPs yet</p>
+                                    <p className="max-w-[220px] text-[11.5px] text-muted-foreground">Add guests to this event and their responses appear here.</p>
+                                    <Button size="sm" className="mt-1 h-8 text-[12px]" onClick={() => openTab("guests")}>Add a guest</Button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-5 py-1">
+                                    <div className="relative h-[150px] w-[150px] shrink-0">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={donut} dataKey="value" nameKey="label" innerRadius={52} outerRadius={72} strokeWidth={0}>
+                                                    {donut.map((sl) => <Cell key={sl.key} fill={sl.color} />)}
+                                                </Pie>
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-[24px] leading-none font-bold tabular-nums text-foreground">{totalRsvp}</span>
+                                            <span className="mt-1 text-[11px] text-muted-foreground">Total RSVPs</span>
+                                        </div>
+                                    </div>
+                                    <ul className="flex min-w-0 flex-1 flex-col divide-y divide-border/70 border-l border-border pl-4">
+                                        {RSVP_SLICES.map((sl) => (
+                                            <li key={sl.key} className="flex items-center justify-between gap-2 py-2.5 text-[13px]">
+                                                <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: sl.color }} />{sl.label}</span>
+                                                <span className="font-semibold tabular-nums">{(rsvp.data?.[sl.key] as number | undefined) ?? 0}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </Panel>
+
+                        <Panel title="Region" icon={MapPin}>
+                            <Row label="Venue" value={event.venue_name || "—"} />
+                            <Row label="Location" value={event.venue_address || "—"} />
+                            <Row label="City" value={event.venue_landmark || "—"} />
+                            <div className="flex items-start justify-between gap-3 py-2">
+                                <span className="shrink-0 text-[12.5px] text-muted-foreground">Map</span>
+                                {event.venue_map_link
+                                    ? <a href={event.venue_map_link} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-primary hover:underline">Open in Maps</a>
+                                    : <span className="text-[13px] font-medium">—</span>}
                             </div>
-                            <Row label="Plan" value={event.plan?.name ?? "—"} />
                         </Panel>
                     </div>
                 </div>
@@ -551,11 +474,14 @@ export function EventDetail({ eventId }: { eventId: number }) {
 
 /* ── building blocks ────────────────────────────────────────────────────── */
 
-function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
+function Panel({ title, icon: Icon, children, className }: { title: string; icon?: LucideIcon; children: React.ReactNode; className?: string }) {
     return (
-        <Card className={cn("min-w-0 border border-border py-0 shadow-none", className)}>
+        <Card className={cn("min-w-0 rounded-xl border border-border py-0 shadow-none", className)}>
             <CardContent className="p-5">
-                <p className="text-[13px] font-bold text-foreground">{title}</p>
+                <p className="flex items-center gap-3 text-[16px] font-bold text-foreground">
+                    {Icon && <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="size-[18px]" /></span>}
+                    {title}
+                </p>
                 <Separator className="my-3" />
                 {children}
             </CardContent>
@@ -565,11 +491,11 @@ function Panel({ title, children, className }: { title: string; children: React.
 
 function Row({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex items-start justify-between gap-4 py-1.5">
-            <span className="shrink-0 text-[12px] text-muted-foreground">{label}</span>
+        <div className="flex items-start justify-between gap-4 border-b border-border/70 py-2 last:border-0">
+            <span className="shrink-0 text-[12.5px] text-muted-foreground">{label}</span>
             {/* break-words and a max width — a long description must wrap in the
                 right column rather than push the label off the card. */}
-            <span className="min-w-0 max-w-[62%] text-right text-[12.5px] font-medium capitalize text-foreground break-words">
+            <span className="min-w-0 max-w-[62%] text-right text-[13px] font-medium capitalize text-foreground break-words">
                 {value}
             </span>
         </div>

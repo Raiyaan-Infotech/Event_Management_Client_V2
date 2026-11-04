@@ -597,7 +597,7 @@ function EventRow({
             {/* Actions */}
             <div className="grid content-center grid-cols-2 gap-1.5 border-t border-border pt-4 sm:grid-cols-5 md:col-span-2 xl:col-span-1 xl:grid-cols-1 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
                 <Button asChild variant="outline" size="sm" className="h-7 justify-start border-primary/50 text-[12px] font-semibold text-primary hover:bg-primary/5 hover:text-primary">
-                    <Link href={`/dashboard/events/${event.id}`}>
+                    <Link href={`/event/${event.id}`} target="_blank" rel="noopener">
                         <FontAwesomeIcon icon={faArrowRight} className="!size-[10px]" />
                         View Event
                     </Link>

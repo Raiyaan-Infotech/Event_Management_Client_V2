@@ -404,7 +404,7 @@ export default function DashboardPage() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-[160px]">
                                         <DropdownMenuItem asChild className="text-[12.5px]">
-                                            <Link href={`/dashboard/events/${event.id}`}>View details</Link>
+                                            <Link href={`/event/${event.id}`} target="_blank" rel="noopener">View details</Link>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="text-[12.5px] text-destructive focus:text-destructive"
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                                         size="sm"
                                         className="h-8 shrink-0 rounded-md border-primary/40 px-3 text-[12px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
                                     >
-                                        <Link href={`/dashboard/events/${event.id}`}>
+                                        <Link href={`/event/${event.id}`} target="_blank" rel="noopener">
                                             {event.status === "draft" ? "Continue Editing" : "View Details"}
                                         </Link>
                                     </Button>
