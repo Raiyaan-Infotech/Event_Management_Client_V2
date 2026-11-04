@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-    CheckCircle2, Clock, Download, Eye, EyeOff, FileUp, Mail, Star, User, UserPlus, Users, UsersRound,
+    CheckCircle2, Clock, Download, Eye, EyeOff, FileUp, Mail, Pencil, Star, Trash2, User, UserPlus, Users, UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-    CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
+    CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, InlineSheets, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
     PhotoDropzone, RowActions, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
@@ -86,7 +86,17 @@ export function GuestsView({ eventId }: { eventId: number }) {
 
     return (
         <div className="flex flex-col gap-4">
-            <SplitLayout aside={<AddGuestPanel eventId={eventId} />} asideWidth={440}>
+            {/* One right-hand area: the ⋯ action's panel when one is open, else Add Guest (Jamal, 2026-11-04). */}
+            <SplitLayout asideWidth={380} aside={action && current ? (
+                <InlineSheets>
+                    <GuestActionSheet
+                        key={`${action.a}-${current.id}`}
+                        action={action.a} guest={current} eventId={eventId}
+                        onClose={() => setAction(null)}
+                        onSwitch={(a) => setAction((x) => (x ? { ...x, a } : x))}
+                    />
+                </InlineSheets>
+            ) : <AddGuestPanel eventId={eventId} />}>
                 <ModuleHeader
                     title="Event Guests"
                     subtitle="Manage guest information, invitation status, and RSVP tracking."
@@ -147,39 +157,52 @@ export function GuestsView({ eventId }: { eventId: number }) {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+                            {/* Fits the column beside the form — no fixed min width (Jamal, 2026-11-04).
+                                Under xl the Relationship column folds under the name. */}
+                            <table className="w-full border-collapse text-[12px]">
                                 <thead>
-                                    <tr className="border-b border-border text-[12px] font-semibold text-foreground/80">
-                                        <th className="py-2.5 pl-4 text-left font-semibold">Guest Name</th>
-                                        <th className="py-2.5 text-left font-semibold">Relationship</th>
-                                        <th className="py-2.5 text-left font-semibold">Side</th>
-                                        <th className="py-2.5 text-left font-semibold">Invite Count</th>
-                                        <th className="py-2.5 text-left font-semibold">RSVP Status</th>
-                                        <th className="py-2.5 text-left font-semibold">App Visibility</th>
-                                        <th className="py-2.5 pr-4 text-right font-semibold">Actions</th>
+                                    <tr className="border-b border-border text-[11.5px] font-semibold text-foreground/80">
+                                        <th className="py-2 pr-2 pl-3 text-left font-semibold">Guest Name</th>
+                                        <th className="hidden py-2 pr-2 text-left font-semibold xl:table-cell">Relationship</th>
+                                        <th className="py-2 pr-2 text-left font-semibold">Side</th>
+                                        <th className="py-2 pr-2 text-center font-semibold whitespace-nowrap">Invite Count</th>
+                                        <th className="py-2 pr-2 text-left font-semibold">RSVP Status</th>
+                                        <th className="py-2 pr-2 text-left font-semibold whitespace-nowrap">App Visibility</th>
+                                        <th className="py-2 pr-3 text-center font-semibold">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {rows.map((g) => (
                                         <tr key={g.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30", current?.id === g.id && "bg-primary/5")}>
-                                            <td className="py-2 pl-4">
+                                            <td className="py-1.5 pr-2 pl-3">
                                                 <PersonCell name={g.name} photo={g.photo} onClick={() => open("view", g)}
+                                                    sub={g.relationship ? <span className="xl:hidden">{g.relationship}</span> : undefined}
                                                     badge={g.is_vip ? <StarBadge>{g.vip_label && g.vip_label.length <= 12 ? g.vip_label : "VIP"}</StarBadge> : undefined} />
                                             </td>
-                                            <td className="py-2">{g.relationship || "—"}</td>
-                                            <td className="py-2">
+                                            <td className="hidden py-1.5 pr-2 xl:table-cell">{g.relationship || "—"}</td>
+                                            <td className="py-1.5 pr-2">
                                                 {g.side ? <StatusPill tone={g.side === "bride" ? "primary" : "violet"}>{sideLabel(g.side)}</StatusPill> : "—"}
                                             </td>
-                                            <td className="py-2"><span className="inline-flex items-center gap-1.5"><Users className="size-4 text-muted-foreground" /> {g.invite_count ?? 1}</span></td>
-                                            <td className="py-2"><StatusPillFor status={g.status} /></td>
-                                            <td className="py-2">
+                                            <td className="py-1.5 pr-2 text-center"><span className="inline-flex items-center gap-1"><Users className="size-3.5 text-muted-foreground" /> {g.invite_count ?? 1}</span></td>
+                                            <td className="py-1.5 pr-2"><StatusPillFor status={g.status} /></td>
+                                            <td className="py-1.5 pr-2">
                                                 {g.is_visible === false
                                                     ? <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill>
                                                     : <StatusPill tone="success" icon={Eye}>Visible</StatusPill>}
                                             </td>
-                                            <td className="py-2 pr-4 text-right">
-                                                <RowActions label={`Actions for ${g.name}`} items={guestMenu(g, (a) => open(a, g),
-                                                    () => update.mutate({ id: g.id, data: { is_visible: true } }))} />
+                                            <td className="py-1.5 pr-3">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]" onClick={() => open("edit", g)}>
+                                                        <Pencil className="size-3" /> Edit
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => open("delete", g)}>
+                                                        <Trash2 className="size-3" /> Delete
+                                                    </Button>
+                                                    {/* The other actions (View, Send Invitation, RSVP, VIP, Hide). */}
+                                                    <RowActions compact label={`More actions for ${g.name}`}
+                                                        items={guestMenu(g, (x) => open(x, g), () => update.mutate({ id: g.id, data: { is_visible: true } }))
+                                                            .filter((i) => i.label !== "Edit Guest" && i.label !== "Delete Guest")} />
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -192,11 +215,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
                 <Pager page={page} pageSize={PAGE} total={total} onPage={setPage} noun="guests" />
             </SplitLayout>
 
-            <GuestActionSheet
-                action={action?.a ?? null} guest={current} eventId={eventId}
-                onClose={() => setAction(null)}
-                onSwitch={(a) => setAction((x) => (x ? { ...x, a } : x))}
-            />
         </div>
     );
 }
@@ -205,7 +223,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
 function AddGuestPanel({ eventId }: { eventId: number }) {
     const capacity = useGuestCapacity();
     const bulk = useBulkGuests();
-    const ref = useRef<HTMLDivElement>(null);
     const [d, setD] = useState<GuestDraft>(blankDraft);
     const [tried, setTried] = useState(false);
     const set = (p: Partial<GuestDraft>) => setD((x) => ({ ...x, ...p }));
@@ -237,7 +254,7 @@ function AddGuestPanel({ eventId }: { eventId: number }) {
 
     return (
         <FormPanel
-            panelRef={ref} icon={UserPlus} title="Add Guest"
+            icon={UserPlus} title="Add Guest"
             footer={(
                 <>
                     <Button variant="outline" onClick={clear}>Clear</Button>

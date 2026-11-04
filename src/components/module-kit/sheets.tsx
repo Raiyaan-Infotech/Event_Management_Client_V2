@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { MoreHorizontal, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,9 +14,20 @@ import { TONE_TEXT, type Tone } from "./tones";
 import { FormField } from "./form";
 
 /**
- * The slide-in panel every row action opens (View Guest, Send Invitation,
- * Update RSVP Status, Block Participant, Delete …): pink header with a round
- * icon, title, subtitle and ✕; scrolling body; Cancel / main button at the foot.
+ * Inside <InlineSheets>, an ActionSheet renders IN PLACE — a card in the page
+ * (e.g. the right column where the Add Guest form sits, Jamal 2026-11-04) —
+ * instead of sliding in over the page.
+ */
+const InlineContext = createContext(false);
+export function InlineSheets({ children }: { children: React.ReactNode }) {
+    return <InlineContext.Provider value>{children}</InlineContext.Provider>;
+}
+
+/**
+ * The panel every row action opens (View Guest, Send Invitation, Update RSVP
+ * Status, Block Participant, Delete …): pink header with a round icon, title,
+ * subtitle and ✕; scrolling body; Cancel / main button at the foot. A slide-in
+ * by default; in place inside <InlineSheets>.
  */
 export function ActionSheet({
     open, onClose, icon: Icon, tone = "primary", title, subtitle, children, footer, width = 500,
@@ -24,21 +35,38 @@ export function ActionSheet({
     open: boolean; onClose: () => void; icon?: LucideIcon; tone?: Tone; title: string; subtitle?: string;
     children: React.ReactNode; footer?: React.ReactNode; width?: number;
 }) {
+    const inline = useContext(InlineContext);
+    const head = (titleEl: React.ReactNode, subEl: React.ReactNode) => (
+        <div className={cn("flex items-start gap-3 border-b border-primary/15 bg-primary/5", inline ? "px-4 py-3" : "px-5 py-4")}>
+            {Icon && (
+                <span className={cn("grid shrink-0 place-items-center rounded-full bg-card", inline ? "size-9" : "size-11", TONE_TEXT[tone])}>
+                    <Icon className={inline ? "size-4" : "size-5"} />
+                </span>
+            )}
+            <div className="min-w-0 flex-1">{titleEl}{subEl}</div>
+            <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
+        </div>
+    );
+    if (inline) {
+        if (!open) return null;
+        return (
+            <div className="flex h-fit min-w-0 flex-col overflow-hidden rounded-xl border border-primary/15 bg-card lg:sticky lg:top-4">
+                {head(
+                    <p className="text-[15.5px] font-bold">{title}</p>,
+                    subtitle ? <p className="text-[12px] text-muted-foreground">{subtitle}</p> : null,
+                )}
+                <div className="flex flex-col gap-3 p-4 text-[12.5px]">{children}</div>
+                {footer && <div className="grid grid-cols-[1fr_1.6fr] gap-3 border-t border-border px-4 py-3">{footer}</div>}
+            </div>
+        );
+    }
     return (
         <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
             <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-none" style={{ maxWidth: width }}>
-                <div className="flex items-start gap-3 border-b border-primary/15 bg-primary/5 px-5 py-4">
-                    {Icon && (
-                        <span className={cn("grid size-11 shrink-0 place-items-center rounded-full bg-card", TONE_TEXT[tone])}>
-                            <Icon className="size-5" />
-                        </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                        <SheetTitle className="text-[19px] font-bold">{title}</SheetTitle>
-                        <SheetDescription className={cn("text-[12.5px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>
-                    </div>
-                    <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
-                </div>
+                {head(
+                    <SheetTitle className="text-[19px] font-bold">{title}</SheetTitle>,
+                    <SheetDescription className={cn("text-[12.5px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>,
+                )}
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">{children}</div>
                 {footer && <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-border p-5">{footer}</div>}
             </SheetContent>
@@ -127,11 +155,11 @@ export function DeleteSheet({
 export type RowAction = { label: string; icon: LucideIcon; onClick: () => void; danger?: boolean; divider?: boolean; hidden?: boolean };
 
 /** The ⋯ button on a row and its menu (red item for Delete; `divider` draws a line above). */
-export function RowActions({ items, label = "Actions" }: { items: RowAction[]; label?: string }) {
+export function RowActions({ items, label = "Actions", compact }: { items: RowAction[]; label?: string; compact?: boolean }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="outline" className="size-8 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary" aria-label={label}>
+                <Button size="icon" variant="outline" className={cn(compact ? "size-7" : "size-8", "border-primary/30 text-primary hover:bg-primary/5 hover:text-primary")} aria-label={label}>
                     <MoreHorizontal className="size-4" />
                 </Button>
             </DropdownMenuTrigger>

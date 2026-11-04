@@ -14,17 +14,17 @@ export function CountTabs<T extends string>({
     value: T; onChange: (v: T) => void; stretch?: boolean;
 }) {
     return (
-        <div className="flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-card p-1.5">
+        <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1">
             {tabs.map((t) => (
                 <button
                     key={t.value} type="button" onClick={() => onChange(t.value)}
                     className={cn(
-                        "flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1 text-[12.5px] font-medium transition",
+                        "flex items-center justify-center gap-1 whitespace-nowrap rounded-lg border px-2.5 py-1 text-[12px] font-medium transition",
                         stretch && "flex-1",
                         value === t.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
                     )}
                 >
-                    {t.icon && <t.icon className="size-3.5" />} {t.label}{t.count !== undefined && ` (${t.count.toLocaleString()})`}
+                    {t.icon && <t.icon className="size-3" />} {t.label}{t.count !== undefined && ` (${t.count.toLocaleString()})`}
                 </button>
             ))}
         </div>
