@@ -9,14 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
     useDeleteAgendaItem, useEventAgenda, useSaveAgendaItem, type AgendaItem,
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
-import { CharCount, FormField, FormPanel, ModuleHeader } from "@/components/module-kit";
+import { CharCount, DatePickerField, DayCalendar, FormField, FormPanel, ModuleHeader } from "@/components/module-kit";
 import { Empty, PanelLoading, Section } from "./module-ui";
 
 /**
@@ -101,6 +100,17 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const set = (patch: Partial<FormState>) => setForm({ ...f, ...patch });
 
     const clear = () => { setForm(null); setTried(false); };
+    /** A fresh session for `d` — "+ Add Session" on the day, and after each save. */
+    const newFor = (d: string) => {
+        setTried(false);
+        setForm({ date: d, start: "", end: "", title: "", description: "" });
+        setTimeout(() => document.getElementById("agenda-title")?.focus(), 0);
+    };
+    /** Day card: show that day; a new (unsaved) session moves to it too. */
+    const pickDay = (d: string) => {
+        setPicked(d);
+        if (form && !form.id) setForm({ ...form, date: d });
+    };
     const edit = (i: AgendaItem) => {
         setTried(false);
         setForm({ id: i.id, date: i.agenda_date, start: hhmm(i.start_time), end: hhmm(i.end_time), title: i.title, description: i.description ?? "" });
@@ -113,7 +123,10 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
             id: f.id,
             data: { agenda_date: f.date, start_time: f.start, end_time: f.end, title: f.title.trim(), description: f.description.trim() },
             done: f.id ? "Session updated" : "Session added",
-        }, { onSuccess: () => { setPicked(f.date); clear(); } });
+        }, {
+            // Stay on that day with an empty form, ready for the next session.
+            onSuccess: () => { setPicked(f.date); if (f.id) clear(); else newFor(f.date); },
+        });
     };
 
     const exportAgenda = () => {
@@ -152,7 +165,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                         const n = byDay.get(d)?.length ?? 0;
                         const on = d === day;
                         return (
-                            <button key={d} type="button" onClick={() => { setPicked(d); if (!form) setTried(false); }}
+                            <button key={d} type="button" onClick={() => pickDay(d)}
                                 className={cn("flex items-center gap-3 rounded-lg border p-3 text-left transition",
                                     on ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted")}>
                                 <span className={cn("grid size-9 shrink-0 place-items-center rounded-md", on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
@@ -172,11 +185,9 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                                 <Plus className="size-4" /> Add Date
                             </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-60 p-1">
-                            {remaining.map((d) => (
-                                <button key={d} type="button" onClick={() => { setExtraDays((x) => [...x, d]); setPicked(d); setForm({ ...f, date: d }); }}
-                                    className="block w-full rounded px-3 py-2 text-left text-[13px] hover:bg-muted">{dayLabel(d)}</button>
-                            ))}
+                        <PopoverContent className="w-auto p-0">
+                            <p className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">Pick an event day to add sessions to</p>
+                            <DayCalendar allowed={remaining} onChange={(d) => { setExtraDays((x) => [...x, d]); setPicked(d); newFor(d); }} />
                         </PopoverContent>
                     </Popover>
                 </div>
@@ -186,9 +197,14 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                         <p className="flex items-center gap-2 text-[16px] font-bold">
                             <CalendarDays className="size-5 text-primary" /> {day ? dayLabel(day) : "No dates"}
                         </p>
-                        <div className="flex gap-2 text-[12px] font-semibold">
+                        <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
                             <span className="rounded-full bg-muted px-3 py-1">Total Sessions: {byDay.get(day ?? "")?.length ?? 0}</span>
                             <span className="rounded-full bg-muted px-3 py-1">Total Overlap Groups: {overlapGroups}</span>
+                            {day && (
+                                <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => newFor(day)}>
+                                    <Plus className="size-3.5" /> Add Session
+                                </Button>
+                            )}
                         </div>
                     </div>
                     {groups.length === 0 ? (
@@ -234,12 +250,8 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                 )}
             >
                 <FormField label="Date" required>
-                    <Select value={f.date} onValueChange={(v) => set({ date: v })}>
-                        <SelectTrigger className={cn("h-9 w-full text-[13px]", bad(f.date) && "border-destructive")}>
-                            <span className="flex items-center gap-2"><CalendarDays className="size-3.5" /><SelectValue placeholder="Choose a day" /></span>
-                        </SelectTrigger>
-                        <SelectContent>{eventDays.map((d) => <SelectItem key={d} value={d}>{dayLabel(d)}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <DatePickerField value={f.date} onChange={(v) => set({ date: v })} allowed={eventDays} label={dayLabel}
+                        placeholder="Choose a day" invalid={bad(f.date)} />
                 </FormField>
                 <div className="grid grid-cols-2 gap-3">
                     <FormField label="Start Time" required>
@@ -250,7 +262,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                     </FormField>
                 </div>
                 <FormField label="Title" required>
-                    <Input value={f.title} maxLength={100} placeholder="Enter session title (e.g., Haldi Ceremony)"
+                    <Input id="agenda-title" value={f.title} maxLength={100} placeholder="Enter session title (e.g., Haldi Ceremony)"
                         onChange={(e) => set({ title: e.target.value })} className={cn("h-9", bad(f.title) && "border-destructive")} />
                     <CharCount value={f.title} max={100} />
                 </FormField>
@@ -314,8 +326,11 @@ function Row({
                 {timeLabel(item.start_time)} –<br />{timeLabel(item.end_time)}
             </div>
             <span className={cn("relative z-10 size-3 shrink-0 rounded-full ring-4 ring-card", overlap ? "bg-violet-500" : "bg-primary")} />
-            <div className={cn("relative flex min-w-0 flex-1 items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm",
+            {/* The card's pointer towards the dot, as in the design. */}
+            <div className={cn("relative ml-2 flex min-w-0 flex-1 items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-sm",
                 overlap ? "mr-3 border-violet-200" : "border-border")}>
+                <span aria-hidden className={cn("absolute top-1/2 -left-[7px] size-3 -translate-y-1/2 rotate-45 rounded-bl-[3px] border-b border-l bg-card",
+                    overlap ? "border-violet-200" : "border-border")} />
                 <div className="min-w-0 flex-1">
                     <p className="break-words text-[14px] font-semibold">{item.title}</p>
                     {item.description && <p className="break-words text-[12.5px] text-muted-foreground">{item.description}</p>}

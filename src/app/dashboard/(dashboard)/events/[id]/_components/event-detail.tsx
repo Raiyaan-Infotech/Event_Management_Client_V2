@@ -220,10 +220,10 @@ export function EventDetail({ eventId }: { eventId: number }) {
         .filter((s) => s.value > 0);
 
     return (
-        <div className="flex flex-col gap-5">
-            {/* ── Back ────────────────────────────────────────────────────── */}
-            <div>
-                <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 px-2 text-[12.5px] text-muted-foreground">
+        <div className="flex flex-col gap-3">
+            {/* ── Back ── (tight: Jamal, 2026-11-04) */}
+            <div className="-mb-1">
+                <Button asChild variant="ghost" size="sm" className="-ml-2 h-7 px-2 text-[12.5px] text-muted-foreground">
                     <Link href="/dashboard/events">
                         <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[11px]" />
                         Back to Event List
@@ -232,22 +232,22 @@ export function EventDetail({ eventId }: { eventId: number }) {
             </div>
 
             {/* ── Title row ───────────────────────────────────────────────── */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                    <h1 className="text-[24px] font-bold leading-tight tracking-tight text-foreground">Event Details</h1>
-                    <p className="mt-1 text-[13.5px] text-muted-foreground">
+                    <h1 className="text-[21px] font-bold leading-tight tracking-tight text-foreground">Event Details</h1>
+                    <p className="text-[12.5px] text-muted-foreground">
                         View complete information about your event.
                     </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" className="h-10 rounded-md px-4 text-[12.5px] font-semibold">
+                    <Button asChild variant="outline" className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
                         <Link href={`/dashboard/events/${event.id}/edit`}>
                             <FontAwesomeIcon icon={faPenToSquare} className="mr-2 !size-[12px]" />
                             {isDraft ? "Continue Editing" : "Edit Event"}
                         </Link>
                     </Button>
-                    <Button variant="outline" onClick={shareEvent} className="h-10 rounded-md px-4 text-[12.5px] font-semibold">
+                    <Button variant="outline" onClick={shareEvent} className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
                         <FontAwesomeIcon icon={faShareNodes} className="mr-2 !size-[12px]" />
                         Share Event
                     </Button>
@@ -255,7 +255,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         "Download" and downloaded nothing. It now produces the
                         real file: the invitation as PNG or SVG, or the QR on
                         its own. */}
-                    <InvitationDownload event={event} />
+                    <InvitationDownload event={event} className="h-9 px-3.5" />
                 </div>
             </div>
 
@@ -263,7 +263,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
             {/* Compact hero (Jamal, 2026-11-03): landscape invitation on the
                 left; status + code, name, and small fact chips on the right. */}
             <Card className="border border-border py-0 shadow-none">
-                <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+                <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                     <EventThumbnail
                         themeId={event.theme_id}
                         customImage={eventCustomImage(event)}
@@ -271,10 +271,10 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         primaryColor={event.primary_color}
                         startDate={event.start_date}
                         venueName={event.venue_name}
-                        className="h-[130px] w-full shrink-0 rounded-lg sm:w-[230px]"
+                        className="h-[104px] w-full shrink-0 rounded-lg sm:w-[184px]"
                     />
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <Badge
                                 variant="ghost"
@@ -287,11 +287,11 @@ export function EventDetail({ eventId }: { eventId: number }) {
                         </div>
 
                         {/* break-words, never truncate — a long name must wrap. */}
-                        <h2 className="text-[20px] font-bold leading-tight tracking-tight text-foreground break-words">
+                        <h2 className="text-[18px] font-bold leading-tight tracking-tight text-foreground break-words">
                             {event.name}
                         </h2>
 
-                        <div className="mt-1 flex flex-wrap gap-2">
+                        <div className="mt-0.5 flex flex-wrap gap-2">
                             <FactBox
                                 icon={faCalendarDays}
                                 title={fmt(event.start_date)}
@@ -723,8 +723,8 @@ function FactBox({
 }) {
     return (
         // A compact chip: one line each, the full text on hover.
-        <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-lg border border-border px-2.5 py-2 sm:max-w-[280px]">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+        <div className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-border px-2 py-1.5 sm:max-w-[280px]">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md"
                 style={{ backgroundColor: `${tint}1A` }}>
                 <FontAwesomeIcon icon={icon} className="!size-[12px]" style={{ color: tint }} />
             </span>
