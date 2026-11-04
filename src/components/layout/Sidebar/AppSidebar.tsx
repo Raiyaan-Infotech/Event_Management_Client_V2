@@ -121,7 +121,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <Sidebar collapsible="icon" className="border-r border-border bg-sidebar" {...props}>
             <SidebarHeader
                 className={cn(
-                    "sticky top-0 z-50 h-[64px] border-b border-border flex flex-col justify-center bg-sidebar",
+                    "sticky top-0 z-50 h-14 border-b border-border flex flex-col justify-center bg-sidebar",
                     isCollapsed ? "px-1.5" : "px-4"
                 )}
             >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Star, Trash2, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import {
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
     ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
-    PhotoDropzone, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+    PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
 import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
 
@@ -85,7 +85,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
     const reorder = useReorderFamily(event.id);
     const save = useSaveFamilyMember(event.id);
     const relations = useRelationOptions(event.id);
-    const formRef = useRef<HTMLDivElement>(null);
+    const [formOpen, setFormOpen] = useState(false);
 
     const [tab, setTab] = useState<Tab>("all");
     const [search, setSearch] = useState("");
@@ -143,7 +143,8 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
     const f = form ?? blank();
     // Functional, so a photo upload that ends while typing does not undo the typing.
     const set = (patch: Partial<FormState>) => setForm((prev) => ({ ...(prev ?? blank()), ...patch }));
-    const clear = () => { setForm(null); setTried(false); };
+    const clear = () => { setForm(null); setTried(false); setFormOpen(false); };
+    const addNew = () => { setForm(null); setTried(false); setFormOpen(true); };
     const edit = (m: FamilyMember) => {
         setTried(false);
         setForm({
@@ -151,7 +152,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
             dial: m.dial_code || "+91", mobile: m.mobile ?? "", order: String(place.get(m.id) ?? 1),
             notes: m.notes ?? "", visible: m.is_visible, key: m.is_key,
         });
-        formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setFormOpen(true);
     };
     const changeSide = (side: Side) => {
         const patch: Partial<FormState> = { side };
@@ -211,7 +212,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
 
     const aside = (
         <FormPanel
-            panelRef={formRef}
+            sheet={{ open: formOpen, onClose: clear }}
             icon={UserPlus}
             title={f.id ? "Edit Family Member" : "Add Family Member"}
             footer={(
@@ -270,11 +271,12 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
     );
 
     return (
-        <SplitLayout aside={aside}>
+        <div className="flex min-w-0 flex-col gap-3">
             <ModuleHeader
                 title="Event Family"
                 subtitle="Manage bride and groom family members, relationships, and display order."
                 actions={(
+<>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button size="icon" variant="outline" className="size-8" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
@@ -283,6 +285,8 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                         </TooltipTrigger>
                         <TooltipContent>Family Settings</TooltipContent>
                     </Tooltip>
+                    <Button size="sm" className="h-8" onClick={addNew}><UserPlus className="size-3.5" /> Add Family Member</Button>
+                    </>
                 )}
             />
 
@@ -351,7 +355,8 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </SplitLayout>
+            {aside}
+        </div>
     );
 }
 

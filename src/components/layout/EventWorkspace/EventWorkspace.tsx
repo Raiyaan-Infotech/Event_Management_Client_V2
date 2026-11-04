@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, MapPin, Pencil, Tag } from "lucide-react";
+import { ArrowLeft, CalendarDays, LogOut, MapPin, Pencil, Tag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGift } from "@fortawesome/free-solid-svg-icons";
 import {
     Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
-import { EventThumbnail } from "@/components/common/event-thumbnail";
-import { eventCustomImage } from "@/lib/event-templates";
 import { cn } from "@/lib/utils";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useDateFormatter } from "@/hooks/use-client-settings";
@@ -34,7 +34,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const collapsed = state === "collapsed";
     return (
         <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
-            <SidebarHeader className={cn("sticky top-0 z-50 flex h-[64px] flex-col justify-center border-b border-border bg-sidebar", collapsed ? "px-1.5" : "px-4")}>
+            <SidebarHeader className={cn("sticky top-0 z-50 flex h-14 flex-col justify-center border-b border-border bg-sidebar", collapsed ? "px-1.5" : "px-4")}>
                 <Link href="/dashboard" className={cn("flex items-center gap-2.5 no-underline", collapsed && "justify-center")}>
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
                         <FontAwesomeIcon icon={faGift} className="!size-[16px]" />
@@ -91,19 +91,14 @@ export function EventTopInfo({ eventId }: { eventId: number }) {
     const venue = [event.venue_name, event.venue_landmark].filter(Boolean).join(" - ");
     return (
         <div className="flex min-w-0 flex-1 items-center gap-3">
-            <EventThumbnail
-                themeId={event.theme_id} customImage={eventCustomImage(event)} name={event.name}
-                primaryColor={event.primary_color} startDate={event.start_date} venueName={event.venue_name}
-                className="hidden h-12 w-[72px] shrink-0 rounded-md sm:block"
-            />
             <div className="min-w-0">
                 <p className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-[17px] leading-tight font-bold" title={event.name}>{event.name}</span>
+                    <span className="truncate text-[15px] leading-tight font-bold" title={event.name}>{event.name}</span>
                     <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold", status.className)}>
                         <span className={cn("size-1.5 rounded-full", status.dot)} /> {status.label}
                     </span>
                 </p>
-                <p className="hidden min-w-0 items-center gap-3 text-[12.5px] text-foreground/80 md:flex">
+                <p className="hidden min-w-0 items-center gap-3 text-[12px] text-foreground/80 md:flex">
                     <span className="flex shrink-0 items-center gap-1"><CalendarDays className="size-3.5 text-primary" /> {event.start_date ? fmt(event.start_date) : "—"}</span>
                     {venue && <span className="flex min-w-0 items-center gap-1"><MapPin className="size-3.5 shrink-0 text-primary" /> <span className="truncate" title={venue}>{venue}</span></span>}
                     {event.category?.name && (
@@ -112,5 +107,23 @@ export function EventTopInfo({ eventId }: { eventId: number }) {
                 </p>
             </div>
         </div>
+    );
+}
+
+/**
+ * Exit Event — where the account menu is in the dashboard. The workspace was
+ * opened in its own tab, so it closes that tab; if the browser keeps it open
+ * (a tab not opened by the portal), it goes back to My Events instead.
+ */
+export function ExitEventButton() {
+    const router = useRouter();
+    const exit = () => {
+        window.close();
+        setTimeout(() => { if (!window.closed) router.push("/dashboard/events"); }, 150);
+    };
+    return (
+        <Button size="sm" variant="outline" className="h-8 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={exit}>
+            <LogOut className="size-3.5" /> Exit Event
+        </Button>
     );
 }

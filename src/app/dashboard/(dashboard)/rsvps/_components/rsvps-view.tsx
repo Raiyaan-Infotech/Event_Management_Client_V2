@@ -117,7 +117,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     ];
 
     return (
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-col gap-3">
                 <ModuleHeader title="RSVP Responses" subtitle="Track attendance confirmations, pending responses, guest counts, and follow-up actions." />
 
@@ -129,6 +129,9 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                     <StatTile icon={XCircle} value={s?.declined ?? 0} label="Declined" caption={`${s?.declined_pct ?? 0}% of invited`} tone="danger" />
                     <StatTile icon={CircleHelp} value={s?.maybe ?? 0} label="Maybe / Not Attending" caption={`${s?.maybe_pct ?? 0}% of invited`} tone="violet" />
                 </OverviewCard>
+
+                {/* RSVP Summary · Channels · Recent Activity · Notes — one full-width row (Jamal, 2026-11-04). */}
+                <RsvpRail board={d} onOpen={(id) => { const r = rows.find((x) => x.id === id); if (r) setAct({ a: "response", r }); }} />
 
                 <div className="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!d?.pagination.totalItems}><Download className="size-3.5" /> Export</Button>
@@ -233,7 +236,6 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                 <Pager page={page} pageSize={PAGE} total={d?.pagination.totalItems ?? 0} onPage={setPage} noun="responses" />
             </div>
 
-            <RsvpRail board={d} onOpen={(id) => { const r = rows.find((x) => x.id === id); if (r) setAct({ a: "response", r }); }} />
 
             <RsvpActionSheet
                 action={act?.a ?? null} row={act ? fresh(act.r) : null} eventId={eventId} target={act?.target}
@@ -270,7 +272,7 @@ function RsvpRail({ board, onOpen }: { board?: ReturnType<typeof useRsvpBoard>["
         return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} d ago`;
     };
     return (
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className={card}>
                 <p className={head}><span className="flex items-center gap-2"><Users className="size-4" /> RSVP Summary</span></p>
                 <div className="flex items-center gap-3 p-3.5">

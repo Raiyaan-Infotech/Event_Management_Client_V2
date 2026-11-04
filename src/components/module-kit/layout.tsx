@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Info, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TONE_TEXT, type Tone } from "./tones";
+import { ActionSheet } from "./sheets";
 
 /**
  * Page-level pieces of the event module designs (Agenda, Family, Guests,
@@ -19,7 +20,7 @@ export function ModuleHeader({
     return (
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-                <h3 className="text-[20px] leading-tight font-bold">{title}</h3>
+                <h3 className="text-[18px] leading-tight font-bold">{title}</h3>
                 {subtitle && <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
@@ -89,7 +90,7 @@ export function ListCard({
     const [open, setOpen] = useState(defaultOpen);
     const head = (
         <>
-            <span className="flex min-w-0 items-center gap-2 text-[14.5px] font-bold text-primary">
+            <span className="flex min-w-0 items-center gap-2 text-[13.5px] font-bold text-primary">
                 {Icon && <Icon className="size-[18px] shrink-0" />}
                 <span className="truncate">{title}{count !== undefined && ` (${count.toLocaleString()})`}</span>
             </span>
@@ -116,22 +117,34 @@ export function ListCard({
  * Session, Create Folder): pink header with an icon, body, a footer row.
  */
 export function FormPanel({
-    title, icon: Icon, subtitle, children, footer, className, panelRef,
+    title, icon: Icon, subtitle, children, footer, className, panelRef, sheet,
 }: {
     title: string; icon?: LucideIcon; subtitle?: string; children: React.ReactNode; footer?: React.ReactNode;
     className?: string; panelRef?: React.Ref<HTMLDivElement>;
+    /** Open as a slide-in panel from the right ("canvas", Jamal 2026-11-04) instead of a card in the page. */
+    sheet?: { open: boolean; onClose: () => void };
 }) {
+    if (sheet) {
+        return (
+            <ActionSheet open={sheet.open} onClose={sheet.onClose} icon={Icon} title={title} subtitle={subtitle} footer={footer} width={520}>
+                <div className={cn("flex flex-col gap-2.5", COMPACT_FIELDS)}>{children}</div>
+            </ActionSheet>
+        );
+    }
     return (
         <div ref={panelRef} className={cn("flex h-fit min-w-0 flex-col overflow-hidden rounded-xl border border-primary/15 bg-card lg:sticky lg:top-4", className)}>
             <div className="border-b border-primary/15 bg-primary/5 px-4 py-2.5">
-                <p className="flex items-center gap-2 text-[15.5px] font-bold text-primary">{Icon && <Icon className="size-[18px]" />} {title}</p>
+                <p className="flex items-center gap-2 text-[14.5px] font-bold text-primary">{Icon && <Icon className="size-4" />} {title}</p>
                 {subtitle && <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>}
             </div>
-            <div className="flex flex-col gap-2.5 px-4 py-3 text-[12.5px] [&_[data-slot=input]]:!h-8 [&_[data-slot=input]]:!text-[12.5px] [&_[data-slot=select-trigger]]:!h-8 [&_[data-slot=select-trigger]]:!text-[12.5px] [&_textarea]:!text-[12.5px] [&_textarea]:min-h-14">{children}</div>
+            <div className={cn("flex flex-col gap-2.5 px-4 py-3", COMPACT_FIELDS)}>{children}</div>
             {footer && <div className="grid grid-cols-[1fr_1.6fr] gap-3 border-t border-border px-4 py-3">{footer}</div>}
         </div>
     );
 }
+
+/** The compact field sizes every form panel uses. */
+const COMPACT_FIELDS = "text-[12.5px] [&_[data-slot=input]]:!h-8 [&_[data-slot=input]]:!text-[12.5px] [&_[data-slot=select-trigger]]:!h-8 [&_[data-slot=select-trigger]]:!text-[12.5px] [&_textarea]:!text-[12.5px] [&_textarea]:min-h-14";
 
 /** Page grid: the list on the left, a FormPanel on the right. */
 export function SplitLayout({ children, aside, asideWidth = 340 }: { children: React.ReactNode; aside: React.ReactNode; asideWidth?: number }) {

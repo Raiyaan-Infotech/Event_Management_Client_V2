@@ -189,10 +189,10 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {tab === "overview" && (
                 <div className="flex flex-col gap-4">
                     <div>
-                        <h2 className="text-[22px] leading-tight font-bold">Dashboard</h2>
-                        <p className="text-[13px] text-muted-foreground">Overview of your event, guest responses, and key details.</p>
+                        <h2 className="text-[18px] leading-tight font-bold">Dashboard</h2>
+                        <p className="text-[12.5px] text-muted-foreground">Overview of your event, guest responses, and key details.</p>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
                         <Panel title="Basic Information" icon={Info}>
                             <Row label="Event Category" value={event.category?.name ?? "—"} />
                             <Row label="Tagline" value={event.tagline || "—"} />
@@ -477,9 +477,9 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
 function Panel({ title, icon: Icon, children, className }: { title: string; icon?: LucideIcon; children: React.ReactNode; className?: string }) {
     return (
         <Card className={cn("min-w-0 rounded-xl border border-border py-0 shadow-none", className)}>
-            <CardContent className="p-5">
-                <p className="flex items-center gap-3 text-[16px] font-bold text-foreground">
-                    {Icon && <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="size-[18px]" /></span>}
+            <CardContent className="p-4">
+                <p className="flex items-center gap-2.5 text-[14px] font-bold text-foreground">
+                    {Icon && <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Icon className="size-4" /></span>}
                     {title}
                 </p>
                 <Separator className="my-3" />

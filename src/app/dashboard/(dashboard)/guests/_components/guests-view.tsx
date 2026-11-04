@@ -9,8 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-    CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, InlineSheets, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
-    PhotoDropzone, RowActions, SearchBox, SortSelect, SplitLayout, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+    CheckChoices, ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
+    PhotoDropzone, RowActions, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
 import { ApiError } from "@/lib/api-client";
@@ -55,6 +55,7 @@ export function GuestsView({ eventId }: { eventId: number }) {
     const [sort, setSort] = useState<Sort>("name_asc");
     const [page, setPage] = useState(1);
     const [action, setAction] = useState<{ a: GuestAction; g: Guest } | null>(null);
+    const [adding, setAdding] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
@@ -86,17 +87,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
 
     return (
         <div className="flex flex-col gap-4">
-            {/* One right-hand area: the ⋯ action's panel when one is open, else Add Guest (Jamal, 2026-11-04). */}
-            <SplitLayout asideWidth={380} aside={action && current ? (
-                <InlineSheets>
-                    <GuestActionSheet
-                        key={`${action.a}-${current.id}`}
-                        action={action.a} guest={current} eventId={eventId}
-                        onClose={() => setAction(null)}
-                        onSwitch={(a) => setAction((x) => (x ? { ...x, a } : x))}
-                    />
-                </InlineSheets>
-            ) : <AddGuestPanel eventId={eventId} />}>
                 <ModuleHeader
                     title="Event Guests"
                     subtitle="Manage guest information, invitation status, and RSVP tracking."
@@ -107,6 +97,7 @@ export function GuestsView({ eventId }: { eventId: number }) {
                                 <Download className="size-3.5" /> {exportGuests.isPending ? "Exporting…" : "Export"}
                             </Button>
                             <Button asChild variant="outline" size="sm"><Link href="/dashboard/guests/groups"><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
+                            <Button size="sm" onClick={() => setAdding(true)}><UserPlus className="size-3.5" /> Add Guest</Button>
                         </>
                     )}
                 />
@@ -213,14 +204,21 @@ export function GuestsView({ eventId }: { eventId: number }) {
                 </ListCard>
 
                 <Pager page={page} pageSize={PAGE} total={total} onPage={setPage} noun="guests" />
-            </SplitLayout>
+
+            {/* Forms and actions open as slide-in panels (Jamal, 2026-11-04). */}
+            {adding && <AddGuestPanel eventId={eventId} onClose={() => setAdding(false)} />}
+            <GuestActionSheet
+                action={action?.a ?? null} guest={current} eventId={eventId}
+                onClose={() => setAction(null)}
+                onSwitch={(a) => setAction((x) => (x ? { ...x, a } : x))}
+            />
 
         </div>
     );
 }
 
-/** The right-hand Add Guest panel. */
-function AddGuestPanel({ eventId }: { eventId: number }) {
+/** Add Guest — a slide-in panel from the header's Add Guest button. */
+function AddGuestPanel({ eventId, onClose }: { eventId: number; onClose: () => void }) {
     const capacity = useGuestCapacity();
     const bulk = useBulkGuests();
     const [d, setD] = useState<GuestDraft>(blankDraft);
@@ -231,7 +229,7 @@ function AddGuestPanel({ eventId }: { eventId: number }) {
     const create = useCreateGuest((g) => {
         // "Send Invitation via": mark invited with the channels, then offer to open them (a click, so it is not blocked).
         const channels = d.channels;
-        if (!channels.length) return clear();
+        if (!channels.length) { clear(); return onClose(); }
         const message = `Dear ${g.name.split(/\s+/)[0]}, you are warmly invited to our event. We look forward to celebrating with you!`;
         bulk.mutate({ guest_ids: [g.id], action: "invite", value: { channels, message } });
         const phone = `${g.dial_code || "+91"}${g.mobile ?? ""}`.replace(/\D/g, "");
@@ -242,6 +240,7 @@ function AddGuestPanel({ eventId }: { eventId: number }) {
             toast("Send the invitation by email", { action: { label: "Open Email", onClick: () => { window.location.href = `mailto:${g.email}?subject=${encodeURIComponent("You're Invited")}&body=${encodeURIComponent(message)}`; } }, duration: 10000 });
         }
         clear();
+        onClose();
     });
     const full = capacity.data && capacity.data.limit !== null && capacity.data.used >= capacity.data.limit;
 
@@ -254,10 +253,10 @@ function AddGuestPanel({ eventId }: { eventId: number }) {
 
     return (
         <FormPanel
-            icon={UserPlus} title="Add Guest"
+            icon={UserPlus} title="Add Guest" subtitle="Add a guest to this event and send the invitation" sheet={{ open: true, onClose }}
             footer={(
                 <>
-                    <Button variant="outline" onClick={clear}>Clear</Button>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button disabled={create.isPending || bulk.isPending || !!full} onClick={save}>Save Guest</Button>
                 </>
             )}

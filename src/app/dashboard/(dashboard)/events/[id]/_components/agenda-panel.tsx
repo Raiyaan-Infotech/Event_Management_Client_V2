@@ -76,6 +76,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const [tried, setTried] = useState(false);
     const [deleting, setDeleting] = useState<AgendaItem | null>(null);
     const [guestView, setGuestView] = useState(false);
+    const [formOpen, setFormOpen] = useState(false);
 
     const items = useMemo(() => query.data?.items ?? [], [query.data]);
     const eventDays = useMemo(() => query.data?.days ?? [], [query.data]);
@@ -99,11 +100,12 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const f: FormState = form ?? { date: day ?? "", start: "", end: "", title: "", description: "" };
     const set = (patch: Partial<FormState>) => setForm({ ...f, ...patch });
 
-    const clear = () => { setForm(null); setTried(false); };
+    const clear = () => { setForm(null); setTried(false); setFormOpen(false); };
     /** A fresh session for `d` — "+ Add Session" on the day, and after each save. */
     const newFor = (d: string) => {
         setTried(false);
         setForm({ date: d, start: "", end: "", title: "", description: "" });
+        setFormOpen(true);
         setTimeout(() => document.getElementById("agenda-title")?.focus(), 0);
     };
     /** Day card: show that day; a new (unsaved) session moves to it too. */
@@ -113,6 +115,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     };
     const edit = (i: AgendaItem) => {
         setTried(false);
+        setFormOpen(true);
         setForm({ id: i.id, date: i.agenda_date, start: hhmm(i.start_time), end: hhmm(i.end_time), title: i.title, description: i.description ?? "" });
     };
     const submit = () => {
@@ -146,7 +149,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const bad = (v: string) => tried && !v.trim();
 
     return (
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_clamp(280px,31%,340px)]">
+        <div className="flex min-w-0 flex-col gap-4">
             {/* ── Left: header, days, timeline ── */}
             <div className="flex min-w-0 flex-col gap-4">
                 <ModuleHeader
@@ -156,6 +159,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                         <>
                             <Button variant="outline" size="sm" onClick={exportAgenda} disabled={!items.length}><Download className="size-3.5" /> Export Agenda</Button>
                             <Button variant="outline" size="sm" onClick={() => setGuestView(true)}><ExternalLink className="size-3.5" /> View Agenda (Guest)</Button>
+                            <Button size="sm" onClick={() => newFor(day ?? eventDays[0] ?? "")} disabled={!eventDays.length}><Plus className="size-3.5" /> Add Session</Button>
                         </>
                     )}
                 />
@@ -239,6 +243,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
 
             {/* ── Right: Add / Edit Agenda Session ── */}
             <FormPanel
+                sheet={{ open: formOpen, onClose: clear }}
                 icon={CalendarPlus}
                 title={f.id ? "Edit Agenda Session" : "Add Agenda Session"}
                 subtitle={f.id ? "Change this session." : `Create a new session for ${f.date ? dayLabel(f.date) : "a day"}.`}

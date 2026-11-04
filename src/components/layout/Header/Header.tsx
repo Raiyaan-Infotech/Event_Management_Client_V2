@@ -74,7 +74,7 @@ function initialsOf(name: string | undefined): string {
  * `left`: what sits where the breadcrumb is — the event workspace shows the event there
  * (and has no New Event button).
  */
-export default function Header({ left }: { left?: React.ReactNode } = {}) {
+export default function Header({ left, exit }: { left?: React.ReactNode; exit?: React.ReactNode } = {}) {
 
     const pathname = usePathname();
     /** Create / Edit Event wizard open: no "New Event" while one is in progress. */
@@ -115,7 +115,7 @@ export default function Header({ left }: { left?: React.ReactNode } = {}) {
     const planName = client?.plan?.name;
 
     return (
-        <header className="sticky top-0 z-40 flex h-[64px] shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-5">
             <SidebarTrigger className="h-9 w-9 shrink-0 rounded-md text-muted-foreground hover:bg-secondary dark:hover:bg-secondary" />
 
             {/* Breadcrumb in place of the old event search (Jamal, 2026-11-04) — more room,
@@ -238,7 +238,8 @@ export default function Header({ left }: { left?: React.ReactNode } = {}) {
                     </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Profile */}
+                {/* Profile — or, in the event workspace, Exit Event (2026-11-04). */}
+                {exit ?? (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button
@@ -330,6 +331,7 @@ export default function Header({ left }: { left?: React.ReactNode } = {}) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+                )}
             </div>
         </header>
     );

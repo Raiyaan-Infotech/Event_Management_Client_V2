@@ -158,6 +158,12 @@
 }
 
 @layer base {
+  /* Compact portal (Jamal, 2026-11-04): 15px root instead of 16px — every rem-based
+     size (spacing, controls, icons, text-sm / xs) shrinks evenly on every page. */
+  html {
+    font-size: 15px;
+  }
+
   * {
     border-color: var(--border);
   }
