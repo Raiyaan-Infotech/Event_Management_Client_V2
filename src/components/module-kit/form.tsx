@@ -122,9 +122,22 @@ export function CheckChoices<T extends string>({
  * Change / Remove once there is one. `value` is the uploaded URL.
  */
 export function PhotoDropzone({
-    value, onChange, maxMb = 5, aspect = 1, outputSize = 500, recommend = "Recommended square photo (e.g. 1:1, 500 × 500 px).",
-}: { value: string | null; onChange: (url: string | null) => void; maxMb?: number; aspect?: number; outputSize?: number; recommend?: string | null }) {
-    const upload = useUploadPhoto();
+    value, onChange, maxMb = 5, aspect = 1, outputSize = 500, recommend = "Recommended square photo (e.g. 1:1, 500 × 500 px).", uploader,
+}: {
+    value: string | null; onChange: (url: string | null) => void; maxMb?: number; aspect?: number; outputSize?: number; recommend?: string | null;
+    /** Where the cropped file goes (default: the guest photo upload). */
+    uploader?: (file: File) => Promise<string>;
+}) {
+    const defaultUpload = useUploadPhoto();
+    const [busy, setBusy] = useState(false);
+    const upload = {
+        isPending: defaultUpload.isPending || busy,
+        mutate: (file: File, opts: { onSuccess: (url: string) => void }) => {
+            if (!uploader) return defaultUpload.mutate(file, opts);
+            setBusy(true);
+            uploader(file).then(opts.onSuccess).catch(() => toast.error("Could not upload that image.")).finally(() => setBusy(false));
+        },
+    };
     const ref = useRef<HTMLInputElement>(null);
     const [crop, setCrop] = useState<File | null>(null);
     const [over, setOver] = useState(false);

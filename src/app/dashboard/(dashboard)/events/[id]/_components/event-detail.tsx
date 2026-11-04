@@ -33,7 +33,7 @@ import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 import { AgendaPanel } from "./agenda-panel";
 import { FamilyPanel } from "./family-panel";
-import { GalleryPanel } from "./gallery-panel";
+import { GalleryBoard } from "./gallery-board";
 import { SettingsPanel } from "./settings-panel";
 import { WishesPanel } from "./wishes-panel";
 import { LivePanel } from "./live-panel";
@@ -437,7 +437,7 @@ export function EventDetail({ eventId }: { eventId: number }) {
             )}
 
             {/* ── Gallery ─────────────────────────────────────────────────── */}
-            {tab === "gallery" && <GalleryPanel eventId={event.id} />}
+            {tab === "gallery" && <GalleryBoard eventId={event.id} />}
 
             {/* ── Family ──────────────────────────────────────────────────── */}
             {tab === "family" && <FamilyPanel event={event} />}

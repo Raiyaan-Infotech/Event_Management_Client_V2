@@ -542,7 +542,7 @@ function CategoryMedia({
 }
 
 /** View Full Screen: the whole photo, or the video playing; ‹ › and the arrow keys. */
-function MediaViewer({
+export function MediaViewer({
     items, index, onIndex, onClose,
 }: { items: GalleryItem[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
     const item = items[index];
@@ -583,7 +583,7 @@ function MediaViewer({
 }
 
 /** Edit Media: Show in Event App; a video's / short's Title, Description and Change Cover. */
-function EditMediaDialog({ eventId, item, onClose }: { eventId: number; item: GalleryItem; onClose: () => void }) {
+export function EditMediaDialog({ eventId, item, onClose }: { eventId: number; item: GalleryItem; onClose: () => void }) {
     const update = useUpdateGalleryItem(eventId);
     const replaceCover = useReplaceGalleryCover(eventId);
     const coverRef = useRef<HTMLInputElement>(null);
@@ -828,7 +828,7 @@ function UploadDialog({
 
 /* ── Upload Short ───────────────────────────────────────────────────────── */
 
-function ShortDialog({
+export function ShortDialog({
     eventId, category, categories, onClose, onViewGallery,
 }: {
     eventId: number; category: GalleryCategory; categories: GalleryCategory[];

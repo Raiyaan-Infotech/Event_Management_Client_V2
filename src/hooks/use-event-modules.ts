@@ -295,6 +295,27 @@ export interface GalleryCategory {
     is_default: boolean;
     item_count: number;
     sort_order?: number;
+    /** Gallery web design (2026-11-04). */
+    folder_type?: GalleryFolderType;
+    notes?: string | null;
+    counts?: { images: number; videos: number; shorts: number };
+}
+
+export type GalleryFolderType = 'images' | 'videos' | 'shorts' | 'mixed';
+
+/** Bulk Actions on selected media: move / copy into a folder, or delete. */
+export function useGalleryBulk(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (body: { ids: number[]; action: 'move' | 'copy' | 'delete'; category_id?: number }) =>
+            api.post<{ action: string; affected: number; skipped: number }>(`/client/events/${eventId}/gallery/bulk`, body),
+        onSuccess: (r) => {
+            const verb = r.action === 'move' ? 'moved' : r.action === 'copy' ? 'copied' : 'deleted';
+            toast.success(`${r.affected} file(s) ${verb}${r.skipped ? ` · ${r.skipped} skipped (the folder does not take that kind)` : ''}`);
+            invalidate(qc, eventId, 'gallery');
+        },
+        onError: (e) => report(e, 'Could not update those files'),
+    });
 }
 
 export interface GalleryUsage {
@@ -387,7 +408,7 @@ export function useUploadGalleryCover(eventId: number) {
 export function useSaveGalleryCategory(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null; cover_image?: string | null; position?: number | null } }) => (id
+        mutationFn: ({ id, data }: { id?: number; data: { name?: string; description?: string | null; cover_image?: string | null; position?: number | null; folder_type?: GalleryFolderType; notes?: string | null } }) => (id
             ? api.put(`/client/gallery/categories/${id}`, data)
             : api.post(`/client/events/${eventId}/gallery/categories`, data)),
         onSuccess: (_r, v) => {
