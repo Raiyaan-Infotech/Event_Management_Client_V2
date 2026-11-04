@@ -52,17 +52,18 @@ export function PersonCell({
 }: { name: string; photo?: string | null; sub?: React.ReactNode; badge?: React.ReactNode; onClick?: () => void }) {
     const body = (
         <>
-            <PersonAvatar name={name} photo={photo} />
+            <PersonAvatar name={name} photo={photo} size={34} />
             <span className="min-w-0">
-                <span className="block break-words text-[13px] font-semibold leading-5">{name}</span>
+                {/* One line; a long name ends in … and shows whole on hover. */}
+                <span className="block truncate text-[12.5px] font-semibold leading-4" title={name}>{name}</span>
                 {badge && <span className="block">{badge}</span>}
-                {sub && <span className="block truncate text-[11.5px] text-muted-foreground">{sub}</span>}
+                {sub && <span className="block truncate text-[11px] text-muted-foreground">{sub}</span>}
             </span>
         </>
     );
     return onClick
-        ? <button type="button" onClick={onClick} className="flex min-w-0 items-center gap-3 text-left hover:[&_span]:text-primary">{body}</button>
-        : <div className="flex min-w-0 items-center gap-3">{body}</div>;
+        ? <button type="button" onClick={onClick} className="flex min-w-[130px] max-w-full items-center gap-2 text-left hover:[&_span]:text-primary">{body}</button>
+        : <div className="flex min-w-[130px] max-w-full items-center gap-2">{body}</div>;
 }
 
 /** The card at the top of every action panel: avatar, name, "Mother · Bride Side", pills. */

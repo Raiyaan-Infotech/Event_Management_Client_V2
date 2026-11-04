@@ -57,17 +57,20 @@ export function StatTile({
             type={onClick ? "button" : undefined}
             onClick={onClick}
             className={cn(
-                "flex min-w-0 items-center gap-2.5 rounded-lg border bg-card px-3 py-2 text-left",
+                // The mockup's tile: icon + number / label (label may wrap), caption on its own line.
+                "flex min-w-0 flex-col justify-center gap-1 rounded-lg border bg-card px-2.5 py-2 text-left",
                 active ? "border-primary ring-1 ring-primary/30" : "border-border",
                 onClick && "transition hover:border-primary/40",
             )}
         >
-            <Icon className={cn("size-6 shrink-0", TONE_TEXT[tone])} />
-            <div className="min-w-0">
-                <p className="text-[17px] leading-5 font-bold tabular-nums">{typeof value === "number" ? value.toLocaleString() : value}</p>
-                <p className="truncate text-[12px] leading-4 text-muted-foreground" title={label}>{label}</p>
-                {caption && <p className="mt-0.5 text-[11px] text-muted-foreground">{caption}</p>}
+            <div className="flex min-w-0 items-center gap-2">
+                <Icon className={cn("size-5 shrink-0", TONE_TEXT[tone])} />
+                <div className="min-w-0">
+                    <p className="text-[16px] leading-5 font-bold tabular-nums">{typeof value === "number" ? value.toLocaleString() : value}</p>
+                    <p className="text-[11.5px] leading-[14px] text-foreground/80" title={label}>{label}</p>
+                </div>
             </div>
+            {caption && <p className="truncate text-center text-[10.5px] text-muted-foreground" title={caption}>{caption}</p>}
         </Comp>
     );
 }
