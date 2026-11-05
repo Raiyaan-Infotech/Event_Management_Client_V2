@@ -8,6 +8,22 @@ import { api, ApiError } from '@/lib/api-client';
 
 export type IntroAnimation = 'fade_slide_up' | 'fade' | 'zoom' | 'typewriter';
 
+/** Intro text style (Jamal, 2026-11-05). */
+export type IntroFont = 'playfair' | 'great_vibes' | 'dancing' | 'cormorant' | 'montserrat' | 'poppins';
+export interface IntroStyle {
+    font: IntroFont;
+    color: string;
+    size: 'sm' | 'md' | 'lg' | 'xl';
+    align: 'left' | 'center' | 'right';
+    position: 'top' | 'middle' | 'bottom';
+    bold: boolean;
+    italic: boolean;
+    shadow: boolean;
+}
+export const INTRO_STYLE_DEFAULT: IntroStyle = {
+    font: 'playfair', color: '#FFFFFF', size: 'lg', align: 'center', position: 'middle', bold: false, italic: true, shadow: true,
+};
+
 export interface AlbumSlide { item_id: number; url: string; thumbnail_url: string | null; file_name: string | null; seconds: number }
 
 export interface GalleryAlbum {
@@ -21,6 +37,7 @@ export interface GalleryAlbum {
     intro_text: string | null;
     intro_animation: IntroAnimation;
     intro_seconds: number;
+    intro_style?: IntroStyle | null;
     music_enabled: boolean;
     music_url: string | null;
     music_name: string | null;
@@ -40,6 +57,7 @@ export interface AlbumPayload {
     intro_text?: string | null;
     intro_animation: IntroAnimation;
     intro_seconds: number;
+    intro_style?: IntroStyle;
     music_enabled: boolean;
     music_url?: string | null;
     music_name?: string | null;

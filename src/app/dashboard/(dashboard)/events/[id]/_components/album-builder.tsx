@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowDown, ArrowLeft, ArrowUp, Clock, Eye, EyeOff, Film, GripVertical, Image as ImageIcon, Images, Info, Maximize2,
+    AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowLeft, ArrowUp, Bold, Clock, Eye, EyeOff, Film, GripVertical, Image as ImageIcon, Images, Info, Italic, Maximize2,
     Minus, MoreVertical, Music, Pause, Pencil, Play, Plus, Save, Trash2, Type, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/media-url";
 import { useUploadGalleryCover, type GalleryCategory, type GalleryItem } from "@/hooks/use-event-modules";
 import {
-    useDeleteAlbum, useSaveAlbum, useUploadAlbumMusic, type GalleryAlbum, type IntroAnimation,
+    INTRO_STYLE_DEFAULT, useDeleteAlbum, useSaveAlbum, useUploadAlbumMusic, type GalleryAlbum, type IntroAnimation, type IntroStyle,
 } from "@/hooks/use-gallery-albums";
 
 /**
@@ -40,6 +40,20 @@ const ANIMATIONS: { value: IntroAnimation; label: string }[] = [
     { value: "zoom", label: "Zoom In" },
     { value: "typewriter", label: "Typewriter" },
 ];
+/** Intro fonts — loaded from Google Fonts by the player (one stylesheet). */
+const FONTS: { value: IntroStyle["font"]; label: string; family: string }[] = [
+    { value: "playfair", label: "Playfair Display", family: "'Playfair Display', Georgia, serif" },
+    { value: "great_vibes", label: "Great Vibes (script)", family: "'Great Vibes', cursive" },
+    { value: "dancing", label: "Dancing Script", family: "'Dancing Script', cursive" },
+    { value: "cormorant", label: "Cormorant Garamond", family: "'Cormorant Garamond', Georgia, serif" },
+    { value: "montserrat", label: "Montserrat", family: "Montserrat, Arial, sans-serif" },
+    { value: "poppins", label: "Poppins", family: "Poppins, Arial, sans-serif" },
+];
+const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Great+Vibes&family=Dancing+Script:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400;1,700&family=Montserrat:ital,wght@0,400;0,700;1,400;1,700&family=Poppins:ital,wght@0,400;0,700;1,400;1,700&display=swap";
+const SIZES: Record<IntroStyle["size"], string> = {
+    sm: "clamp(14px,3vw,24px)", md: "clamp(16px,3.6vw,30px)", lg: "clamp(18px,4.4vw,38px)", xl: "clamp(22px,5.6vw,50px)",
+};
+const COLOR_PRESETS = ["#FFFFFF", "#FDE68A", "#F9A8D4", "#E11D74", "#D4AF37", "#111827"];
 const MAX_MUSIC = 10 * 1024 * 1024;
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const one = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
@@ -50,6 +64,8 @@ export type PlayerAlbum = {
     music_enabled: boolean; music_url: string | null; slides: { url: string; seconds: number }[];
     /** The intro is drawn over this (the mockup); falls back to the first slide. */
     cover_image?: string | null;
+    /** Font, colour, size, alignment, position (2026-11-05); missing = the defaults. */
+    intro_style?: Partial<IntroStyle> | null;
 };
 
 /* ── The slideshow player (preview, Preview Album, Play) ─────────────────── */
@@ -99,10 +115,14 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
     const toggle = () => { if (!playing && time >= total) setTime(0); setPlaying((p) => !p); };
     const seek = (v: number) => { setTime(v); if (audio.current) audio.current.currentTime = v; };
     const introBg = album.cover_image || album.slides[0]?.url || null;
+    const st: IntroStyle = { ...INTRO_STYLE_DEFAULT, ...(album.intro_style ?? {}) };
+    const introFont = FONTS.find((f) => f.value === st.font)?.family ?? FONTS[0].family;
     const anim = { fade_slide_up: "albumUp", fade: "albumFade", zoom: "albumZoom", typewriter: "albumType" }[album.intro_animation];
 
     return (
         <div className={cn("relative overflow-hidden rounded-xl bg-black", className)}>
+            {/* React hoists this to <head> once, however many players are on the page. */}
+            <link rel="stylesheet" href={FONTS_CSS} precedence="default" />
             <style>{`
 @keyframes albumUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
 @keyframes albumFade{from{opacity:0}to{opacity:1}}
@@ -124,7 +144,8 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
                         className={cn("absolute inset-0 transition-opacity duration-700 ease-out", active ? "opacity-100" : "opacity-0")}
                         style={{ zIndex: i === activeIdx ? 2 : i === activeIdx - 1 ? 1 : 0 }}>
                         {s.kind === "intro" ? (
-                            <div className="relative grid size-full place-items-center px-6 text-center">
+                            <div className={cn("relative flex size-full flex-col px-[6%] py-[7%]",
+                                st.position === "top" ? "justify-start" : st.position === "bottom" ? "justify-end pb-[12%]" : "justify-center")}>
                                 {/* The intro text sits OVER the cover image (Jamal's mockup); pink card only when there is no picture. */}
                                 {introBg ? (
                                     <>
@@ -136,9 +157,13 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
                                 ) : (
                                     <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-50 to-amber-50" />
                                 )}
-                                <p key={`t-${active}-${playing}`} className={cn("relative font-serif text-[clamp(18px,4vw,34px)] leading-snug whitespace-pre-line italic",
-                                    introBg ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" : "text-primary")}
-                                    style={{ animation: active ? `${anim} 1.2s ease-out both` : "none" }}>{album.intro_text}</p>
+                                <p key={`t-${active}-${playing}`} className="relative leading-snug whitespace-pre-line"
+                                    style={{
+                                        animation: active ? `${anim} 1.2s ease-out both` : "none",
+                                        fontFamily: introFont, fontSize: SIZES[st.size], color: st.color, textAlign: st.align,
+                                        fontWeight: st.bold ? 700 : 400, fontStyle: st.italic ? "italic" : "normal",
+                                        textShadow: st.shadow ? "0 2px 10px rgba(0,0,0,.65)" : "none",
+                                    }}>{album.intro_text}</p>
                             </div>
                         ) : (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -255,6 +280,8 @@ export function AlbumBuilder({
     const [introOn, setIntroOn] = useState(album?.intro_enabled ?? true);
     const [introText, setIntroText] = useState(album?.intro_text ?? "");
     const [animation, setAnimation] = useState<IntroAnimation>(album?.intro_animation ?? "fade_slide_up");
+    const [introStyle, setIntroStyle] = useState<IntroStyle>({ ...INTRO_STYLE_DEFAULT, ...(album?.intro_style ?? {}) });
+    const styleIt = (patch: Partial<IntroStyle>) => setIntroStyle((p) => ({ ...p, ...patch }));
     const [introSeconds, setIntroSeconds] = useState(album?.intro_seconds ?? 5);
     const [musicOn, setMusicOn] = useState(album?.music_enabled ?? false);
     const [song, setSong] = useState<{ url: string; name: string; size?: number } | null>(album?.music_url ? { url: album.music_url, name: album.music_name ?? "song.mp3" } : null);
@@ -273,6 +300,7 @@ export function AlbumBuilder({
         name, intro_enabled: introOn, intro_text: introShown, intro_animation: animation, intro_seconds: introSeconds,
         music_enabled: musicOn, music_url: song?.url ?? null, slides: slides.map((s) => ({ url: s.url, seconds: s.seconds })),
         cover_image: coverImage,
+        intro_style: introStyle,
     };
     const setAll = (sec: number) => { setSlideSeconds(sec); setSlides((l) => l.map((s) => ({ ...s, seconds: sec }))); };
     const move = (from: number, to: number) => setSlides((l) => { const c = [...l]; const [x] = c.splice(from, 1); c.splice(to, 0, x); return c; });
@@ -294,7 +322,7 @@ export function AlbumBuilder({
             id: album?.id,
             data: {
                 name: name.trim(), description: description.trim() || null, cover_image: coverImage,
-                intro_enabled: introOn, intro_text: introOn ? introShown : introText.trim() || null, intro_animation: animation, intro_seconds: introSeconds,
+                intro_enabled: introOn, intro_text: introOn ? introShown : introText.trim() || null, intro_animation: animation, intro_seconds: introSeconds, intro_style: introStyle,
                 music_enabled: musicOn, music_url: song?.url ?? null, music_name: song?.name ?? null,
                 slide_seconds: slideSeconds, slides: slides.map((s) => ({ item_id: s.item_id, seconds: s.seconds })),
             },
@@ -382,6 +410,61 @@ export function AlbumBuilder({
                                     <SelectContent>{ANIMATIONS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}</SelectContent>
                                 </Select>
                             </FormField>
+                            {/* Text style (Jamal, 2026-11-05): font, colour, size, alignment, position. */}
+                            <div className="flex flex-col gap-2.5 rounded-lg border border-border bg-muted/30 p-2.5">
+                                <p className="text-[12px] font-semibold">Text Style</p>
+                                <div className="grid grid-cols-[1fr_auto] gap-2">
+                                    <Select value={introStyle.font} onValueChange={(v) => styleIt({ font: v as IntroStyle["font"] })}>
+                                        <SelectTrigger className="!h-8 w-full text-[12.5px]" aria-label="Font"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {FONTS.map((f) => <SelectItem key={f.value} value={f.value}><span style={{ fontFamily: f.family, fontSize: 14 }}>{f.label}</span></SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Size">
+                                        {(["sm", "md", "lg", "xl"] as const).map((z) => (
+                                            <button key={z} type="button" onClick={() => styleIt({ size: z })} aria-pressed={introStyle.size === z}
+                                                className={cn("h-8 px-2 text-[11.5px] font-semibold uppercase", introStyle.size === z ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{z === "md" ? "M" : z === "sm" ? "S" : z === "lg" ? "L" : "XL"}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Colour">
+                                    <span className="mr-1 text-[11.5px] text-muted-foreground">Colour</span>
+                                    {COLOR_PRESETS.map((c) => (
+                                        <button key={c} type="button" onClick={() => styleIt({ color: c })} aria-label={`Colour ${c}`}
+                                            className={cn("size-6 rounded-full border border-border shadow-sm", introStyle.color.toUpperCase() === c && "ring-2 ring-primary ring-offset-1")}
+                                            style={{ background: c }} />
+                                    ))}
+                                    <label className="relative grid size-6 cursor-pointer place-items-center overflow-hidden rounded-full border border-dashed border-border text-[13px]" title="Custom colour">
+                                        +
+                                        <input type="color" value={introStyle.color} onChange={(e) => styleIt({ color: e.target.value.toUpperCase() })} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Custom colour" />
+                                    </label>
+                                    <span className="ml-1 font-mono text-[11px] text-muted-foreground">{introStyle.color}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Alignment">
+                                        {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([v, I]) => (
+                                            <button key={v} type="button" onClick={() => styleIt({ align: v })} aria-label={`Align ${v}`} aria-pressed={introStyle.align === v}
+                                                className={cn("grid h-8 flex-1 place-items-center", introStyle.align === v ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}><I className="size-4" /></button>
+                                        ))}
+                                    </div>
+                                    <div className="flex overflow-hidden rounded-md border border-border" role="group" aria-label="Position">
+                                        {(["top", "middle", "bottom"] as const).map((v) => (
+                                            <button key={v} type="button" onClick={() => styleIt({ position: v })} aria-pressed={introStyle.position === v}
+                                                className={cn("h-8 flex-1 text-[11.5px] font-medium capitalize", introStyle.position === v ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted")}>{v}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {([["bold", "Bold", Bold], ["italic", "Italic", Italic], ["shadow", "Shadow", Type]] as const).map(([k, l, I]) => (
+                                        <button key={k} type="button" onClick={() => styleIt({ [k]: !introStyle[k] } as Partial<IntroStyle>)} aria-pressed={introStyle[k]}
+                                            className={cn("inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11.5px] font-medium",
+                                                introStyle[k] ? "border-primary bg-primary/10 text-primary" : "border-border bg-background hover:bg-muted")}>
+                                            <I className="size-3.5" /> {l}
+                                        </button>
+                                    ))}
+                                    <button type="button" onClick={() => setIntroStyle(INTRO_STYLE_DEFAULT)} className="ml-auto text-[11.5px] font-medium text-primary hover:underline">Reset style</button>
+                                </div>
+                            </div>
                         </>
                     )}
                     <div className="flex items-start gap-3 border-t border-border pt-3">
