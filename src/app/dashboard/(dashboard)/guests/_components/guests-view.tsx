@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-    CheckCircle2, Clock, Download, Eye, EyeOff, FileUp, Mail, Pencil, Star, Trash2, User, UserPlus, Users, UsersRound,
+    CheckCircle2, Clock, Download, Eye, EyeOff, FileUp, Mail, Star, User, UserPlus, Users, UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -185,16 +185,8 @@ export function GuestsView({ eventId }: { eventId: number }) {
                                             </td>
                                             <td className="py-1.5 pr-3">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]" onClick={() => open("edit", g)}>
-                                                        <Pencil className="size-3" /> Edit
-                                                    </Button>
-                                                    <Button size="sm" variant="outline" className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => open("delete", g)}>
-                                                        <Trash2 className="size-3" /> Delete
-                                                    </Button>
-                                                    {/* The other actions (View, Send Invitation, RSVP, VIP, Hide). */}
-                                                    <RowActions compact label={`More actions for ${g.name}`}
-                                                        items={guestMenu(g, (x) => open(x, g), () => update.mutate({ id: g.id, data: { is_visible: true } }))
-                                                            .filter((i) => i.label !== "Edit Guest" && i.label !== "Delete Guest")} />
+                                                    <RowActions label={`Actions for ${g.name}`}
+                                                        items={guestMenu(g, (x) => open(x, g), () => update.mutate({ id: g.id, data: { is_visible: true } }))} />
                                                 </div>
                                             </td>
                                         </tr>

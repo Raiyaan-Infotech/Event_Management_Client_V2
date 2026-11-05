@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
     CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock, Download, Eye, EyeOff, Info, Mail, MessageCircle,
-    Pencil, Send, Smartphone, Star, Trash2, User, Users, XCircle,
+    Send, Smartphone, Star, User, Users, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -216,14 +216,10 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                                             </td>
                                             <td className="py-2 pr-4">
                                                 <div className="flex items-center justify-end gap-1.5">
-                                                    {/* Edit + Delete as buttons, like the Guests table; View Response / Send Reminder are in ⋯ (Jamal, 2026-11-05). */}
-                                                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]" onClick={() => setGuestAct({ a: "edit", r })}><Pencil className="size-3" /> Edit</Button>
-                                                    <Button size="sm" variant="outline" className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => setAct({ a: "delete", r })}><Trash2 className="size-3" /> Delete</Button>
-                                                    <RowActions compact label={`More actions for ${r.name}`} items={rsvpMenu(r,
+                                                    <RowActions label={`Actions for ${r.name}`} items={rsvpMenu(r,
                                                         (a, target) => setAct({ a, r, target }),
                                                         (a) => setGuestAct({ a, r }),
-                                                        () => hide.mutate({ guestId: r.id, hidden: false }))
-                                                        .filter((i) => i.label !== "Edit Guest" && i.label !== "Delete")} />
+                                                        () => hide.mutate({ guestId: r.id, hidden: false }))} />
                                                 </div>
                                             </td>
                                         </tr>

@@ -20,7 +20,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -316,17 +319,32 @@ export default function ManageGroupsPage() {
 
                                                 <td className="py-2 pr-4 align-top">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        {/* Edit + Delete as buttons, like the Guests table (Jamal, 2026-11-05). */}
-                                                        <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]">
-                                                            <Link href={wsHref(`/dashboard/guests/groups/${group.id}`)} aria-label={`Edit ${group.name}`}>
-                                                                <Pencil className="size-3" /> Edit
-                                                            </Link>
-                                                        </Button>
-                                                        <Button size="sm" variant="outline" aria-label={`Delete ${group.name}`}
-                                                            className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive"
-                                                            onClick={() => setPendingDelete(group)}>
-                                                            <Trash2 className="size-3" /> Delete
-                                                        </Button>
+                                                        {/* Edit / Send message / Delete — all in the ⋯ menu, like the other lists (Jamal, 2026-11-05). */}
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button size="icon" variant="outline" aria-label={`Actions for ${group.name}`}
+                                                                    className="size-8 border-primary/30 text-primary hover:bg-primary/5 hover:text-primary">
+                                                                    <MoreHorizontal className="size-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-52">
+                                                                <DropdownMenuItem asChild className="gap-2.5 py-2 text-[13px]">
+                                                                    <Link href={wsHref(`/dashboard/guests/groups/${group.id}`)}>
+                                                                        <Pencil className="size-4 text-muted-foreground" /> Edit Group
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem asChild className="gap-2.5 py-2 text-[13px]">
+                                                                    <Link href={wsHref(`/dashboard/messages/send?group=${group.id}&from=guest-groups`)}>
+                                                                        <Send className="size-4 text-muted-foreground" /> Send Message to Group
+                                                                    </Link>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem className="gap-2.5 py-2 text-[13px] text-destructive focus:text-destructive"
+                                                                    onClick={() => setPendingDelete(group)}>
+                                                                    <Trash2 className="size-4 text-destructive" /> Delete Group
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </div>
                                                 </td>
                                             </tr>

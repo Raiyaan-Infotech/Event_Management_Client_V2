@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Check, CheckCircle2, Clock, Pencil, Plus, Search, Trash2, User, UserPlus, Users } from "lucide-react";
+import { Ban, Check, CheckCircle2, Clock, Plus, Search, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -154,13 +154,9 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                                         <td className="py-1.5 pr-2"><AccessPill p={p} /></td>
                                         <td className="hidden py-1.5 pr-2 whitespace-nowrap 2xl:table-cell">{p.created_at ? fmt(p.created_at) : "—"}</td>
                                         <td className="py-2 pr-4">
-                                            {/* Edit + Delete as buttons, like the Guests table (Jamal, 2026-11-05). */}
                                             <div className="flex items-center justify-end gap-1">
-                                                <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]" onClick={() => setAct({ a: "edit", id: p.id })}><Pencil className="size-3" /> Edit</Button>
-                                                <Button size="sm" variant="outline" className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive" onClick={() => setAct({ a: "delete", id: p.id })}><Trash2 className="size-3" /> Delete</Button>
-                                                <RowActions compact label={`More actions for ${p.name}`} items={participantMenu(p, (a) => setAct({ a, id: p.id }),
-                                                    () => save.mutate({ id: p.id, data: { is_hidden: false } as never }))
-                                                    .filter((i) => i.label !== "Edit Participant" && i.label !== "Delete Participant")} />
+                                                <RowActions label={`Actions for ${p.name}`} items={participantMenu(p, (a) => setAct({ a, id: p.id }),
+                                                    () => save.mutate({ id: p.id, data: { is_hidden: false } as never }))} />
                                             </div>
                                         </td>
                                     </tr>
