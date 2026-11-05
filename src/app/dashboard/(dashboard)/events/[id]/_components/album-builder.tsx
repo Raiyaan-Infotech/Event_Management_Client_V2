@@ -48,6 +48,8 @@ type Slide = { item_id: number; url: string; thumbnail_url: string | null; file_
 export type PlayerAlbum = {
     name: string; intro_enabled: boolean; intro_text: string | null; intro_animation: IntroAnimation; intro_seconds: number;
     music_enabled: boolean; music_url: string | null; slides: { url: string; seconds: number }[];
+    /** The intro is drawn over this (the mockup); falls back to the first slide. */
+    cover_image?: string | null;
 };
 
 /* ── The slideshow player (preview, Preview Album, Play) ─────────────────── */
@@ -95,6 +97,7 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
     const seg = segments.find((s) => time >= s.start && time < s.end) ?? segments[segments.length - 1];
     const toggle = () => { if (!playing && time >= total) setTime(0); setPlaying((p) => !p); };
     const seek = (v: number) => { setTime(v); if (audio.current) audio.current.currentTime = v; };
+    const introBg = album.cover_image || album.slides[0]?.url || null;
     const anim = { fade_slide_up: "albumUp", fade: "albumFade", zoom: "albumZoom", typewriter: "albumType" }[album.intro_animation];
 
     return (
@@ -109,8 +112,20 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
             {!seg ? (
                 <div className="grid size-full place-items-center text-[13px] text-white/70">Add images to see the slideshow</div>
             ) : seg.kind === "intro" ? (
-                <div key={`intro-${playing}`} className="grid size-full place-items-center bg-gradient-to-br from-rose-100 via-pink-50 to-amber-50 px-6 text-center">
-                    <p className="font-serif text-[clamp(18px,4vw,34px)] leading-snug whitespace-pre-line text-primary italic"
+                <div key={`intro-${playing}`} className="relative grid size-full place-items-center px-6 text-center">
+                    {/* The intro text sits OVER the cover image (Jamal's mockup, 2026-11-05); pink card only when there is no picture. */}
+                    {introBg ? (
+                        <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={mediaUrl(introBg)} alt="" className="absolute inset-0 size-full object-cover"
+                                style={{ animation: `albumKen ${album.intro_seconds.toFixed(1)}s linear both`, animationPlayState: playing ? "running" : "paused" }} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-50 to-amber-50" />
+                    )}
+                    <p className={cn("relative font-serif text-[clamp(18px,4vw,34px)] leading-snug whitespace-pre-line italic",
+                        introBg ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" : "text-primary")}
                         style={{ animation: `${anim} 1.2s ease-out both` }}>{album.intro_text}</p>
                 </div>
             ) : (
@@ -238,9 +253,13 @@ export function AlbumBuilder({
     const [tried, setTried] = useState(false);
 
     const total = (introOn ? introSeconds : 0) + slides.reduce((t, s) => t + s.seconds, 0);
+    // The intro shows the Intro Text, or the Album Name when that is empty (Jamal, 2026-11-05:
+    // the name typed in did not show in the video, and the timeline claimed an intro that was skipped).
+    const introShown = introText.trim() || name.trim();
     const player: PlayerAlbum = {
-        name, intro_enabled: introOn, intro_text: introText, intro_animation: animation, intro_seconds: introSeconds,
+        name, intro_enabled: introOn, intro_text: introShown, intro_animation: animation, intro_seconds: introSeconds,
         music_enabled: musicOn, music_url: song?.url ?? null, slides: slides.map((s) => ({ url: s.url, seconds: s.seconds })),
+        cover_image: coverImage,
     };
     const setAll = (sec: number) => { setSlideSeconds(sec); setSlides((l) => l.map((s) => ({ ...s, seconds: sec }))); };
     const move = (from: number, to: number) => setSlides((l) => { const c = [...l]; const [x] = c.splice(from, 1); c.splice(to, 0, x); return c; });
@@ -257,13 +276,12 @@ export function AlbumBuilder({
         if (!name.trim()) return toast.error("Please enter the album name.");
         if (!slides.length) return toast.error("Please add at least one image.");
         if (!coverImage) return toast.error("Please add a cover image.");
-        if (introOn && !introText.trim()) return toast.error("Please enter the intro text, or switch the intro off.");
         if (musicOn && !song) return toast.error("Please upload the background song, or switch the music off.");
         save.mutate({
             id: album?.id,
             data: {
                 name: name.trim(), description: description.trim() || null, cover_image: coverImage,
-                intro_enabled: introOn, intro_text: introText.trim() || null, intro_animation: animation, intro_seconds: introSeconds,
+                intro_enabled: introOn, intro_text: introOn ? introShown : introText.trim() || null, intro_animation: animation, intro_seconds: introSeconds,
                 music_enabled: musicOn, music_url: song?.url ?? null, music_name: song?.name ?? null,
                 slide_seconds: slideSeconds, slides: slides.map((s) => ({ item_id: s.item_id, seconds: s.seconds })),
             },
@@ -341,8 +359,8 @@ export function AlbumBuilder({
                     </div>
                     {introOn && (
                         <>
-                            <FormField label="Intro Text" required>
-                                <Textarea value={introText} maxLength={120} rows={2} placeholder={"QA Test Wedding\nA Journey of Love & Togetherness"} onChange={(e) => setIntroText(e.target.value)} className={cn(tried && !introText.trim() && "border-destructive")} />
+                            <FormField label="Intro Text">
+                                <Textarea value={introText} maxLength={120} rows={2} placeholder={name.trim() ? `${name.trim()} (the album name is used when this is empty)` : "QA Test Wedding\nA Journey of Love & Togetherness"} onChange={(e) => setIntroText(e.target.value)} />
                                 <CharCount value={introText} max={120} />
                             </FormField>
                             <FormField label="Text Animation">
