@@ -25,6 +25,7 @@ import {
 import {
     CHANNELS, GuestFields, draftError, draftOf, payloadOf, useRelationsFor, type GuestDraft,
 } from "./guest-fields";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * The Guests row actions (web design 2026-11-04), each a slide-in panel:
@@ -245,6 +246,7 @@ const ANSWER: Record<string, { text: string; tone: Tone }> = {
 };
 
 function ViewRsvp({ guest, eventId, onClose }: P) {
+    const wsHref = useEventHref();
     const fmt = useDateFormatter();
     const full = useGuest(guest.id);
     const rsvp = full.data?.rsvp;
@@ -258,7 +260,7 @@ function ViewRsvp({ guest, eventId, onClose }: P) {
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Close</Button>
-                    <Button asChild><Link href={`/dashboard/events/${eventId}/rsvps`}>Open RSVP Management</Link></Button>
+                    <Button asChild><Link href={wsHref(`/dashboard/events/${eventId}/rsvps`)}>Open RSVP Management</Link></Button>
                 </>
             )}>
             <Summary g={guest} />

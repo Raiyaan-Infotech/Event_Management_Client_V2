@@ -25,7 +25,7 @@ import {
     useSaveWishSettings, useUpdateWish, useWishFilter,
     type Wish, type WishAudience, type WishFilter, type WishSettings,
 } from "@/hooks/use-event-engagement";
-import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
+import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 
 /**
  * Wed Wishes — the organizer's "Wed Wishes Management", as the app (V1, Jamal's
@@ -445,7 +445,7 @@ function DeleteWishDialog({ eventId, wish, onClose }: { eventId: number; wish: W
 }
 
 /** ⚙ — what participants may do and see, plus the content filter. */
-function WishSettingsDialog({ eventId, settings, onClose }: { eventId: number; settings: WishSettings; onClose: () => void }) {
+function WishSettingsDialog({ eventId, settings, onClose, inline }: { eventId: number; settings: WishSettings; onClose: () => void; inline?: boolean }) {
     const saveSettings = useSaveWishSettings(eventId);
     const filterQuery = useWishFilter(eventId);
     const saveFilter = useSaveWishFilter(eventId);
@@ -479,12 +479,12 @@ function WishSettingsDialog({ eventId, settings, onClose }: { eventId: number; s
     const busy = saveSettings.isPending || saveFilter.isPending;
 
     return (
-        <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Wish Settings</DialogTitle>
-                    <DialogDescription>What participants can do and see in Wed Wishes.</DialogDescription>
-                </DialogHeader>
+        <SettingsShell inline={inline} title="Wish Settings" description="What participants can do and see in Wed Wishes."
+            onClose={onClose} busy={busy} className="max-h-[92vh] overflow-y-auto sm:max-w-lg"
+            footer={<>
+                {!inline && <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>}
+                <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save</Button>
+            </>}>
 
                 <div>
                     <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Participants</p>
@@ -533,11 +533,14 @@ function WishSettingsDialog({ eventId, settings, onClose }: { eventId: number; s
                     )}
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-                    <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </SettingsShell>
     );
+}
+
+/** Wish Settings as a card — the event's Menu Settings page. */
+export function WishSettingsCard({ eventId }: { eventId: number }) {
+    const query = useEventWishes(eventId);
+    if (query.isLoading) return <Section title="Wish Settings"><PanelLoading /></Section>;
+    if (!query.data) return <Section title="Wish Settings"><Empty title="Could not load the wish settings" /></Section>;
+    return <WishSettingsDialog inline eventId={eventId} settings={query.data.settings} onClose={() => undefined} />;
 }

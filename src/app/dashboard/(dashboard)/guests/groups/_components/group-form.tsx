@@ -25,6 +25,7 @@ import {
     useCreateGuestGroup, useUpdateGuestGroup, useGuestGroups,
     type GroupPayload,
 } from "@/hooks/use-guests";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Add / Edit Group.
@@ -57,6 +58,7 @@ const EMPTY: FormState = {
 };
 
 export function GroupForm({ groupId }: { groupId?: number }) {
+    const wsHref = useEventHref();
     const router = useRouter();
     const isEdit = !!groupId;
 
@@ -68,8 +70,8 @@ export function GroupForm({ groupId }: { groupId?: number }) {
     const groups = useGuestGroups({ limit: 100 });
     const existing = groups.data?.data.find((g) => g.id === groupId);
 
-    const create = useCreateGuestGroup(() => router.push("/dashboard/guests/groups"));
-    const update = useUpdateGuestGroup(() => router.push("/dashboard/guests/groups"));
+    const create = useCreateGuestGroup(() => router.push(wsHref("/dashboard/guests/groups")));
+    const update = useUpdateGuestGroup(() => router.push(wsHref("/dashboard/guests/groups")));
     const saving = create.isPending || update.isPending;
 
     const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -283,7 +285,7 @@ export function GroupForm({ groupId }: { groupId?: number }) {
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <Button asChild variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium">
-                            <Link href="/dashboard/guests/groups">Cancel</Link>
+                            <Link href={wsHref("/dashboard/guests/groups")}>Cancel</Link>
                         </Button>
                         <Button onClick={submit} disabled={saving} className="h-10 rounded-md px-4 text-[13px] font-semibold">
                             {saving ? (isEdit ? "Saving..." : "Creating...") : (isEdit ? "Save Changes" : "Create Group")}

@@ -23,6 +23,7 @@ import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib
 import { useGuestFormOptions } from "@/hooks/use-guests";
 import { relationSuitsSide, useRelationOptions, useUploadPhoto } from "@/hooks/use-event-modules";
 import { useSaveParticipant, type ParticipantPayload, type ParticipantRow } from "@/hooks/use-event-participants";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Add / Edit Participant — the app's form, field for field (Jamal, 2026-11-02):
@@ -83,10 +84,11 @@ export function ParticipantForm({
     /** Add from Guest: the guest that fills the form. */
     fromGuest?: ParticipantSeed | null;
 }) {
+    const wsHref = useEventHref();
     const router = useRouter();
     const editing = !!participant;
     const seed: ParticipantSeed = participant ?? fromGuest ?? {};
-    const back = `/dashboard/events/${eventId}/participants`;
+    const back = wsHref(`/dashboard/events/${eventId}/participants`);
 
     const save = useSaveParticipant(() => router.push(back));
     const upload = useUploadPhoto();

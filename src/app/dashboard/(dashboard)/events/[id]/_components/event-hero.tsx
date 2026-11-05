@@ -16,6 +16,7 @@ import { eventCustomImage } from "@/lib/event-templates";
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import type { ClientEvent } from "@/hooks/use-client-events";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * The event page's header card (Jamal's mockup, 2026-11-04): invitation
@@ -33,6 +34,7 @@ export function EventHero({
     onShare: () => void;
     onQr: () => void;
 }) {
+    const wsHref = useEventHref();
     const fmt = useDateFormatter();
     const [view, setView] = useState(false);
     const thumb = (className: string) => (
@@ -82,7 +84,7 @@ export function EventHero({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem asChild className="gap-2.5 text-[13px]">
-                            <Link href={`/dashboard/events/${event.id}/edit`}><Pencil className="size-4 text-muted-foreground" /> {event.status === "draft" ? "Continue Editing" : "Edit Event"}</Link>
+                            <Link href={wsHref(`/dashboard/events/${event.id}/edit`)}><Pencil className="size-4 text-muted-foreground" /> {event.status === "draft" ? "Continue Editing" : "Edit Event"}</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={onShare} className="gap-2.5 text-[13px]"><Share2 className="size-4 text-muted-foreground" /> Share Event</DropdownMenuItem>
                         <DropdownMenuSeparator />

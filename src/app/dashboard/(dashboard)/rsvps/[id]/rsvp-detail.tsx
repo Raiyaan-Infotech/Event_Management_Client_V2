@@ -19,6 +19,7 @@ import {
     type TimelineEntry,
 } from '@/hooks/use-rsvps';
 import { useDateFormatter } from '@/hooks/use-client-settings';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * View RSVP.
@@ -44,6 +45,7 @@ import { useDateFormatter } from '@/hooks/use-client-settings';
  * The keys are shown as given rather than dressed up as questions nobody wrote.
  */
 export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
+    const wsHref = useEventHref();
     const { data, isLoading, isError } = useRsvp(rsvpId);
     const fmt = useDateFormatter();
 
@@ -70,7 +72,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                     This RSVP does not exist, or it is not on your account.
                 </p>
                 <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/rsvps">Back to RSVPs</Link>
+                    <Link href={wsHref("/dashboard/rsvps")}>Back to RSVPs</Link>
                 </Button>
             </div>
         );
@@ -94,7 +96,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                       rules about who is reachable.
                     */}
                     <Button asChild size="sm" variant="outline">
-                        <Link href={`/dashboard/messages/send?event_id=${r.event?.id ?? ''}&guest_id=${r.id}&kind=reminder&from=rsvps`}>
+                        <Link href={wsHref(`/dashboard/messages/send?event_id=${r.event?.id ?? ''}&guest_id=${r.id}&kind=reminder&from=rsvps`)}>
                             <Send className="size-3.5" /> Send reminder
                         </Link>
                     </Button>
@@ -103,13 +105,13 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                         stranger who has no phone-book entry. */}
                     {r.phone_book_guest_id ? (
                         <Button asChild size="sm" variant="outline">
-                            <Link href={`/dashboard/guests/${r.phone_book_guest_id}/profile`}>
+                            <Link href={wsHref(`/dashboard/guests/${r.phone_book_guest_id}/profile`)}>
                                 <UserRound className="size-3.5" /> Guest profile
                             </Link>
                         </Button>
                     ) : null}
                     <Button asChild size="sm">
-                        <Link href={`/dashboard/rsvps/${r.id}/edit`}>
+                        <Link href={wsHref(`/dashboard/rsvps/${r.id}/edit`)}>
                             <Pencil className="size-3.5" /> Edit response
                         </Link>
                     </Button>
@@ -381,7 +383,7 @@ export default function RsvpDetailScreen({ rsvpId }: { rsvpId: number }) {
                                                     </TableCell>
                                                     <TableCell className="text-end">
                                                         <Button asChild size="sm" variant="ghost">
-                                                            <Link href={`/dashboard/rsvps/${l.id}`}>
+                                                            <Link href={wsHref(`/dashboard/rsvps/${l.id}`)}>
                                                                 <ArrowLeft className="size-3.5 rotate-180" />
                                                             </Link>
                                                         </Button>

@@ -24,7 +24,7 @@ import {
     ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
     PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
-import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
+import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 
 /**
  * Event Family — Jamal's web design (2026-11-04), built from the module kit:
@@ -394,42 +394,45 @@ function MemberRow({
     );
 }
 
-/** Family Settings — the ⚙ button: what a participant sees of the list (as the app). */
-function FamilySettingsDialog({ eventId, settings, onClose }: { eventId: number; settings: FamilySettings; onClose: () => void }) {
+/** Family Settings — the ⚙ button (dialog) or a Menu Settings page (`inline`): what a participant sees of the list (as the app). */
+function FamilySettingsDialog({ eventId, settings, onClose, inline }: { eventId: number; settings: FamilySettings; onClose: () => void; inline?: boolean }) {
     const save = useSaveFamilySettings(eventId);
     const [profileScreen, setProfileScreen] = useState(settings.profile_screen);
     const [photo, setPhoto] = useState(settings.profile_photo);
     const [relationship, setRelationship] = useState(settings.relationship);
 
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Family Settings</DialogTitle>
-                    <DialogDescription>What a participant sees of the family list. The name is always shown.</DialogDescription>
-                </DialogHeader>
-                <SwitchRow id="fam-profile" label="Family Profile Screen" hint="Let a family member be opened to see their profile"
-                    checked={profileScreen} onChange={setProfileScreen} />
-                <div className="flex flex-col gap-3 border-t pt-3">
-                    <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Family fields</p>
-                    <label className="flex items-center gap-2.5 text-[13px]">
-                        <Checkbox checked={photo} onCheckedChange={(v) => setPhoto(v === true)} /> Profile Photo
-                    </label>
-                    <label className="flex items-center gap-2.5 text-[13px] opacity-70">
-                        <Checkbox checked disabled /> Name <span className="text-[11.5px] text-muted-foreground">(always shown)</span>
-                    </label>
-                    <label className="flex items-center gap-2.5 text-[13px]">
-                        <Checkbox checked={relationship} onCheckedChange={(v) => setRelationship(v === true)} /> Relationship
-                    </label>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button disabled={save.isPending}
-                        onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship }, { onSuccess: onClose })}>
-                        Save
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <SettingsShell inline={inline} title="Family Settings" description="What a participant sees of the family list. The name is always shown."
+            onClose={onClose} busy={save.isPending}
+            footer={<>
+                {!inline && <Button variant="outline" onClick={onClose}>Cancel</Button>}
+                <Button disabled={save.isPending}
+                    onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship }, { onSuccess: onClose })}>
+                    Save
+                </Button>
+            </>}>
+            <SwitchRow id="fam-profile" label="Family Profile Screen" hint="Let a family member be opened to see their profile"
+                checked={profileScreen} onChange={setProfileScreen} />
+            <div className="flex flex-col gap-3 border-t pt-3">
+                <p className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Family fields</p>
+                <label className="flex items-center gap-2.5 text-[13px]">
+                    <Checkbox checked={photo} onCheckedChange={(v) => setPhoto(v === true)} /> Profile Photo
+                </label>
+                <label className="flex items-center gap-2.5 text-[13px] opacity-70">
+                    <Checkbox checked disabled /> Name <span className="text-[11.5px] text-muted-foreground">(always shown)</span>
+                </label>
+                <label className="flex items-center gap-2.5 text-[13px]">
+                    <Checkbox checked={relationship} onCheckedChange={(v) => setRelationship(v === true)} /> Relationship
+                </label>
+            </div>
+        </SettingsShell>
     );
+}
+
+/** Family Settings as a card — the event's Menu Settings page. */
+export function FamilySettingsCard({ eventId }: { eventId: number }) {
+    const query = useEventFamily(eventId);
+    if (query.isLoading) return <Section title="Family Settings"><PanelLoading /></Section>;
+    if (!query.data) return <Section title="Family Settings"><Empty title="Could not load the family settings" /></Section>;
+    return <FamilySettingsDialog inline eventId={eventId} settings={query.data.settings} onClose={() => undefined} />;
 }

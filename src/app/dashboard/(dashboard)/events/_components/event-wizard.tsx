@@ -67,6 +67,7 @@ import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { ImageCropDialog } from '@/components/common/image-crop-dialog';
 import { formatDate } from '@/lib/format';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * The six-step event wizard, used by BOTH routes.
@@ -335,6 +336,7 @@ export function EventWizard({
      */
     initialThemeId?: string;
 }) {
+    const wsHref = useEventHref();
     const isEdit = !!eventId;
     const router = useRouter();
 
@@ -346,7 +348,7 @@ export function EventWizard({
     const sectionPages = section ? SECTION_PAGES[section].pages : null;
     const [step, setStep] = useState(sectionPages ? sectionPages[0] : 1);
     const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
-    const hubHref = eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events";
+    const hubHref = wsHref(eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events");
     const [form, setForm] = useState<FormState>(EMPTY);
     /** What the venue map last wrote into each field (see the Venue step). */
     const mapFilled = useRef<Partial<Record<"venue_name" | "venue_address" | "venue_landmark", string>>>({});
@@ -444,11 +446,11 @@ export function EventWizard({
         // Saved from the Exit question: leave, not on to "Event Created".
         if (exitAfterSave.current) {
             exitAfterSave.current = false;
-            router.push(isEdit ? hubHref : "/dashboard/events");
+            router.push(wsHref(isEdit ? hubHref : "/dashboard/events"));
             return;
         }
         if (section) {
-            router.push(`/dashboard/events/${event.id}/edit`);
+            router.push(wsHref(`/dashboard/events/${event.id}/edit`));
             return;
         }
         setCreated(event);
@@ -1105,7 +1107,7 @@ export function EventWizard({
     const started = !!form.category_id || step > 1;
     const askExit = () => {
         if (section || (!isEdit && !started) || step === S_CREATED) {
-            router.push(isEdit ? hubHref : "/dashboard/events");
+            router.push(wsHref(isEdit ? hubHref : "/dashboard/events"));
             return;
         }
         setExitOpen(true);
@@ -2737,7 +2739,7 @@ export function EventWizard({
                             className="h-10 w-full rounded-md text-[13px] text-destructive hover:text-destructive"
                             onClick={() => {
                                 setExitOpen(false);
-                                router.push(isEdit ? hubHref : "/dashboard/events");
+                                router.push(wsHref(isEdit ? hubHref : "/dashboard/events"));
                             }}
                         >
                             Exit

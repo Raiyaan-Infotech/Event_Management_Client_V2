@@ -23,9 +23,10 @@ import { grantedSections, sectionForPath } from '@/lib/navigation';
  * Paths outside every gated section (Dashboard, My Events, Billing, …) pass
  * straight through and never wait on the plan lookup.
  */
-export function PlanSectionGate({ children }: { children: React.ReactNode }) {
+export function PlanSectionGate({ children, path }: { children: React.ReactNode; path?: string }) {
     const pathname = usePathname();
-    const section = sectionForPath(pathname);
+    // `path` = the dashboard page this one stands for (the event workspace's copies).
+    const section = sectionForPath(path ?? pathname);
     const { data, isLoading } = useEventOptions();
 
     if (!section) return <>{children}</>;

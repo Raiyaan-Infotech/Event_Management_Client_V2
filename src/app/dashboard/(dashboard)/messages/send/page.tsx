@@ -37,6 +37,7 @@ import {
     RichTextEditor, htmlIsEmpty,
     type RichTextEditorRef,
 } from '@/components/common/rich-text-editor';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Send Message.
@@ -234,6 +235,7 @@ export default function SendMessagePage() {
 }
 
 function SendMessageComposer() {
+    const wsHref = useEventHref();
     const router = useRouter();
     const search = useSearchParams();
 
@@ -280,7 +282,7 @@ function SendMessageComposer() {
 
     const previewAudience = usePreviewAudience();
     const sendTest = useSendTest();
-    const send = useSendMessage(() => router.push('/dashboard/messages'));
+    const send = useSendMessage(() => router.push(wsHref('/dashboard/messages')));
 
     const [resolved, setResolved] = useState<AudiencePreview | null>(null);
 
@@ -433,12 +435,12 @@ function SendMessageComposer() {
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2">
                     <Button asChild variant="outline" size="sm">
-                        <Link href={link.back.href}>
+                        <Link href={wsHref(link.back.href)}>
                             <ArrowLeft className="size-3.5" /> {link.back.label}
                         </Link>
                     </Button>
                     <Button asChild size="sm">
-                        <Link href="/dashboard/events/create">Create an event</Link>
+                        <Link href={wsHref("/dashboard/events/create")}>Create an event</Link>
                     </Button>
                 </div>
             </div>
@@ -453,7 +455,7 @@ function SendMessageComposer() {
               return you to before you press it.
             */}
             <Button asChild variant="ghost" size="sm" className="-ms-2 w-fit text-muted-foreground">
-                <Link href={link.back.href}>
+                <Link href={wsHref(link.back.href)}>
                     <ArrowLeft className="size-3.5" /> {link.back.label}
                 </Link>
             </Button>
@@ -937,7 +939,7 @@ function SendMessageComposer() {
 
                             <div className="flex flex-wrap items-center justify-end gap-2">
                                 <Button variant="outline" asChild>
-                                    <Link href="/dashboard/messages">Cancel</Link>
+                                    <Link href={wsHref("/dashboard/messages")}>Cancel</Link>
                                 </Button>
                                 <Button
                                     variant="outline"

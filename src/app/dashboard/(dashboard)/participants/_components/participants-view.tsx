@@ -21,6 +21,7 @@ import { useEventParticipants, useSaveParticipant, type ParticipantRow } from "@
 import {
     AccessPill, InvitePill, LinkedPill, ParticipantSheet, RsvpPill, accessOf, participantMenu, type PAction,
 } from "./participant-actions";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Event Participants — Jamal's web design (2026-11-04), from the module kit:
@@ -51,6 +52,7 @@ const SORT_FN: Record<Sort, (a: ParticipantRow, b: ParticipantRow) => number> = 
 };
 
 export function ParticipantsView({ eventId }: { eventId: number }) {
+    const wsHref = useEventHref();
     const router = useRouter();
     const fmt = useDateFormatter();
     const list = useEventParticipants(eventId);
@@ -182,7 +184,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                             <span><span className="block text-[13px] font-semibold">Add from Guest</span>
                                 <span className="block text-[11.5px] text-muted-foreground">Pick one of this event&apos;s guests</span></span>
                         </button>
-                        <button type="button" onClick={() => { setAddOpen(false); router.push(`/dashboard/participants/add?event=${eventId}`); }}
+                        <button type="button" onClick={() => { setAddOpen(false); router.push(wsHref(`/dashboard/participants/add?event=${eventId}`)); }}
                             className="flex items-center gap-3 rounded-md border p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5">
                             <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary"><User className="size-4" /></span>
                             <span><span className="block text-[13px] font-semibold">Add Manually</span>
@@ -197,7 +199,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                     eventId={eventId}
                     taken={new Set(rows.map((r) => last10(r.mobile)).filter(Boolean))}
                     onClose={() => setPickGuest(false)}
-                    onPick={(guestId) => router.push(`/dashboard/participants/add?event=${eventId}&guest=${guestId}`)}
+                    onPick={(guestId) => router.push(wsHref(`/dashboard/participants/add?event=${eventId}&guest=${guestId}`))}
                 />
             )}
         </div>

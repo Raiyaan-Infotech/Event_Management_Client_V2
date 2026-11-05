@@ -23,8 +23,12 @@ import {
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
+import { FamilySettingsCard } from "./family-panel";
+import { WishSettingsCard } from "./wishes-panel";
+import { useVisibleSettingsPages, type SettingsKey } from "./event-tabs";
 
 /**
+ * Menu Settings: RSVP, Participants, Family, Wish Settings and Contact Person.
  * RSVP Settings, Participants Settings and Contact Person — the SAME as the V1
  * app's screens (Jamal, 2026-11-03), each loading from and saving to the
  * endpoint the app uses:
@@ -38,14 +42,32 @@ import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
  *     Preferred Contact Time *, Languages, About *.
  */
 
-export function SettingsPanel({ event }: { event: ClientEvent }) {
+export function SettingsPanel({ event, only }: { event: ClientEvent; only?: SettingsKey | null }) {
+    const pages = useVisibleSettingsPages();
+    const card = (key: SettingsKey) => {
+        if (!pages.some((p) => p.key === key)) return null;
+        switch (key) {
+            case "rsvp": return <RsvpCard key={key} eventId={event.id} />;
+            case "participants": return <ParticipantsCard key={key} eventId={event.id} />;
+            case "family": return <FamilySettingsCard key={key} eventId={event.id} />;
+            case "wishes": return <WishSettingsCard key={key} eventId={event.id} />;
+            case "contact": return <ContactCard key={key} eventId={event.id} />;
+        }
+    };
+    // One page (Menu Settings → a sub-item).
+    if (only) return <div className="max-w-3xl">{card(only) ?? <Empty title="Not included in your plan" />}</div>;
+    // All of them: left column the module switches, right column Contact Person.
     return (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div className="flex flex-col gap-5">
-                <RsvpCard eventId={event.id} />
-                <ParticipantsCard eventId={event.id} />
+                {card("rsvp")}
+                {card("participants")}
+                {card("family")}
             </div>
-            <ContactCard eventId={event.id} />
+            <div className="flex flex-col gap-5">
+                {card("contact")}
+                {card("wishes")}
+            </div>
         </div>
     );
 }

@@ -21,6 +21,7 @@ import {
 } from "@/hooks/use-guests";
 import { CHANNELS, GuestFields, blankDraft, draftError, payloadOf, useRelationsFor, type GuestDraft } from "./guest-fields";
 import { GuestActionSheet, StatusPillFor, guestMenu, sideLabel, type GuestAction } from "./guest-actions";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Event Guests — Jamal's web design (2026-11-04), built from the module kit:
@@ -49,6 +50,7 @@ const SORTS: { value: Sort; label: string }[] = [
 ];
 
 export function GuestsView({ eventId }: { eventId: number }) {
+    const wsHref = useEventHref();
     const [tab, setTab] = useState<Tab>("all");
     const [search, setSearch] = useState("");
     const [debounced, setDebounced] = useState("");
@@ -92,11 +94,11 @@ export function GuestsView({ eventId }: { eventId: number }) {
                     subtitle="Manage guest information, invitation status, and RSVP tracking."
                     actions={(
                         <>
-                            <Button asChild variant="outline" size="sm"><Link href={`/dashboard/guests/import?event=${eventId}`}><FileUp className="size-3.5" /> Import</Link></Button>
+                            <Button asChild variant="outline" size="sm"><Link href={wsHref(`/dashboard/guests/import?event=${eventId}`)}><FileUp className="size-3.5" /> Import</Link></Button>
                             <Button variant="outline" size="sm" disabled={exportGuests.isPending || all === 0} onClick={() => exportGuests.mutate({ event_id: eventId })}>
                                 <Download className="size-3.5" /> {exportGuests.isPending ? "Exporting…" : "Export"}
                             </Button>
-                            <Button asChild variant="outline" size="sm"><Link href="/dashboard/guests/groups"><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
+                            <Button asChild variant="outline" size="sm"><Link href={wsHref("/dashboard/guests/groups")}><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
                             <Button size="sm" onClick={() => setAdding(true)}><UserPlus className="size-3.5" /> Add Guest</Button>
                         </>
                     )}

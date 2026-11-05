@@ -7,6 +7,7 @@ import { faUserSlash } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGuestCapacity } from "@/hooks/use-guests";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Stops Add Guest / Import Guests opening at all once the account is at its
@@ -22,6 +23,7 @@ import { useGuestCapacity } from "@/hooks/use-guests";
  * backend still refuses the save.
  */
 export function GuestLimitGate({ children }: { children: ReactNode }) {
+    const wsHref = useEventHref();
     const capacity = useGuestCapacity();
 
     const limit = capacity.data?.limit ?? null;
@@ -44,7 +46,7 @@ export function GuestLimitGate({ children }: { children: ReactNode }) {
                         <Link href="/dashboard/billing">View Plan &amp; Billing</Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="h-8 text-[12px]">
-                        <Link href="/dashboard/guests">Back to Guests</Link>
+                        <Link href={wsHref("/dashboard/guests")}>Back to Guests</Link>
                     </Button>
                 </div>
             </CardContent>

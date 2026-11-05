@@ -7,6 +7,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useSetMenuShown } from "@/hooks/use-event-modules";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 /**
  * Small pieces shared by the event modules (Agenda, Family, Gallery, Settings).
@@ -89,5 +92,39 @@ export function ShowInAppRow({
             disabled={isDefault || menuId === null || toggle.isPending}
             onChange={(v) => menuId !== null && toggle.mutate({ menuId, show: v })}
         />
+    );
+}
+
+/**
+ * A module's settings form, either as a dialog (the ⚙ button inside the module)
+ * or `inline` as a card (the event's Menu Settings pages, Jamal 2026-11-05).
+ * `footer` is the Save button; a dialog also gets Cancel.
+ */
+export function SettingsShell({
+    inline, title, description, onClose, busy, footer, children, className,
+}: {
+    inline?: boolean; title: string; description: string; onClose: () => void; busy?: boolean;
+    footer: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
+    if (inline) {
+        return (
+            <Section title={title}>
+                <p className="-mt-1 mb-3 text-[12px] text-muted-foreground">{description}</p>
+                <div className="flex flex-col gap-4">{children}</div>
+                <div className="mt-4 flex justify-end gap-2 border-t pt-3">{footer}</div>
+            </Section>
+        );
+    }
+    return (
+        <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+            <DialogContent className={className ?? "sm:max-w-md"}>
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                {children}
+                <DialogFooter>{footer}</DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

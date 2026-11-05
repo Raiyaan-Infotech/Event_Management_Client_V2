@@ -26,7 +26,7 @@ export const EVENT_TABS = [
     { value: "guests", label: "Guests" },
     { value: "rsvps", label: "RSVPs" },
     { value: "participants", label: "Participants" },
-    { value: "settings", label: "Settings" },
+    { value: "settings", label: "Menu Settings" },
     { value: "messages", label: "Messages" },
     { value: "activity", label: "Activity Log" },
 ] as const;
@@ -61,4 +61,29 @@ export function useVisibleEventTabs() {
         const gate = EVENT_SECTIONS.find((e) => e.tab === t.value);
         return !gate || (!!planOptions.data && granted.has(gate.section));
     });
+}
+
+/**
+ * Menu Settings (Jamal, 2026-11-05): every module's settings in one place —
+ * `?tab=settings&set=<key>` opens one, `?tab=settings` shows them all. RSVP /
+ * Participants follow the plan like their modules. Guests have no settings.
+ */
+export const SETTINGS_PAGES = [
+    { key: "rsvp", label: "RSVP Settings", gate: "rsvp" },
+    { key: "participants", label: "Participants Settings", gate: "participants" },
+    { key: "family", label: "Family Settings" },
+    { key: "wishes", label: "Wish Settings" },
+    { key: "contact", label: "Contact Person" },
+] as const;
+
+export type SettingsKey = (typeof SETTINGS_PAGES)[number]["key"];
+
+export const settingsFrom = (asked: string | null): SettingsKey | null =>
+    SETTINGS_PAGES.find((p) => p.key === asked)?.key ?? null;
+
+/** The settings pages this client's plan grants. */
+export function useVisibleSettingsPages() {
+    const planOptions = useEventOptions();
+    const granted = grantedSections(planOptions.data);
+    return SETTINGS_PAGES.filter((p) => !("gate" in p) || (!!planOptions.data && granted.has(p.gate)));
 }

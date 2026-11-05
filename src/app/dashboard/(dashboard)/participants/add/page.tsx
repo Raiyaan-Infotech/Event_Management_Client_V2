@@ -8,12 +8,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useGuest } from "@/hooks/use-guests";
 import { ParticipantForm } from "../_components/participant-form";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Add Participant — `?event=` (required) and, for Add from Guest, `?guest=`:
  * that guest fills the form (the app's flow).
  */
 export default function AddParticipantPage() {
+    const wsHref = useEventHref();
     const [ids, setIds] = useState<{ event: number | null; guest: number | null } | null>(null);
     useEffect(() => {
         const q = new URLSearchParams(window.location.search);
@@ -31,7 +33,7 @@ export default function AddParticipantPage() {
             <Card className="border border-border py-0 shadow-none">
                 <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
                     <p className="text-[14px] font-semibold">Please select an event first</p>
-                    <Button asChild variant="outline" size="sm"><Link href="/dashboard/participants">Back to Participants</Link></Button>
+                    <Button asChild variant="outline" size="sm"><Link href={wsHref("/dashboard/participants")}>Back to Participants</Link></Button>
                 </CardContent>
             </Card>
         );

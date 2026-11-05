@@ -33,6 +33,7 @@ import {
     type GuestPayload,
 } from "@/hooks/use-guests";
 import { LocationPicker, locationPaths, useLocationId } from "@/components/common/location-picker";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Add / Edit Guest — the same form for both.
@@ -84,6 +85,7 @@ const EMPTY: FormState = {
 };
 
 export function GuestForm({ guestId }: { guestId?: number }) {
+    const wsHref = useEventHref();
     const router = useRouter();
     const isEdit = !!guestId;
 
@@ -108,11 +110,11 @@ export function GuestForm({ guestId }: { guestId?: number }) {
     // Back to the event's Guests page (Guests live inside the event, 2026-11-02).
     const listHref = () => {
         const ev = eventParam() ?? existing.data?.event_id ?? null;
-        return ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events";
+        return wsHref(ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events");
     };
     const create = useCreateGuest(() => {
         const ev = eventParam();
-        router.push(ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events");
+        router.push(wsHref(ev ? `/dashboard/events/${ev}/guests` : "/dashboard/events"));
     });
     const update = useUpdateGuest(() => router.push(listHref()));
     const saving = create.isPending || update.isPending;
@@ -333,7 +335,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                                     <Field label="Group" required error={errors.group_id} message="Group is required">
                                         {!groups.isLoading && (groups.data ?? []).length === 0 ? (
                                             <Button asChild variant="outline" className="h-10 justify-start rounded-md text-[13px]">
-                                                <Link href="/dashboard/guests/groups/add">
+                                                <Link href={wsHref("/dashboard/guests/groups/add")}>
                                                     <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[11px]" />
                                                     Create a group first
                                                 </Link>
@@ -702,7 +704,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                         <CardContent className="p-3.5">
                             <div className="mb-3 flex items-center justify-between gap-2">
                                 <p className="text-[13px] font-bold text-foreground">Guest Groups</p>
-                                <Link href="/dashboard/guests/groups/add"
+                                <Link href={wsHref("/dashboard/guests/groups/add")}
                                     className="shrink-0 text-[11.5px] font-semibold text-primary hover:underline">
                                     + Add Group
                                 </Link>
@@ -745,7 +747,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                             )}
 
                             <Separator className="my-3" />
-                            <Link href="/dashboard/guests/groups"
+                            <Link href={wsHref("/dashboard/guests/groups")}
                                 className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-primary hover:underline">
                                 View All Groups
                                 <FontAwesomeIcon icon={faArrowRight} className="!size-[9px]" />
@@ -764,7 +766,7 @@ export function GuestForm({ guestId }: { guestId?: number }) {
                             </p>
                             <Button asChild variant="outline" size="sm"
                                 className="mt-3 h-8 w-full rounded-md border-primary/40 text-[12px] font-semibold text-primary hover:bg-primary/10 hover:text-primary">
-                                <Link href="/dashboard/guests/import">
+                                <Link href={wsHref("/dashboard/guests/import")}>
                                     Import Guests
                                     <FontAwesomeIcon icon={faArrowRight} className="ml-1.5 !size-[10px]" />
                                 </Link>

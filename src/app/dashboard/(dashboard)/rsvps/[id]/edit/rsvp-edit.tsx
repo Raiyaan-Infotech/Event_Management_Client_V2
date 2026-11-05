@@ -23,6 +23,7 @@ import {
 import { PhoneInput } from '@/components/common/phone-input';
 import { countryForDial, dialOf, mobileNumberError, nationalMobile } from '@/lib/phone';
 import { useDateFormatter } from '@/hooks/use-client-settings';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Edit RSVP Response — the same fields and required fields as the app's Edit
@@ -44,6 +45,7 @@ import { useDateFormatter } from '@/hooks/use-client-settings';
  * which reports the real delivery state.
  */
 export default function RsvpEditScreen({ rsvpId }: { rsvpId: number }) {
+    const wsHref = useEventHref();
     const { data, isLoading, isError } = useRsvp(rsvpId);
 
     if (isLoading) {
@@ -64,7 +66,7 @@ export default function RsvpEditScreen({ rsvpId }: { rsvpId: number }) {
                     This RSVP does not exist, or it is not on your account.
                 </p>
                 <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/rsvps">Back to RSVPs</Link>
+                    <Link href={wsHref("/dashboard/rsvps")}>Back to RSVPs</Link>
                 </Button>
             </div>
         );
@@ -95,9 +97,10 @@ function EditForm({ rsvpId, data }: {
     rsvpId: number;
     data: RsvpDetail;
 }) {
+    const wsHref = useEventHref();
     const router = useRouter();
     const fmt = useDateFormatter();
-    const update = useUpdateRsvp(() => router.push(`/dashboard/rsvps/${rsvpId}`));
+    const update = useUpdateRsvp(() => router.push(wsHref(`/dashboard/rsvps/${rsvpId}`)));
 
     const r = data.rsvp;
     const g = r.guest;
@@ -148,7 +151,7 @@ function EditForm({ rsvpId, data }: {
                     <p className="text-[12.5px] break-words text-muted-foreground">Update the RSVP details for this participant.</p>
                 </div>
                 <Button asChild variant="ghost" size="sm" className="shrink-0 text-muted-foreground">
-                    <Link href={`/dashboard/rsvps/${rsvpId}`}>
+                    <Link href={wsHref(`/dashboard/rsvps/${rsvpId}`)}>
                         <ArrowLeft className="size-3.5" /> Back
                     </Link>
                 </Button>
@@ -273,7 +276,7 @@ function EditForm({ rsvpId, data }: {
 
                     <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
                         <Button asChild variant="outline" className="h-10">
-                            <Link href={`/dashboard/rsvps/${rsvpId}`}>Cancel</Link>
+                            <Link href={wsHref(`/dashboard/rsvps/${rsvpId}`)}>Cancel</Link>
                         </Button>
                         <Button onClick={submit} disabled={update.isPending} className="h-10 px-6">
                             {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}

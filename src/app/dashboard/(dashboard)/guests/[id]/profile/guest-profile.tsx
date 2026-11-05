@@ -23,6 +23,7 @@ import {
 } from '@/hooks/use-guest-profile';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 import { NotesTab } from './notes-tab';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Guest Profile — six tabs over one payload.
@@ -54,6 +55,7 @@ import { NotesTab } from './notes-tab';
  * instead would make the tiles look healthy while meaning nothing.
  */
 export function GuestProfileScreen({ guestId }: { guestId: number }) {
+    const wsHref = useEventHref();
     const { data, isLoading, isError } = useGuestProfile(guestId);
     const fmt = useDateFormatter();
 
@@ -76,7 +78,7 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
                     This guest does not exist, or they are not on your account.
                 </p>
                 <Button asChild variant="outline" size="sm">
-                    <Link href="/dashboard/rsvps">Back to RSVPs</Link>
+                    <Link href={wsHref("/dashboard/rsvps")}>Back to RSVPs</Link>
                 </Button>
             </div>
         );
@@ -88,7 +90,7 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
     return (
         <div className="flex min-w-0 flex-col gap-3.5 p-3.5 md:p-3.5">
             <Button asChild variant="ghost" size="sm" className="-ms-2 w-fit text-muted-foreground">
-                <Link href="/dashboard/rsvps">
+                <Link href={wsHref("/dashboard/rsvps")}>
                     <ArrowLeft className="size-3.5" /> Back to RSVPs
                 </Link>
             </Button>
@@ -102,12 +104,12 @@ export function GuestProfileScreen({ guestId }: { guestId: number }) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <Button asChild variant="outline" size="sm">
-                        <Link href={`/dashboard/guests/${g.id}`}>
+                        <Link href={wsHref(`/dashboard/guests/${g.id}`)}>
                             <Pencil className="size-3.5" /> Edit guest
                         </Link>
                     </Button>
                     <Button asChild size="sm">
-                        <Link href={`/dashboard/messages/send?event_id=${data.event?.id ?? ''}&guest_id=${g.id}&kind=reminder&from=rsvps`}>
+                        <Link href={wsHref(`/dashboard/messages/send?event_id=${data.event?.id ?? ''}&guest_id=${g.id}&kind=reminder&from=rsvps`)}>
                             <Send className="size-3.5" /> Send message
                         </Link>
                     </Button>
@@ -519,6 +521,7 @@ function HistoryTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
 /* ── Linked Events ───────────────────────────────────────────────────────── */
 
 function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
+    const wsHref = useEventHref();
     return (
         <Card className="py-0">
             <CardContent className="flex min-w-0 flex-col gap-3 p-4">
@@ -574,7 +577,7 @@ function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
                                     </TableCell>
                                     <TableCell className="text-end">
                                         <Button asChild size="icon" variant="ghost" className="size-8">
-                                            <Link href={`/dashboard/rsvps/${l.id}`} title="Open this RSVP">
+                                            <Link href={wsHref(`/dashboard/rsvps/${l.id}`)} title="Open this RSVP">
                                                 <Eye className="size-3.5" />
                                             </Link>
                                         </Button>
@@ -595,7 +598,7 @@ function LinkedEventsTab({ data, fmt }: { data: GuestProfile; fmt: Fmt }) {
                     <Info className="mt-0.5 size-3.5 shrink-0" />
                     A guest belongs to one event, so events are not linked or unlinked. To add this
                     person to another event,{' '}
-                    <Link href="/dashboard/guests/add" className="font-medium text-primary hover:underline">
+                    <Link href={wsHref("/dashboard/guests/add")} className="font-medium text-primary hover:underline">
                         invite them to it
                     </Link>
                     {' '}— they join this profile automatically if the email matches.

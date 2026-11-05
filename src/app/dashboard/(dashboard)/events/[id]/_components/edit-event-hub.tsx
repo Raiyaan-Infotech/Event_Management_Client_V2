@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { EventQr } from "@/components/common/event-qr";
 import { useClientEvent } from "@/hooks/use-client-events";
+import { useEventHref } from "@/lib/event-workspace";
 
 type Row = {
     icon: IconDefinition;
@@ -54,11 +55,12 @@ type Row = {
 };
 
 export function EditEventHub({ eventId }: { eventId: number }) {
+    const wsHref = useEventHref();
     const event = useClientEvent(eventId);
     const [qrOpen, setQrOpen] = useState(false);
 
-    const section = (key: string) => `/dashboard/events/${eventId}/edit?section=${key}`;
-    const tab = (key: string) => `/dashboard/events/${eventId}?tab=${key}`;
+    const section = (key: string) => wsHref(`/dashboard/events/${eventId}/edit?section=${key}`);
+    const tab = (key: string) => wsHref(`/dashboard/events/${eventId}?tab=${key}`);
 
     // Same order as the app's Edit Event (Organizer Settings added: on the web
     // it is the only place to edit hosted-by, contact email and footer note).

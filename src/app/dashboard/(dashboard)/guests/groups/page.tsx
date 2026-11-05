@@ -5,8 +5,8 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faPeopleGroup, faUsers, faCalendarCheck, faLock, faGlobe,
-    faSearch, faSliders, faDownload, faPlus, faPenToSquare,
-    faEllipsisVertical, faChevronLeft, faChevronRight, faArrowRight,
+    faSearch, faSliders, faDownload, faPlus,
+    faChevronLeft, faChevronRight, faArrowRight,
     faLightbulb, faTriangleExclamation, faUserPlus, faFileImport, faPaperPlane,
 } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Pencil, Trash2 } from "lucide-react";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -34,6 +32,7 @@ import {
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Manage Groups.
@@ -51,6 +50,7 @@ import { useDateFormatter } from '@/hooks/use-client-settings';
 const PAGE_SIZE = 8;
 
 export default function ManageGroupsPage() {
+    const wsHref = useEventHref();
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
     const [search, setSearch] = useState("");
@@ -102,7 +102,7 @@ export default function ManageGroupsPage() {
                     </p>
                 </div>
                 <Button asChild className="h-10 shrink-0 rounded-md px-4 text-[13px] font-semibold">
-                    <Link href="/dashboard/guests/groups/add">
+                    <Link href={wsHref("/dashboard/guests/groups/add")}>
                         <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[12px]" />
                         Add Group
                     </Link>
@@ -232,7 +232,7 @@ export default function ManageGroupsPage() {
                                 </p>
                                 {!debouncedSearch && visibility === "all" && (
                                     <Button asChild size="sm" className="mt-2 h-8 text-[12px]">
-                                        <Link href="/dashboard/guests/groups/add">Add your first group</Link>
+                                        <Link href={wsHref("/dashboard/guests/groups/add")}>Add your first group</Link>
                                     </Button>
                                 )}
                             </div>
@@ -316,42 +316,17 @@ export default function ManageGroupsPage() {
 
                                                 <td className="py-2 pr-4 align-top">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        <Button
-                                                            asChild variant="outline" size="icon"
-                                                            aria-label={`Edit ${group.name}`}
-                                                            className="h-8 w-8 rounded-md"
-                                                        >
-                                                            <Link href={`/dashboard/guests/groups/${group.id}`}>
-                                                                <FontAwesomeIcon icon={faPenToSquare} className="!size-[11px]" />
+                                                        {/* Edit + Delete as buttons, like the Guests table (Jamal, 2026-11-05). */}
+                                                        <Button asChild size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11.5px]">
+                                                            <Link href={wsHref(`/dashboard/guests/groups/${group.id}`)} aria-label={`Edit ${group.name}`}>
+                                                                <Pencil className="size-3" /> Edit
                                                             </Link>
                                                         </Button>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost" size="icon"
-                                                                    aria-label={`Actions for ${group.name}`}
-                                                                    className="h-8 w-8 rounded-md text-muted-foreground"
-                                                                >
-                                                                    <FontAwesomeIcon icon={faEllipsisVertical} className="!size-[12px]" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-[190px]">
-                                                                <DropdownMenuItem asChild className="text-[12.5px]">
-                                                                    <Link href={`/dashboard/guests?group=${group.id}`}>View members</Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem asChild className="text-[12.5px]">
-                                                                    <Link href={`/dashboard/messages/send?group=${group.id}&from=guest-groups`}>
-                                                                        Send message to group
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    className="text-[12.5px] text-destructive focus:text-destructive"
-                                                                    onClick={() => setPendingDelete(group)}
-                                                                >
-                                                                    Delete group
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <Button size="sm" variant="outline" aria-label={`Delete ${group.name}`}
+                                                            className="h-7 gap-1 border-destructive/40 px-2 text-[11.5px] text-destructive hover:bg-destructive/5 hover:text-destructive"
+                                                            onClick={() => setPendingDelete(group)}>
+                                                            <Trash2 className="size-3" /> Delete
+                                                        </Button>
                                                     </div>
                                                 </td>
                                             </tr>

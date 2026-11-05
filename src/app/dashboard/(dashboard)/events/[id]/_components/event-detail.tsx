@@ -40,9 +40,10 @@ import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
-import { EVENT_STATUS, EVENT_TAB_ICONS, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
+import { EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
 import { EventHero } from "./event-hero";
 import { CalendarDays, Info, Link2, MapPin, UsersRound, type LucideIcon } from "lucide-react";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Event Details — the View Event screen.
@@ -104,13 +105,16 @@ function eventCode(id: number, startDate: string | null): string {
  * event and its sections, so the header card and the tab bar are not drawn.
  */
 export function EventDetail({ eventId, workspace = false }: { eventId: number; workspace?: boolean }) {
+    const wsHref = useEventHref();
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
     const router = useRouter();
     const pathname = usePathname();
     // `?tab=` is the open section — the workspace sidebar, the Edit Event hub and
     // the in-page links all set it; a refresh or a shared link reopens it.
-    const tab = tabFrom(useSearchParams().get("tab"));
+    const search = useSearchParams();
+    const tab = tabFrom(search.get("tab"));
+    const settingsPage = settingsFrom(search.get("set"));
     const visibleTabs = useVisibleEventTabs();
     const openTab = (v: TabValue) => router.replace(v === "overview" ? pathname : `${pathname}?tab=${v}`, { scroll: false });
     const [qrOpen, setQrOpen] = useState(false);
@@ -352,7 +356,7 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
                                 every event.
                             </p>
                             <Button asChild variant="outline" size="sm" className="mt-1 h-8 text-[12px]">
-                                <Link href={`/dashboard/events/${event.id}/edit`}>Edit event</Link>
+                                <Link href={wsHref(`/dashboard/events/${event.id}/edit`)}>Edit event</Link>
                             </Button>
                         </div>
                     )}
@@ -376,7 +380,7 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {tab === "social" && <SocialLinksPanel event={event} />}
 
             {/* ── Settings ────────────────────────────────────────────────── */}
-            {tab === "settings" && <SettingsPanel event={event} />}
+            {tab === "settings" && <SettingsPanel event={event} only={settingsPage} />}
 
             {/* ── Messages — ON HOLD ──────────────────────────────────────── */}
             {tab === "messages" && (

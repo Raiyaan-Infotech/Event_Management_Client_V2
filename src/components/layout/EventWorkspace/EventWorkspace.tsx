@@ -2,34 +2,47 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, LogOut, MapPin, Pencil, Tag } from "lucide-react";
+import { useState } from "react";
+import { CalendarDays, ChevronDown, LogOut, MapPin, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGift } from "@fortawesome/free-solid-svg-icons";
 import {
-    Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+    Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem,
+    SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import {
-    EVENT_STATUS, EVENT_TAB_ICONS, tabFrom, useVisibleEventTabs,
+    EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
 } from "@/app/dashboard/(dashboard)/events/[id]/_components/event-tabs";
 
 /**
  * The EVENT WORKSPACE (Jamal's mockup, 2026-11-04): "View Event" opens the
  * event in its own browser tab. The sidebar is the event's menu (Dashboard,
  * Event Information, Agenda, Venue, Gallery, Family, Wed Wishes, Live Streaming,
- * Social Links, Guests, RSVPs, Participants, Settings…) and the top bar shows the
+ * Social Links, Guests, RSVPs, Participants, Menu Settings [RSVP, Participants, Family, Wishes,
+ * Contact Person]…) and the top bar shows the
  * event — so every section gets the whole page.
  */
 
 /** The event's sections, as a sidebar. Each one is `?tab=` on /event/:id. */
 export function EventSidebar({ eventId }: { eventId: number }) {
-    const tab = tabFrom(useSearchParams().get("tab"));
+    const search = useSearchParams();
+    const asked = search.get("tab");
     const pathname = usePathname();
+    // A page under the event (/event/:id/guests/groups, …/rsvps/5) lights up its section.
+    const base = `/event/${eventId}`;
+    const sub = pathname.slice(base.length).match(/^\/(guests|rsvps|participants|messages)(\/|$)/);
+    const tab = tabFrom(sub ? sub[1] : asked);
     const tabs = useVisibleEventTabs();
+    const settingsPages = useVisibleSettingsPages();
+    const settingsPage = settingsFrom(search.get("set"));
+    // Menu Settings opens its list on its own page; the chevron opens / closes it anywhere.
+    const [settingsToggled, setSettingsToggled] = useState<boolean | null>(null);
+    const settingsOpen = settingsToggled ?? tab === "settings";
     const { state } = useSidebar();
     const collapsed = state === "collapsed";
     return (
@@ -55,29 +68,38 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                             <SidebarMenuItem key={t.value}>
                                 <SidebarMenuButton asChild isActive={on} tooltip={t.label}
                                     className={cn("h-9 gap-3 text-[13.5px]", on && "bg-primary/10 font-semibold text-primary hover:bg-primary/10 hover:text-primary")}>
-                                    <Link href={t.value === "overview" ? pathname : `${pathname}?tab=${t.value}`} scroll={false}>
+                                    <Link href={t.value === "overview" ? base : `${base}?tab=${t.value}`} scroll={false}>
                                         <Icon className="size-[18px]" /> <span>{t.label}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                                {t.value === "settings" && !collapsed && (
+                                    <>
+                                        <SidebarMenuAction aria-label={settingsOpen ? "Hide settings list" : "Show settings list"}
+                                            onClick={() => setSettingsToggled(!settingsOpen)}>
+                                            <ChevronDown className={cn("size-4 transition-transform", settingsOpen && "rotate-180")} />
+                                        </SidebarMenuAction>
+                                        {settingsOpen && (
+                                            <SidebarMenuSub>
+                                                {settingsPages.map((p) => {
+                                                    const subOn = on && settingsPage === p.key;
+                                                    return (
+                                                        <SidebarMenuSubItem key={p.key}>
+                                                            <SidebarMenuSubButton asChild isActive={subOn}
+                                                                className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
+                                                                <Link href={`${base}?tab=settings&set=${p.key}`} scroll={false}>{p.label}</Link>
+                                                            </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                    );
+                                                })}
+                                            </SidebarMenuSub>
+                                        )}
+                                    </>
+                                )}
                             </SidebarMenuItem>
                         );
                     })}
                 </SidebarMenu>
             </SidebarContent>
-            <SidebarFooter className="gap-1 border-t border-border p-2">
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild tooltip="Edit Event" className="h-9 gap-3 text-[13px]">
-                            <Link href={`/dashboard/events/${eventId}/edit`}><Pencil className="size-4" /> <span>Edit Event</span></Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild tooltip="Back to My Events" className="h-9 gap-3 text-[13px] text-muted-foreground">
-                            <Link href="/dashboard/events"><ArrowLeft className="size-4" /> <span>Back to My Events</span></Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarFooter>
         </Sidebar>
     );
 }

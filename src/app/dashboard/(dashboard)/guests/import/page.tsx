@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { api, ApiError } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGuestStats, useDownloadSampleCsv } from "@/hooks/use-guests";
+import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Import Guests — the four-step wizard.
@@ -92,6 +93,7 @@ export default function ImportGuestsPage() {
 }
 
 function ImportGuests() {
+    const wsHref = useEventHref();
     const router = useRouter();
     // V2: guests belong to an event — the Guests list passes it as ?event=.
     const importEventId = () =>
@@ -593,7 +595,7 @@ function ImportGuests() {
 
                                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                                     <Button asChild className="h-10 rounded-md px-4 text-[13px] font-semibold">
-                                        <Link href={importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events"}>View Guest List</Link>
+                                        <Link href={wsHref(importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events")}>View Guest List</Link>
                                     </Button>
                                     <Button
                                         variant="outline" className="h-10 rounded-md px-4 text-[13px] font-medium"
@@ -616,7 +618,7 @@ function ImportGuests() {
                                 variant="outline"
                                 className="h-10 rounded-md px-4 text-[13px] font-medium"
                                 disabled={analyse.isPending || commit.isPending}
-                                onClick={() => (step === 1 ? router.push(importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events") : setStep(step - 1))}
+                                onClick={() => (step === 1 ? router.push(wsHref(importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events")) : setStep(step - 1))}
                             >
                                 {step > 1 && <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[12px]" />}
                                 {step === 1 ? "Cancel" : "Back"}

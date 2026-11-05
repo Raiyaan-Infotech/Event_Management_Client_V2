@@ -1,6 +1,9 @@
 "use client";
 
 import { Suspense, use } from "react";
+import { usePathname } from "next/navigation";
+import { PlanSectionGate } from "@/components/common/plan-section-gate";
+import { dashboardPathFor } from "@/lib/event-workspace";
 import Header from "@/components/layout/Header/Header";
 import Footer from "@/components/layout/Footer/Footer";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -18,6 +21,7 @@ import { EventSidebar, EventTopInfo, ExitEventButton } from "@/components/layout
 export default function EventWorkspaceLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const eventId = Number(id);
+    const pathname = usePathname();
     return (
         <ClientAuthGate>
             <ClientPlanGate>
@@ -28,7 +32,9 @@ export default function EventWorkspaceLayout({ children, params }: { children: R
                     <SidebarInset className="flex min-h-screen min-w-0 flex-col bg-background">
                         <Header left={<EventTopInfo eventId={eventId} />} exit={<ExitEventButton />} />
                         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-                            <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-3 pb-4 sm:px-5">{children}</div>
+                            <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-3 pb-4 sm:px-5">
+                                <PlanSectionGate path={dashboardPathFor(pathname)}>{children}</PlanSectionGate>
+                            </div>
                             <Footer />
                         </div>
                     </SidebarInset>
