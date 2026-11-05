@@ -95,6 +95,7 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
     }, [playing]);
 
     const seg = segments.find((s) => time >= s.start && time < s.end) ?? segments[segments.length - 1];
+    const activeIdx = seg ? segments.indexOf(seg) : -1;
     const toggle = () => { if (!playing && time >= total) setTime(0); setPlaying((p) => !p); };
     const seek = (v: number) => { setTime(v); if (audio.current) audio.current.currentTime = v; };
     const introBg = album.cover_image || album.slides[0]?.url || null;
@@ -107,36 +108,48 @@ export function SlideshowPlayer({ album, autoPlay = false, className }: { album:
 @keyframes albumFade{from{opacity:0}to{opacity:1}}
 @keyframes albumZoom{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
 @keyframes albumType{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
-@keyframes albumKen{from{transform:scale(1.02)}to{transform:scale(1.12)}}
-@keyframes albumIn{from{opacity:0}to{opacity:1}}`}</style>
+@keyframes albumKen{from{transform:scale(1.02)}to{transform:scale(1.12)}}`}</style>
+            {/* Every layer is mounted from the start, so each photo is already loaded when its turn
+                comes, and the next one CROSS-FADES over the last (Jamal, 2026-11-05: cover → first
+                image went black and lagged while that image downloaded). The zoom keeps running on
+                the layer that is fading out, so it does not jump back. */}
             {!seg ? (
                 <div className="grid size-full place-items-center text-[13px] text-white/70">Add images to see the slideshow</div>
-            ) : seg.kind === "intro" ? (
-                <div key={`intro-${playing}`} className="relative grid size-full place-items-center px-6 text-center">
-                    {/* The intro text sits OVER the cover image (Jamal's mockup, 2026-11-05); pink card only when there is no picture. */}
-                    {introBg ? (
-                        <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={mediaUrl(introBg)} alt="" className="absolute inset-0 size-full object-cover"
-                                style={{ animation: `albumKen ${album.intro_seconds.toFixed(1)}s linear both`, animationPlayState: playing ? "running" : "paused" }} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
-                        </>
-                    ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-50 to-amber-50" />
-                    )}
-                    <p className={cn("relative font-serif text-[clamp(18px,4vw,34px)] leading-snug whitespace-pre-line italic",
-                        introBg ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" : "text-primary")}
-                        style={{ animation: `${anim} 1.2s ease-out both` }}>{album.intro_text}</p>
-                </div>
-            ) : (
-                <div key={seg.start} className="size-full" style={{ animation: "albumIn .6s ease-out both" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={mediaUrl(seg.url)} alt="" className="size-full object-cover"
-                        style={{ animation: `albumKen ${(seg.end - seg.start).toFixed(1)}s linear both`, animationPlayState: playing ? "running" : "paused" }} />
-                </div>
-            )}
+            ) : segments.map((s, i) => {
+                const active = s === seg;
+                const zooming = i === activeIdx || i === activeIdx - 1;
+                const ken = zooming ? `albumKen ${(s.end - s.start).toFixed(1)}s linear both` : "none";
+                return (
+                    <div key={`${s.kind}-${i}`} aria-hidden={!active}
+                        className={cn("absolute inset-0 transition-opacity duration-700 ease-out", active ? "opacity-100" : "opacity-0")}
+                        style={{ zIndex: i === activeIdx ? 2 : i === activeIdx - 1 ? 1 : 0 }}>
+                        {s.kind === "intro" ? (
+                            <div className="relative grid size-full place-items-center px-6 text-center">
+                                {/* The intro text sits OVER the cover image (Jamal's mockup); pink card only when there is no picture. */}
+                                {introBg ? (
+                                    <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={mediaUrl(introBg)} alt="" decoding="async" className="absolute inset-0 size-full object-cover"
+                                            style={{ animation: ken, animationPlayState: playing ? "running" : "paused" }} />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
+                                    </>
+                                ) : (
+                                    <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-50 to-amber-50" />
+                                )}
+                                <p key={`t-${active}-${playing}`} className={cn("relative font-serif text-[clamp(18px,4vw,34px)] leading-snug whitespace-pre-line italic",
+                                    introBg ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]" : "text-primary")}
+                                    style={{ animation: active ? `${anim} 1.2s ease-out both` : "none" }}>{album.intro_text}</p>
+                            </div>
+                        ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={mediaUrl(s.url)} alt="" decoding="async" className="size-full object-cover"
+                                style={{ animation: ken, animationPlayState: playing ? "running" : "paused" }} />
+                        )}
+                    </div>
+                );
+            })}
             {album.music_enabled && album.music_url && <audio ref={audio} src={mediaUrl(album.music_url)} loop />}
-            <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2 text-white">
+            <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2 text-white">
                 <button type="button" onClick={toggle} aria-label={playing ? "Pause" : "Play"} disabled={!total}>{playing ? <Pause className="size-4 fill-white" /> : <Play className="size-4 fill-white" />}</button>
                 <span className="text-[11px] tabular-nums">{fmtTime(time)} / {fmtTime(total)}</span>
                 <input type="range" min={0} max={total || 1} step={0.1} value={time} onChange={(e) => seek(Number(e.target.value))} className="h-1 flex-1 accent-[var(--primary)]" aria-label="Seek" />
