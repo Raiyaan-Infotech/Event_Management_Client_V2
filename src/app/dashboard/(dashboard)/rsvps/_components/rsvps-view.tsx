@@ -184,43 +184,47 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[1080px] border-collapse text-[12.5px]">
+                            {/* Fits the card (Jamal, 2026-11-05): no forced min width, small type, short headings, tight cells.
+                                The scroll stays only as a fallback on very narrow screens. */}
+                            <table className="w-full border-collapse text-[11.5px] [&_td]:pr-2 [&_th]:pr-2 [&_td_span.rounded-full]:px-1.5 [&_td_span.rounded-full]:text-[10.5px]">
                                 <thead>
-                                    <tr className="border-b border-border text-[11.5px] font-semibold text-foreground/80">
-                                        {["Guest Name", "Relationship", "Side", "Invite Count", "RSVP Status", "Response Type", "Attending Count", "Meal Preference", "Response Date", "Source / App Visibility"].map((h, i) => (
-                                            <th key={h} className={cn("py-2.5 text-left font-semibold", i === 0 && "pl-4")}>{h}</th>
+                                    <tr className="border-b border-border text-[10.5px] font-semibold text-foreground/80">
+                                        {[
+                                            ["Guest", "Guest Name"], ["Relation", "Relationship"], ["Side", "Side"], ["Invites", "Invite Count"],
+                                            ["RSVP", "RSVP Status"], ["Response", "Response Type"], ["Attending", "Attending Count"],
+                                            ["Meal", "Meal Preference"], ["Responded", "Response Date"], ["Source / App", "Source / App Visibility"],
+                                        ].map(([h, full], i) => (
+                                            <th key={h} title={full} className={cn("py-2 text-left font-semibold whitespace-nowrap", i === 0 && "pl-3", i === 6 && "text-center")}>{h}</th>
                                         ))}
-                                        <th className="py-2.5 pr-4 text-right font-semibold">Actions</th>
+                                        <th className="py-2 pr-3 text-right font-semibold">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {rows.map((r) => (
                                         <tr key={r.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30", act?.r.id === r.id && "bg-primary/5")}>
-                                            <td className="py-2 pl-4">
+                                            <td className="py-1.5 pl-3">
                                                 <PersonCell name={r.name} photo={r.photo} onClick={() => setAct({ a: "response", r })}
                                                     badge={r.is_vip ? <StarBadge>{r.vip_label && r.vip_label.length <= 12 ? r.vip_label : "VIP"}</StarBadge> : undefined} />
                                             </td>
-                                            <td className="py-2">{r.relationship || "—"}</td>
-                                            <td className="py-2">{r.side ? <StatusPill tone={r.side === "bride" ? "primary" : "violet"}>{sideLabel(r.side)}</StatusPill> : "—"}</td>
-                                            <td className="py-2"><span className="inline-flex items-center gap-1"><Users className="size-3.5 text-muted-foreground" /> {r.invite_count ?? 1}</span></td>
-                                            <td className="py-2"><StatePill state={r.rsvp.state} /></td>
-                                            <td className="py-2"><StatusPill tone="plain">{responseType(r)}</StatusPill></td>
-                                            <td className="py-2 text-center">{r.rsvp.attending_count ?? "—"}</td>
-                                            <td className="max-w-[120px] py-2">{r.rsvp.meal_preference || "—"}</td>
-                                            <td className="py-2 whitespace-nowrap">{r.rsvp.responded_at ? <>{fmt(r.rsvp.responded_at)}<br /><span className="text-muted-foreground">{new Date(r.rsvp.responded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></> : "—"}</td>
-                                            <td className="py-2">
-                                                <span className="flex flex-col items-start gap-1">
-                                                    <span className="inline-flex items-center gap-1">{sourceIcon(r.rsvp.source)} {r.rsvp.source ? SOURCE_LABEL[r.rsvp.source] ?? r.rsvp.source : "—"}</span>
+                                            <td className="py-1.5">{r.relationship || "—"}</td>
+                                            <td className="py-1.5">{r.side ? <StatusPill tone={r.side === "bride" ? "primary" : "violet"}>{sideLabel(r.side)}</StatusPill> : "—"}</td>
+                                            <td className="py-1.5"><span className="inline-flex items-center gap-1"><Users className="size-3 text-muted-foreground" /> {r.invite_count ?? 1}</span></td>
+                                            <td className="py-1.5"><StatePill state={r.rsvp.state} /></td>
+                                            <td className="py-1.5"><StatusPill tone="plain">{responseType(r)}</StatusPill></td>
+                                            <td className="py-1.5 text-center">{r.rsvp.attending_count ?? "—"}</td>
+                                            <td className="max-w-[110px] py-1.5">{r.rsvp.meal_preference || "—"}</td>
+                                            <td className="py-1.5 whitespace-nowrap">{r.rsvp.responded_at ? <>{fmt(r.rsvp.responded_at)}<br /><span className="text-muted-foreground">{new Date(r.rsvp.responded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></> : "—"}</td>
+                                            <td className="py-1.5">
+                                                <span className="flex flex-col items-start gap-0.5">
+                                                    <span className="inline-flex items-center gap-1 whitespace-nowrap">{sourceIcon(r.rsvp.source)} {r.rsvp.source ? SOURCE_LABEL[r.rsvp.source] ?? r.rsvp.source : "—"}</span>
                                                     {r.is_visible === false ? <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill> : <StatusPill tone="success" icon={Eye}>Visible</StatusPill>}
                                                 </span>
                                             </td>
-                                            <td className="py-2 pr-4">
-                                                <div className="flex items-center justify-end gap-1.5">
-                                                    <RowActions label={`Actions for ${r.name}`} items={rsvpMenu(r,
-                                                        (a, target) => setAct({ a, r, target }),
-                                                        (a) => setGuestAct({ a, r }),
-                                                        () => hide.mutate({ guestId: r.id, hidden: false }))} />
-                                                </div>
+                                            <td className="py-1.5 pr-3 text-right">
+                                                <RowActions compact label={`Actions for ${r.name}`} items={rsvpMenu(r,
+                                                    (a, target) => setAct({ a, r, target }),
+                                                    (a) => setGuestAct({ a, r }),
+                                                    () => hide.mutate({ guestId: r.id, hidden: false }))} />
                                             </td>
                                         </tr>
                                     ))}

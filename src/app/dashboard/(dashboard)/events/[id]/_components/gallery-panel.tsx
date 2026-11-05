@@ -224,7 +224,7 @@ function CategoryDialog({
 
     const pickCover = async (file: File | undefined) => {
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) { toast.error("Images must be 2 MB or smaller."); return; }
+        if (file.size > 5 * 1024 * 1024) { toast.error("Images must be 5 MB or smaller."); return; }
         const res = await uploadCover.mutateAsync(file).catch(() => null);
         if (res?.url) setCover(res.url);
     };
