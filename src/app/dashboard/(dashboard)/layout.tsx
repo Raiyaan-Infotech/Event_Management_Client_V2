@@ -45,7 +45,8 @@ export default function DashboardLayout({
         <Header />
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           {/* The breadcrumb is in the top bar now (Header), where the search box was. */}
-          <div className="flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 pt-3 pb-4">
+          {/* #main-content: page loaders cover only this box (see PageLoader). */}
+          <div id="main-content" className="relative flex-1 min-w-0 flex flex-col min-h-0 px-4 sm:px-5 pt-3 pb-4">
             {/* A section the plan does not include is refused here, the same
                 rule the sidebar uses to hide it — see PlanSectionGate. */}
             <PlanSectionGate>{children}</PlanSectionGate>

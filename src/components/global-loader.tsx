@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
-import { PageLoader } from "@/components/common/page-loader";
+import { MAIN_CONTENT_ID, PageLoader } from "@/components/common/page-loader";
 
 /**
  * ── GLOBAL LOADING RULE ──────────────────────────────────────────────────────
@@ -53,5 +54,10 @@ export function GlobalLoader() {
 
     // A mutation is a deliberate action, so name it — "Saving..." over a form
     // the user just submitted is more informative than a generic spinner.
-    return <PageLoader open={visible} text={mutating > 0 ? "Saving..." : "Loading..."} />;
+    const text = mutating > 0 ? "Saving..." : "Loading...";
+    if (!visible) return null;
+    // Only the main content, not the sidebar / top bar (Jamal, 2026-11-05). Looked up
+    // each time it shows: the dashboard and the event workspace have their own box.
+    const main = document.getElementById(MAIN_CONTENT_ID);
+    return main ? createPortal(<PageLoader text={text} />, main) : <PageLoader fullScreen text={text} />;
 }
