@@ -244,6 +244,29 @@ function ImportGuests() {
                     {/* ── Step 1 ──────────────────────────────────────────── */}
                     {step === 1 && (
                         <>
+                            {/* Download the sample FIRST — as the app's import screen (Jamal, 2026-11-06). */}
+                            <Card className="border border-primary/20 bg-primary/[0.03] py-0 shadow-none">
+                                <CardContent className="flex flex-wrap items-center gap-3 p-3.5">
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-success/10">
+                                        <FontAwesomeIcon icon={faFileCsv} className="!size-[18px] text-success" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[13.5px] font-bold text-foreground">Download Sample File</p>
+                                        <p className="text-[12px] text-muted-foreground">
+                                            Fill your guests into our sample CSV (the columns are already set), then upload it below.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        disabled={downloadSample.isPending}
+                                        onClick={() => downloadSample.mutate()}
+                                        className="h-10 rounded-md px-4 text-[13px] font-semibold"
+                                    >
+                                        <FontAwesomeIcon icon={faDownload} className="mr-1.5 !size-[12px]" />
+                                        {downloadSample.isPending ? "Downloading…" : "Download Sample CSV"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
                             <Card className="border border-border py-0 shadow-none">
                                 <CardContent className="p-3.5">
                                     <div className="mb-3 flex items-center gap-2.5">
@@ -316,7 +339,7 @@ function ImportGuests() {
                                                     "File must be in CSV format",
                                                     "Maximum file size: 10 MB",
                                                     "First row should contain column headers",
-                                                    "Duplicate email addresses will be skipped",
+                                                    "A mobile number already in your guest list is skipped",
                                                 ].map((line) => (
                                                     <li key={line} className="flex items-start gap-2 text-[11.5px] text-muted-foreground">
                                                         <FontAwesomeIcon icon={faCheck} className="mt-0.5 !size-[10px] shrink-0 text-success" />
@@ -324,21 +347,12 @@ function ImportGuests() {
                                                     </li>
                                                 ))}
                                             </ul>
-                                            <Button
-                                                variant="link"
-                                                disabled={downloadSample.isPending}
-                                                onClick={() => downloadSample.mutate()}
-                                                className="mt-2 h-auto p-0 text-[11.5px] font-semibold text-primary"
-                                            >
-                                                <FontAwesomeIcon icon={faDownload} className="mr-1.5 !size-[10px]" />
-                                                Download Sample CSV
-                                            </Button>
                                         </div>
 
                                         <div className="min-w-0">
                                             <p className="mb-2 text-[12.5px] font-semibold text-foreground">Required Columns</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {["First Name*", "Email*"].map((c) => (
+                                                {["First Name*", "Mobile Number*"].map((c) => (
                                                     <Badge key={c} variant="ghost" className="rounded bg-primary/10 text-[10.5px] font-semibold text-primary">
                                                         {c}
                                                     </Badge>
@@ -350,7 +364,7 @@ function ImportGuests() {
 
                                             <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {["Last Name", "WhatsApp Number", "Email", "Guest Group", "City"].map((c) => (
+                                                {["Last Name", "Email", "Guest Group", "WhatsApp Number", "City"].map((c) => (
                                                     <Badge key={c} variant="secondary" className="rounded text-[10.5px]">{c}</Badge>
                                                 ))}
                                             </div>
@@ -710,7 +724,7 @@ function ImportGuests() {
                                 </li>
                                 <li className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
                                     <FontAwesomeIcon icon={faCircleInfo} className="!size-[10px]" />
-                                    Required: First Name, Email
+                                    Required: First Name, Mobile Number
                                 </li>
                             </ul>
                         </CardContent>

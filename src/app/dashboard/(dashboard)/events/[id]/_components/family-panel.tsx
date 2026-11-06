@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Star, Trash2, User, UserPlus, Users } from "lucide-react";
+import { Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Trash2, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -44,13 +44,10 @@ import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module
  */
 
 type Side = "groom" | "bride";
-type Tab = "all" | Side | "close" | "hidden";
+type Tab = "all" | Side;
 type Sort = "order" | "name" | "relation" | "recent";
 
 const PAGE = 10;
-/** "Close Family" = immediate relations, matched on the relation's name. */
-const CLOSE = /\b(father|mother|dad|mom|mum|brother|sister|son|daughter|husband|wife|grand ?father|grand ?mother|grandpa|grandma|parent|sibling)\b/i;
-const isClose = (m: FamilyMember) => CLOSE.test(m.relationship ?? "");
 const SIDES: Side[] = ["bride", "groom"];
 const sideName = (s: Side) => (s === "bride" ? "Bride Side" : "Groom Side");
 const SORTS: { value: Sort; label: string }[] = [
@@ -118,9 +115,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
     // Filter → sort → page; the page's rows are then grouped by side.
     const q = search.trim().toLowerCase();
     const filtered = all.filter((m) => {
-        if (tab === "bride" || tab === "groom") { if (m.side !== tab) return false; }
-        else if (tab === "close" && !isClose(m)) return false;
-        else if (tab === "hidden" && m.is_visible) return false;
+        if ((tab === "bride" || tab === "groom") && m.side !== tab) return false;
         return !q || m.full_name.toLowerCase().includes(q) || (m.relationship ?? "").toLowerCase().includes(q);
     });
     const sorter = (a: FamilyMember, b: FamilyMember) => {
@@ -304,8 +299,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                     { value: "all", label: "All Members", count: all.length },
                     { value: "bride", label: "Bride Side", count: count("bride") },
                     { value: "groom", label: "Groom Side", count: count("groom") },
-                    { value: "close", label: "Close Family", count: all.filter(isClose).length, icon: Star },
-                    { value: "hidden", label: "Hidden", count: all.filter((m) => !m.is_visible).length, icon: EyeOff },
+                    // Close Family + Hidden tabs removed (Jamal, 2026-11-06).
                 ]}
             />
 

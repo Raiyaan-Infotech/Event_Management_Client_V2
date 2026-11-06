@@ -27,7 +27,8 @@ export const EVENT_TABS = [
     { value: "guests", label: "Guests" },
     { value: "rsvps", label: "RSVPs" },
     { value: "participants", label: "Participants" },
-    { value: "settings", label: "Menu Settings" },
+    // "Menu Settings" -> "App Menu", under the sidebar's SETTING heading (Jamal, 2026-11-06).
+    { value: "settings", label: "App Menu" },
     { value: "messages", label: "Messages" },
     { value: "activity", label: "Activity Log" },
 ] as const;
@@ -42,6 +43,9 @@ export const TAB_MENU_SLUG: Partial<Record<EventTab, string>> = {
     social: "social-links", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
 };
 export const TOP_TABS: EventTab[] = ["overview", "information"];
+/** Sidebar bottom (Jamal, 2026-11-06): SETTING = App Menu; REPORT = Activity Log. */
+export const SETTING_TABS: EventTab[] = ["settings"];
+export const REPORT_TABS: EventTab[] = ["activity"];
 
 export type EventTab = (typeof EVENT_TABS)[number]["value"];
 

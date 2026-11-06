@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import {
-    EVENT_STATUS, EVENT_TAB_ICONS, TAB_MENU_SLUG, TOP_TABS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
+    EVENT_STATUS, EVENT_TAB_ICONS, REPORT_TABS, SETTING_TABS, TAB_MENU_SLUG, TOP_TABS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
 } from "@/app/dashboard/(dashboard)/events/[id]/_components/event-tabs";
 import { useEventOptions } from "@/hooks/use-client-portal";
 
@@ -57,7 +57,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
         { key: "top", label: null, items: tabs.filter((t) => TOP_TABS.includes(t.value)) },
         { key: "default", label: "Default Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
         { key: "additional", label: "Additional Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && !isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
-        { key: "settings", label: "Settings", items: tabs.filter((t) => !TOP_TABS.includes(t.value) && !TAB_MENU_SLUG[t.value]) },
+        { key: "setting", label: "Setting", items: tabs.filter((t) => SETTING_TABS.includes(t.value)) },
+        { key: "report", label: "Report", items: tabs.filter((t) => REPORT_TABS.includes(t.value)) },
     ].filter((g) => g.items.length > 0);
     return (
         <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
@@ -131,7 +132,8 @@ export function EventTopInfo({ eventId }: { eventId: number }) {
     const event = useClientEvent(eventId).data;
     if (!event) return <div className="min-w-0 flex-1" />;
     const status = EVENT_STATUS[event.derived_status];
-    const venue = [event.venue_name, event.venue_landmark].filter(Boolean).join(" - ");
+    // The top bar shows the CITY only (Jamal, 2026-11-06) — the "City" field is venue_landmark.
+    const venue = event.venue_landmark?.trim() || "";
     return (
         <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="min-w-0">

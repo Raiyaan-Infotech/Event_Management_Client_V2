@@ -159,6 +159,19 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                         <>
                             <Button variant="outline" size="sm" onClick={exportAgenda} disabled={!items.length}><Download className="size-3.5" /> Export Agenda</Button>
                             <Button variant="outline" size="sm" onClick={() => setGuestView(true)}><ExternalLink className="size-3.5" /> View Agenda (Guest)</Button>
+                            {/* Add Date as a button (Jamal, 2026-11-06; was a dashed card after the day cards). */}
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" disabled={!remaining.length}
+                                        title={remaining.length ? undefined : "Every event day already has its card"}>
+                                        <CalendarPlus className="size-3.5" /> Add Date
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="end" className="w-auto p-0">
+                                    <p className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">Pick an event day to add sessions to</p>
+                                    <DayCalendar allowed={remaining} onChange={(d) => { setExtraDays((x) => [...x, d]); setPicked(d); newFor(d); }} />
+                                </PopoverContent>
+                            </Popover>
                             <Button size="sm" onClick={() => newFor(day ?? eventDays[0] ?? "")} disabled={!eventDays.length}><Plus className="size-3.5" /> Add Session</Button>
                         </>
                     )}
@@ -182,18 +195,6 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                             </button>
                         );
                     })}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <button type="button" disabled={!remaining.length}
-                                className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-3 text-[13px] font-semibold text-primary hover:bg-primary/5 disabled:opacity-50">
-                                <Plus className="size-4" /> Add Date
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <p className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">Pick an event day to add sessions to</p>
-                            <DayCalendar allowed={remaining} onChange={(d) => { setExtraDays((x) => [...x, d]); setPicked(d); newFor(d); }} />
-                        </PopoverContent>
-                    </Popover>
                 </div>
 
                 <div className="rounded-xl border border-border bg-card">
@@ -204,11 +205,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                         <div className="flex flex-wrap items-center gap-2 text-[12px] font-semibold">
                             <span className="rounded-full bg-muted px-3 py-1">Total Sessions: {byDay.get(day ?? "")?.length ?? 0}</span>
                             <span className="rounded-full bg-muted px-3 py-1">Total Overlap Groups: {overlapGroups}</span>
-                            {day && (
-                                <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => newFor(day)}>
-                                    <Plus className="size-3.5" /> Add Session
-                                </Button>
-                            )}
+                            {/* The day's own "+ Add Session" was removed (Jamal, 2026-11-06) — the header's Add Session does it. */}
                         </div>
                     </div>
                     {groups.length === 0 ? (

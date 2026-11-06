@@ -3,13 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
-    CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock, Download, Eye, EyeOff, Info, Mail, MessageCircle,
+    CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock, Download, Eye, EyeOff, Mail, MessageCircle,
     Send, Smartphone, Star, User, Users, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     ActionSheet, CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SearchBox, SortSelect,
@@ -57,7 +56,6 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     const [sort, setSort] = useState<RsvpSort>("response_desc");
     const [from, setFrom] = useState("");
     const [to, setTo] = useState("");
-    const [showUninvited, setShowUninvited] = useState(false);
     const [page, setPage] = useState(1);
     const [act, setAct] = useState<{ a: RsvpAction; r: RsvpRow; target?: RsvpAnswer | "pending" } | null>(null);
     const [guestAct, setGuestAct] = useState<{ a: GuestAction; r: RsvpRow } | null>(null);
@@ -70,8 +68,8 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     const reset = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); setPage(1); };
 
     const params = useMemo<RsvpBoardParams>(() => ({
-        tab, status, side, source, search: debounced, sort, from, to, show_uninvited: showUninvited, page, limit: PAGE,
-    }), [tab, status, side, source, debounced, sort, from, to, showUninvited, page]);
+        tab, status, side, source, search: debounced, sort, from, to, page, limit: PAGE,
+    }), [tab, status, side, source, debounced, sort, from, to, page]);
     const board = useRsvpBoard(eventId, params);
     const hide = useHideRsvp();
     const d = board.data;
@@ -112,7 +110,14 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     return (
         <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-col gap-3">
-                <ModuleHeader title="RSVP Responses" subtitle="Track attendance confirmations, pending responses, guest counts, and follow-up actions." />
+                {/* Export + Send Reminder in the heading row (Jamal, 2026-11-06). */}
+                <ModuleHeader title="RSVP Responses" subtitle="Track attendance confirmations, pending responses, guest counts, and follow-up actions."
+                    actions={(
+                        <>
+                            <Button variant="outline" size="sm" onClick={exportCsv} disabled={!d?.pagination.totalItems}><Download className="size-3.5" /> Export</Button>
+                            <Button size="sm" onClick={() => setBulkOpen(true)} disabled={!s?.pending}><Send className="size-3.5" /> Send Reminder</Button>
+                        </>
+                    )} />
 
                 <OverviewCard columns={6}>
                     <StatTile icon={Mail} value={s?.invited ?? 0} label="Total Invited" tone="violet" />
@@ -125,14 +130,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
 
                 {/* RSVP Summary, Channels, Recent Activity and Notes live on the event Dashboard (Jamal, 2026-11-06). */}
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!d?.pagination.totalItems}><Download className="size-3.5" /> Export</Button>
-                    <Button size="sm" className="h-8" onClick={() => setBulkOpen(true)} disabled={!s?.pending}><Send className="size-3.5" /> Send Reminder</Button>
-                    <label className="ml-auto flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                        <Info className="size-3.5" /> Show guests not invited yet ({s?.not_invited ?? 0})
-                        <Switch checked={showUninvited} onCheckedChange={reset(setShowUninvited)} />
-                    </label>
-                </div>
+                {/* "Show guests not invited yet" switch removed (Jamal, 2026-11-06). */}
 
                 <Toolbar>
                     <SearchBox value={search} onChange={setSearch} placeholder="Search by guest name, phone, or email..." className="min-w-[180px]" />

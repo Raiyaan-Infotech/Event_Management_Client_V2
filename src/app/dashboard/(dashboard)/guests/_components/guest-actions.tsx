@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
     CheckCircle2, Clock, Eye, EyeOff, Mail, MessageSquare, Pencil, Star, Trash2, X, type LucideIcon,
@@ -22,9 +23,7 @@ import {
     GUEST_STATUS_LABELS, useBulkGuests, useDeleteGuest, useGuest, useUpdateGuest,
     type Guest, type GuestStatus, type InviteChannel, type VipHighlight,
 } from "@/hooks/use-guests";
-import {
-    CHANNELS, GuestFields, draftError, draftOf, payloadOf, useRelationsFor, type GuestDraft,
-} from "./guest-fields";
+import { CHANNELS } from "./guest-fields";
 import { useEventHref } from "@/lib/event-workspace";
 
 /**
@@ -57,13 +56,8 @@ function Summary({ g }: { g: Guest }) {
         <PersonSummary
             name={g.name}
             photo={g.photo}
-            sub={[g.relationship, g.side ? sideLabel(g.side) : null].filter(Boolean).join(" · ")}
-            pills={(
-                <>
-                    {g.is_vip && <StatusPill tone="primary">{g.vip_label || "VIP"}</StatusPill>}
-                    {g.status && <StatusPill tone={STATUS_TONE[g.status].tone}>{GUEST_STATUS_LABELS[g.status]}</StatusPill>}
-                </>
-            )}
+            sub={[g.mobile ? `${g.dial_code || ""} ${g.mobile}`.trim() : null, g.group?.name].filter(Boolean).join(" · ")}
+            pills={g.status ? <StatusPill tone={STATUS_TONE[g.status].tone}>{GUEST_STATUS_LABELS[g.status]}</StatusPill> : undefined}
         />
     );
 }
@@ -106,11 +100,10 @@ function ViewGuest({ guest, onClose, onSwitch }: P) {
         <ActionSheet open onClose={onClose} icon={Eye} title="View Guest" subtitle="Complete guest profile, invitation and RSVP details"
             footer={<><Button variant="outline" onClick={onClose}>Close</Button><Button onClick={() => onSwitch("edit")}>Edit Guest</Button></>}>
             <Summary g={g} />
+            {/* Relationship / Family Side / Invite Count / App Visibility removed — not in the app (2026-11-06). */}
             <InfoGrid items={[
-                { label: "Relationship", value: g.relationship },
-                { label: "Family Side", value: sideLabel(g.side) },
-                { label: "Invite Count", value: `${count} ${count === 1 ? "guest" : "guests"}` },
-                { label: "App Visibility", value: visible ? "Visible" : "Hidden" },
+                { label: "Group", value: g.group?.name ?? null },
+                { label: "Status", value: g.status ? GUEST_STATUS_LABELS[g.status] : null },
             ]} />
             <DetailSection title="Contact Information">
                 <DetailRow label="Mobile Number">{g.mobile ? `${g.dial_code || ""} ${g.mobile}`.trim() : null}</DetailRow>
@@ -131,39 +124,19 @@ function ViewGuest({ guest, onClose, onSwitch }: P) {
 
 /* ── Edit Guest ─────────────────────────────────────────────────────────── */
 
-function EditGuest({ guest, onClose }: P) {
-    const update = useUpdateGuest(() => onClose());
-    const [d, setD] = useState<GuestDraft>(() => draftOf(guest));
-    const [tried, setTried] = useState(false);
-    const set = (p: Partial<GuestDraft>) => setD((x) => ({ ...x, ...p }));
-    const rel = useRelationsFor(d.side, d.relation);
-    const save = () => {
-        setTried(true);
-        const err = draftError(d, { needChannel: false });
-        if (err) return toast.error(err);
-        update.mutate({ id: guest.id, data: payloadOf(d, rel.idOf(d.relation)) });
-    };
-    const box = (label: string, checked: boolean, onChange: (v: boolean) => void, hint?: string) => (
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border px-3 py-2.5">
-            <Checkbox checked={checked} onCheckedChange={(v) => onChange(v === true)} className="mt-0.5" />
-            <span>
-                <span className="block text-[13px] font-semibold">{label}</span>
-                {hint && <span className="block text-[11.5px] text-muted-foreground">{hint}</span>}
-            </span>
-        </label>
-    );
-    return (
-        <ActionSheet open onClose={onClose} icon={Pencil} title="Edit Guest" subtitle="Update guest details and invitation settings"
-            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={update.isPending} onClick={save}>Save Changes</Button></>}>
-            <Summary g={guest} />
-            <GuestFields d={d} set={set} tried={tried} sideNotes={false} />
-            <div className="grid grid-cols-2 gap-2.5">
-                {box("RSVP Required", d.rsvpRequired, (v) => set({ rsvpRequired: v }))}
-                {box("Mark as VIP", d.vip, (v) => set({ vip: v }))}
-            </div>
-            {box("Show in App", d.visible, (v) => set({ visible: v }), "Guest is visible to the event participants")}
-        </ActionSheet>
-    );
+/**
+ * Edit Guest = the APP's Edit Guest form (the GuestForm page: First / Last Name, Phone, Group, Email,
+ * Company, Address…), not the design's panel with Relationship / Side / VIP (Jamal, 2026-11-06).
+ */
+function EditGuest({ guest, eventId, onClose }: P) {
+    const router = useRouter();
+    const wsHref = useEventHref();
+    useEffect(() => {
+        router.push(wsHref(`/dashboard/guests/${guest.id}?event=${eventId}`));
+        onClose();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    return null;
 }
 
 /* ── Send Invitation ────────────────────────────────────────────────────── */
@@ -446,17 +419,16 @@ function DeleteGuest({ guest, onClose }: P) {
     );
 }
 
-/** The row menu's items, in the design's order. */
-export function guestMenu(g: Guest, open: (a: GuestAction) => void, showAgain: () => void) {
+/**
+ * The row menu's items. Mark as VIP and Hide / Show Guest removed (Jamal, 2026-11-06 — the app has
+ * neither); `_g` kept so callers need not change.
+ */
+export function guestMenu(_g: Guest, open: (a: GuestAction) => void) {
     return [
         { label: "View Guest", icon: Eye, onClick: () => open("view") },
         { label: "Edit Guest", icon: Pencil, onClick: () => open("edit") },
         { label: "Send Invitation", icon: Mail, onClick: () => open("invite") },
         { label: "View RSVP Response", icon: MessageSquare, onClick: () => open("rsvp") },
-        { label: g.is_vip ? "VIP Settings" : "Mark as VIP", icon: Star, onClick: () => open("vip") },
-        g.is_visible === false
-            ? { label: "Show Guest", icon: Eye, onClick: showAgain }
-            : { label: "Hide Guest", icon: EyeOff, onClick: () => open("hide") },
         { label: "Delete Guest", icon: Trash2, onClick: () => open("delete"), danger: true, divider: true },
     ];
 }

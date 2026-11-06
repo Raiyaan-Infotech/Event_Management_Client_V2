@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Check, CheckCircle2, Clock, Gauge, Plus, Search, User, UserPlus, Users } from "lucide-react";
+import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,17 +80,40 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
     const full = !!capacity.data?.full;
     const selected = act ? rows.find((p) => p.id === act.id) ?? null : null;
 
+    /** Download CSV (Jamal, 2026-11-06): the list as shown — current tab, search and sort, every page. */
+    const downloadCsv = () => {
+        const side = (s?: string | null) => (s === "bride" ? "Bride Side" : s === "groom" ? "Groom Side" : "");
+        const access = (p: ParticipantRow) => ({ active: "Active", pending: "Pending", blocked: "Blocked" }[accessOf(p)] ?? "");
+        const head = ["Name", "Mobile", "Email", "Relationship", "Side", "Members", "RSVP Status", "Access", "Linked Guest", "Joined On"];
+        const lines = shown.map((p) => [
+            p.name, `${p.dial_code ?? ""} ${p.mobile ?? ""}`.trim(), p.email ?? "", p.relationship ?? "", side(p.rsvp_side ?? p.side),
+            p.party_size ?? 1, p.rsvp_status ?? "", access(p), p.guest?.name ?? "", p.created_at ? fmt(p.created_at, true) : "",
+        ]);
+        const csv = [head, ...lines].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const a = document.createElement("a");
+        // BOM so Excel reads Tamil / other scripts correctly.
+        a.href = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" }));
+        a.download = `participants-${(eventName ?? `event-${eventId}`).replace(/[^\w-]+/g, "-").toLowerCase()}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+
     return (
         <div className="flex min-w-0 flex-col gap-3">
             <ModuleHeader
                 title="Event Participants"
                 subtitle="Manage participant access, invitation status, and event engagement."
-                actions={<Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>}
+                actions={(
+                    <>
+                        <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Download CSV</Button>
+                        <Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
+                    </>
+                )}
             />
             <OverviewCard>
                 <StatTile icon={Users} value={count("all")} label="Total Participants" tone="primary" />
                 <StatTile icon={CheckCircle2} value={count("active")} label="Active" tone="success" />
-                <StatTile icon={Clock} value={count("pending")} label="Pending Access" tone="warning" />
+                <StatTile icon={Clock} value={count("pending")} label="Pending" tone="warning" />
                 <StatTile icon={Ban} value={count("blocked")} label="Blocked" tone="danger" />
                 {/* The plan's participant limit as a tile (was a line above the card — Jamal, 2026-11-06). */}
                 {capacity.data?.limit != null && (
