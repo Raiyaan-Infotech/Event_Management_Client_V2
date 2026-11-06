@@ -1206,7 +1206,7 @@ function VideoEditPanel({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
     };
 
     return (
-        <div className="flex flex-col gap-3 border-y border-primary/20 bg-primary/[0.02] px-3 py-3">
+        <div className="flex flex-col gap-2.5 border-y border-primary/20 bg-primary/[0.02] px-3 py-2.5">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="flex items-center gap-2 text-[15px] font-bold"><Scissors className="size-4 text-primary" /> Trim &amp; Music</p>
@@ -1215,8 +1215,10 @@ function VideoEditPanel({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
                 <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={close} aria-label="Close"><X className="size-4" /></Button>
             </div>
 
-            <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+            {/* Live check 1366×768 (Jamal, 2026-11-06): the full-width 16:9 player was ~810×455 and filled the screen.
+                Now a 16:9 box 230 px high (≈410 px wide) with the Cover card using the space beside it. */}
+            <div className="flex min-w-0 flex-col gap-3 md:flex-row">
+                <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black md:h-[230px] md:w-auto">
                     <video ref={videoRef} src={q.url} className="size-full object-contain" playsInline onLoadedMetadata={onMeta} onTimeUpdate={onTimeUpdate} onEnded={stop} />
                     {music && <audio ref={audioRef} src={music.url} loop />}
                     <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-white">
@@ -1227,20 +1229,24 @@ function VideoEditPanel({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
                     </div>
                 </div>
 
-                {/* Cover — beside the player, like the mockup's side panel. */}
-                <div className="flex h-fit flex-col gap-3 rounded-xl border border-border bg-card p-3 text-[12.5px]">
+                {/* Cover — beside the player: picture on the left, text + buttons on the right. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-xl border border-border bg-card p-3 text-[12.5px] md:h-[230px]">
                     <p className="flex items-center gap-1.5 text-[14px] font-bold"><ImageIcon className="size-4 text-primary" /> Cover</p>
-                    <p className="text-[12px] text-muted-foreground">The picture shown on the gallery tile. JPG, PNG or WEBP.</p>
                     <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCover({ file: f, url: URL.createObjectURL(f) }); }} />
-                    <button type="button" onClick={() => coverRef.current?.click()} className="relative aspect-video w-full overflow-hidden rounded-lg border border-dashed border-primary/40 bg-muted">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[12px] text-muted-foreground">First frame (default)</span>}
-                    </button>
-                    <span className="flex gap-2">
-                        <Button size="sm" variant="outline" className="h-8 flex-1" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
-                        {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}
-                    </span>
+                    <div className="flex min-w-0 flex-wrap items-start gap-3">
+                        <button type="button" onClick={() => coverRef.current?.click()} className="relative aspect-video w-[160px] shrink-0 overflow-hidden rounded-lg border border-dashed border-primary/40 bg-muted">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[11.5px] text-muted-foreground">First frame</span>}
+                        </button>
+                        <div className="flex min-w-[150px] flex-1 flex-col gap-2">
+                            <p className="text-[12px] text-muted-foreground">The picture shown on the gallery tile. Without one, the video&apos;s first frame is used. JPG, PNG or WEBP.</p>
+                            <span className="flex flex-wrap gap-2">
+                                <Button size="sm" variant="outline" className="h-8" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
+                                {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
