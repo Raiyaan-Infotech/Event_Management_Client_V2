@@ -40,6 +40,8 @@ export interface EventMenuRef {
     name: string;
     slug: string;
     menu_group: 'core' | 'additional' | 'custom';
+    /** Default menu (always on) vs Additional — the event workspace sidebar groups by it. */
+    is_default?: boolean | number;
 }
 
 export interface TaxonomyRef {

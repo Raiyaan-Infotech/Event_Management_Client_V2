@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Check, CheckCircle2, Clock, Plus, Search, User, UserPlus, Users } from "lucide-react";
+import { Ban, Check, CheckCircle2, Clock, Gauge, Plus, Search, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,18 +87,16 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                 subtitle="Manage participant access, invitation status, and event engagement."
                 actions={<Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>}
             />
-            {capacity.data?.limit != null && (
-                <p className={cn("rounded-md px-3 py-1.5 text-[12px]", full ? "bg-destructive/10 text-destructive" : "bg-primary/5 text-muted-foreground")}>
-                    <span className="font-semibold text-foreground">{capacity.data.used} / {capacity.data.limit}</span> participants on this event
-                    {full ? " — the plan's limit is reached. Upgrade your plan to add more." : ""}
-                </p>
-            )}
-
             <OverviewCard>
                 <StatTile icon={Users} value={count("all")} label="Total Participants" tone="primary" />
                 <StatTile icon={CheckCircle2} value={count("active")} label="Active" tone="success" />
                 <StatTile icon={Clock} value={count("pending")} label="Pending Access" tone="warning" />
                 <StatTile icon={Ban} value={count("blocked")} label="Blocked" tone="danger" />
+                {/* The plan's participant limit as a tile (was a line above the card — Jamal, 2026-11-06). */}
+                {capacity.data?.limit != null && (
+                    <StatTile icon={Gauge} value={`${capacity.data.used} / ${capacity.data.limit}`} label="Plan Limit" tone={full ? "danger" : "violet"}
+                        caption={full ? "Limit reached — upgrade your plan" : `${Math.max(0, capacity.data.limit - capacity.data.used)} places left`} />
+                )}
             </OverviewCard>
 
             <div className="flex flex-wrap items-center gap-3">

@@ -324,10 +324,16 @@ export function EventWizard({
     eventId,
     initialThemeId,
     section,
+    embedded = false,
 }: {
     eventId?: number;
     /** Edit one section (Edit Event hub) instead of the whole wizard. */
     section?: EditSectionKey;
+    /**
+     * A section shown INSIDE an event page (the workspace's Venue tab, Jamal 2026-11-06): no page
+     * title / Exit, no Cancel, and Save stays on the page instead of going to the Edit Event hub.
+     */
+    embedded?: boolean;
     /**
      * Preselected template code, from `/dashboard/events/create?theme=<code>` —
      * what "Use Template" on the Templates screen hands over. It cannot be
@@ -450,6 +456,7 @@ export function EventWizard({
             return;
         }
         if (section) {
+            if (embedded) return; // saved in place — the page shows the new values
             router.push(wsHref(`/dashboard/events/${event.id}/edit`));
             return;
         }
@@ -1206,7 +1213,7 @@ export function EventWizard({
 
     return (
         <div className="flex flex-col gap-4">
-            <div>
+            <div className={cn(embedded && "hidden")}>
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <h1 className="text-[19px] font-bold tracking-tight text-foreground">
@@ -2647,6 +2654,7 @@ export function EventWizard({
                     {/* Nav — hidden on the success step, which has its own action. */}
                     {(step < S_CREATED || !!section) && (
                         <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
+                            {embedded && pageIndex <= 0 && <span />}
                             <Button
                                 variant="outline"
                                 onClick={() => {
@@ -2662,7 +2670,7 @@ export function EventWizard({
                                     setStep((s) => Math.max(1, s - 1));
                                 }}
                                 disabled={(!sectionPages && step === 1) || saving}
-                                className="h-10 rounded-md text-[13px] font-medium"
+                                className={cn("h-10 rounded-md text-[13px] font-medium", embedded && pageIndex <= 0 && "hidden")}
                             >
                                 <FontAwesomeIcon icon={faArrowLeft} className="mr-2 !size-[12px]" />
                                 {step === S_CARD_SETTINGS ? "Back to Preview" : sectionPages && pageIndex <= 0 ? "Cancel" : "Back"}

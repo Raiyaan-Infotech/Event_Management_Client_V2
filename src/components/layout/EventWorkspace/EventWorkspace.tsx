@@ -16,8 +16,9 @@ import { cn } from "@/lib/utils";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import {
-    EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
+    EVENT_STATUS, EVENT_TAB_ICONS, TAB_MENU_SLUG, TOP_TABS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
 } from "@/app/dashboard/(dashboard)/events/[id]/_components/event-tabs";
+import { useEventOptions } from "@/hooks/use-client-portal";
 
 /**
  * The EVENT WORKSPACE (Jamal's mockup, 2026-11-04): "View Event" opens the
@@ -45,6 +46,19 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const settingsOpen = settingsToggled ?? tab === "settings";
     const { state } = useSidebar();
     const collapsed = state === "collapsed";
+    // DEFAULT MENU / ADDITIONAL MENU = the event's own menus (`is_default`), else the plan's list.
+    const event = useClientEvent(eventId).data;
+    const planMenus = useEventOptions().data?.menus;
+    const isDefaultMenu = (slug: string) => {
+        const m = event?.menus?.find((x) => x.slug === slug) ?? planMenus?.find((x) => x.slug === slug);
+        return m ? m.is_default === true || Number(m.is_default) === 1 : false;
+    };
+    const groups: { key: string; label: string | null; items: typeof tabs }[] = [
+        { key: "top", label: null, items: tabs.filter((t) => TOP_TABS.includes(t.value)) },
+        { key: "default", label: "Default Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
+        { key: "additional", label: "Additional Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && !isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
+        { key: "settings", label: "Settings", items: tabs.filter((t) => !TOP_TABS.includes(t.value) && !TAB_MENU_SLUG[t.value]) },
+    ].filter((g) => g.items.length > 0);
     return (
         <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
             <SidebarHeader className={cn("sticky top-0 z-50 flex h-14 flex-col justify-center border-b border-border bg-sidebar", collapsed ? "px-1.5" : "px-4")}>
@@ -60,8 +74,13 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                 </Link>
             </SidebarHeader>
             <SidebarContent className="px-2 py-3">
+                {groups.map((g, gi) => (
+                <div key={g.key} className={cn(gi > 0 && "mt-3")}>
+                {g.label && (collapsed
+                    ? <div className="mx-2 mb-2 border-t border-border" />
+                    : <p className="px-2 pb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{g.label}</p>)}
                 <SidebarMenu className="gap-0.5">
-                    {tabs.map((t) => {
+                    {g.items.map((t) => {
                         const Icon = EVENT_TAB_ICONS[t.value];
                         const on = tab === t.value;
                         return (
@@ -99,6 +118,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                         );
                     })}
                 </SidebarMenu>
+                </div>
+                ))}
             </SidebarContent>
         </Sidebar>
     );

@@ -15,7 +15,8 @@ import type { DerivedStatus } from "@/hooks/use-client-events";
  */
 export const EVENT_TABS = [
     { value: "overview", label: "Dashboard" },
-    { value: "information", label: "Event Information" },
+    // "Event Information" -> "Event Info" (Jamal, 2026-11-06).
+    { value: "information", label: "Event Info" },
     { value: "agenda", label: "Agenda" },
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Gallery" },
@@ -30,6 +31,17 @@ export const EVENT_TABS = [
     { value: "messages", label: "Messages" },
     { value: "activity", label: "Activity Log" },
 ] as const;
+
+/**
+ * The app menu (event_menus slug) behind each section — the workspace sidebar shows them under
+ * DEFAULT MENU / ADDITIONAL MENU by that menu's `is_default` (Jamal, 2026-11-06). Sections not
+ * listed are not app menus: Dashboard + Event Info go on top, Menu Settings + Activity Log under SETTINGS.
+ */
+export const TAB_MENU_SLUG: Partial<Record<EventTab, string>> = {
+    agenda: "agenda", venue: "venue", gallery: "gallery", family: "family", wishes: "wishes", live: "live-streaming",
+    social: "social-links", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
+};
+export const TOP_TABS: EventTab[] = ["overview", "information"];
 
 export type EventTab = (typeof EVENT_TABS)[number]["value"];
 

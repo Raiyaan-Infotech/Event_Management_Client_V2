@@ -6,7 +6,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faPenToSquare, faDownload,
-    faLocationDot, faGlobe,
+    faGlobe,
     faLock, faEyeSlash, faUsers, faSquareCheck, faComments, faQrcode,
     faLayerGroup, faPalette, faClockRotateLeft, faCircleInfo,
     faTriangleExclamation, faArrowRight, faCircleCheck, faXmark, faMinus,
@@ -39,10 +39,10 @@ import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { RsvpChannels, RsvpNotes, RsvpRecent, RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
+import { EventWizard } from "../../_components/event-wizard";
 import { EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
 import { EventHero } from "./event-hero";
 import { CalendarDays, Clock, Info, Link2, MapPin, Send, UsersRound, type LucideIcon } from "lucide-react";
-import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Event Details — the View Event screen.
@@ -97,7 +97,6 @@ function eventCode(id: number, startDate: string | null): string {
  * event and its sections, so the header card and the tab bar are not drawn.
  */
 export function EventDetail({ eventId, workspace = false }: { eventId: number; workspace?: boolean }) {
-    const wsHref = useEventHref();
     // Dates follow the client's own Date Format / Time Zone preference.
     const fmt = useDateFormatter();
     const router = useRouter();
@@ -302,28 +301,8 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {tab === "agenda" && <AgendaPanel event={event} />}
 
             {/* ── Venue ───────────────────────────────────────────────────── */}
-            {tab === "venue" && (
-                <Panel title="Venue">
-                    {event.venue_name || event.venue_address ? (
-                        <>
-                            <Row label="Venue Name" value={event.venue_name || "—"} />
-                            <Row label="Address" value={event.venue_address || "—"} />
-                        </>
-                    ) : (
-                        <div className="flex flex-col items-center gap-2 py-8 text-center">
-                            <FontAwesomeIcon icon={faLocationDot} className="!size-[22px] text-muted-foreground/40" />
-                            <p className="text-[12.5px] font-semibold text-foreground">No venue set</p>
-                            <p className="max-w-[320px] text-[11.5px] text-muted-foreground">
-                                The Create Event wizard does not collect a venue yet, so this is empty for
-                                every event.
-                            </p>
-                            <Button asChild variant="outline" size="sm" className="mt-1 h-8 text-[12px]">
-                                <Link href={wsHref(`/dashboard/events/${event.id}/edit`)}>Edit event</Link>
-                            </Button>
-                        </div>
-                    )}
-                </Panel>
-            )}
+            {/* Venue = the real Edit Venue page (map + fields + Save), in place (Jamal, 2026-11-06). */}
+            {tab === "venue" && <EventWizard key={`venue-${event.id}`} eventId={event.id} section="venue" embedded />}
 
             {/* ── Gallery ─────────────────────────────────────────────────── */}
             {tab === "gallery" && <GalleryBoard eventId={event.id} />}
