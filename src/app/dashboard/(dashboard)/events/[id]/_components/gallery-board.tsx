@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowLeft, Check, CheckSquare, ChevronRight, CloudUpload, Copy, Download, Eye, Film, Folder, FolderInput,
+    ArrowLeft, Check, CheckSquare, ChevronDown, ChevronRight, CloudUpload, Copy, Download, Eye, Film, Folder, FolderInput,
     FolderPlus, Image as ImageIcon, Images, Info, LayoutGrid, List, Lock, MoreVertical, Pencil, Play, RotateCcw, Search,
     Square, Trash2, Upload, Video, X, Zap, type LucideIcon,
 } from "lucide-react";
@@ -311,7 +311,14 @@ function FolderView({
     const current = Math.min(page, Math.max(1, Math.ceil(shown.length / PAGE)));
     const pageItems = shown.slice((current - 1) * PAGE, current * PAGE);
     const pick = items.find((i) => i.id === picked) ?? null;
-    const toggle = (id: number) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    // Multi-select click (Jamal's design, 2026-11-06): tick the file AND show it in the details panel;
+    // un-ticking the file on show moves the panel to the last ticked one (or closes it).
+    const tap = (id: number) => {
+        if (!multi) { setPicked(id); return; }
+        const next = sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id];
+        setSel(next);
+        setPicked(next.includes(id) ? id : picked === id ? next[next.length - 1] ?? null : picked);
+    };
     const allOn = pageItems.length > 0 && pageItems.every((i) => sel.includes(i.id));
     const name = (i: GalleryItem) => i.title || i.file_name || `${KIND_META[kindOf(i)].label} #${i.id}`;
     const folderName = (id: number | null) => folders.find((f) => f.id === id)?.name ?? "Gallery";
@@ -358,33 +365,41 @@ function FolderView({
                     <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search media in this folder..." className="min-w-[160px]" />
                     <SortSelect value={sort} onChange={setSort} className="w-[170px]" options={[{ value: "new", label: "Sort: Newest" }, { value: "old", label: "Sort: Oldest" }, { value: "name", label: "Sort: Name" }, { value: "size", label: "Sort: Largest" }]} />
                     <Button variant={multi ? "default" : "outline"} size="sm" className="h-8" onClick={() => { setMulti(!multi); setSel([]); }}>{multi ? <CheckSquare className="size-3.5" /> : <Square className="size-3.5" />} Multi-select</Button>
+                    {multi && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8" disabled={!sel.length}>Bulk Actions{sel.length ? ` (${sel.length})` : ""} <ChevronDown className="size-3.5" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => setMoving({ ids: sel, copy: false })}><FolderInput className="size-4" /> Move to Folder</DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => setMoving({ ids: sel, copy: true })}><Copy className="size-4" /> Copy to Folder</DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => download(items.filter((i) => sel.includes(i.id)))}><Download className="size-4" /> Download</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="gap-2 text-[13px] text-destructive focus:text-destructive" onClick={() => setDeleting(sel)}><Trash2 className="size-4" /> Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
 
-                {multi && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-[12.5px]">
-                        <label className="flex items-center gap-2 font-semibold"><Checkbox checked={allOn} onCheckedChange={() => setSel(allOn ? [] : pageItems.map((i) => i.id))} /> {sel.length} items selected</label>
-                        <span className="ml-auto flex flex-wrap gap-1.5">
-                            <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" disabled={!sel.length} onClick={() => setMoving({ ids: sel, copy: false })}><FolderInput className="size-3.5" /> Move to Folder</Button>
-                            <Button size="sm" variant="outline" className="h-7" disabled={!sel.length} onClick={() => setMoving({ ids: sel, copy: true })}><Copy className="size-3.5" /> Copy to Folder</Button>
-                            <Button size="sm" variant="outline" className="h-7" disabled={!sel.length} onClick={() => download(items.filter((i) => sel.includes(i.id)))}><Download className="size-3.5" /> Download</Button>
-                            <Button size="sm" variant="outline" className="h-7 border-destructive/40 text-destructive" disabled={!sel.length} onClick={() => setDeleting(sel)}><Trash2 className="size-3.5" /> Delete</Button>
-                        </span>
-                    </div>
-                )}
-
-                <p className="text-[13px] font-semibold">{shown.length.toLocaleString()} Media Items</p>
+                <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-semibold">{shown.length.toLocaleString()} Media Items{multi && sel.length > 0 && <span className="ml-2 font-normal text-primary">· {sel.length} selected</span>}</p>
+                    {multi && pageItems.length > 0 && (
+                        <label className="flex cursor-pointer items-center gap-2 text-[12.5px]"><Checkbox checked={allOn} onCheckedChange={() => setSel(allOn ? [] : pageItems.map((i) => i.id))} /> Select All</label>
+                    )}
+                </div>
                 {pageItems.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-border py-10 text-center text-[13px] text-muted-foreground">
                         Nothing here yet. <button type="button" className="font-semibold text-primary" onClick={() => onUpload(folder?.id)}>Upload media</button>
                     </div>
                 ) : grid ? (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                    // Fixed small cards (the design's 5-across grid), whatever the item count.
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
                         {pageItems.map((i) => {
                             const k = KIND_META[kindOf(i)];
                             const on = sel.includes(i.id);
                             return (
                                 <div key={i.id} className={cn("group overflow-hidden rounded-xl border bg-card transition", picked === i.id || on ? "border-primary ring-1 ring-primary/30" : "border-border hover:border-primary/40")}>
-                                    <button type="button" className="relative block aspect-[4/3] w-full" onClick={() => (multi ? toggle(i.id) : setPicked(i.id))} onDoubleClick={() => setViewer(shown.indexOf(i))}>
+                                    <button type="button" className="relative block aspect-[4/3] w-full" onClick={() => tap(i.id)} onDoubleClick={() => setViewer(shown.indexOf(i))}>
                                         <Thumb item={i} className="size-full" />
                                         {(multi || on) && <span className={cn("absolute top-1.5 left-1.5 grid size-5 place-items-center rounded border-2 border-white bg-black/30", on && "bg-primary")}>{on && <Check className="size-3 text-white" />}</span>}
                                         <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[10.5px] text-white"><k.icon className="size-3" /> {secs(i.duration_seconds) || k.label}</span>
@@ -411,8 +426,8 @@ function FolderView({
                             <tbody>{pageItems.map((i) => {
                                 const k = KIND_META[kindOf(i)];
                                 return (
-                                    <tr key={i.id} className={cn("cursor-pointer border-b border-border last:border-0 hover:bg-muted/30", picked === i.id && "bg-primary/5")} onClick={() => (multi ? toggle(i.id) : setPicked(i.id))}>
-                                        {multi && <td className="px-3 py-1.5"><Checkbox checked={sel.includes(i.id)} onCheckedChange={() => toggle(i.id)} onClick={(e) => e.stopPropagation()} /></td>}
+                                    <tr key={i.id} className={cn("cursor-pointer border-b border-border last:border-0 hover:bg-muted/30", picked === i.id && "bg-primary/5")} onClick={() => tap(i.id)}>
+                                        {multi && <td className="px-3 py-1.5"><Checkbox checked={sel.includes(i.id)} onCheckedChange={() => tap(i.id)} onClick={(e) => e.stopPropagation()} /></td>}
                                         <td className="px-3 py-1.5"><Thumb item={i} className="h-9 w-12 rounded" /></td>
                                         <td className="max-w-[220px] truncate px-3 py-1.5 font-medium">{name(i)}</td>
                                         <td className="px-3 py-1.5"><StatusPill tone={k.tone} icon={k.icon}>{k.label}</StatusPill></td>

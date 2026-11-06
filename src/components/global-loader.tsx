@@ -35,21 +35,23 @@ export function GlobalLoader() {
     // already on screen — reconnect, a socket update, a stale refetch — stays
     // silent: covering a filled page with "Loading..." for it read as the page
     // reloading by itself (coming back to the tab, Jamal 2026-11-02).
-    const fetching = useIsFetching({ predicate: (q) => q.state.data === undefined });
+    // The session check (`['client','me']`) is skipped: ClientAuthGate shows its own
+    // loader for it, and both at once drew a loader over a loader (Jamal, 2026-11-06).
+    const fetching = useIsFetching({
+        predicate: (q) => q.state.data === undefined && !(q.queryKey[0] === "client" && q.queryKey[1] === "me"),
+    });
     const mutating = useIsMutating();
     const busy = fetching + mutating > 0;
 
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        if (!busy) {
-            setVisible(false);
-            return;
-        }
+        if (!busy) return;
         const t = setTimeout(() => setVisible(true), DELAY_MS);
         // Clearing on cleanup is what makes the delay work: a request that
         // finishes inside the window unmounts the timer before it ever fires.
-        return () => clearTimeout(t);
+        // Hiding here too: cleanup runs when `busy` turns false.
+        return () => { clearTimeout(t); setVisible(false); };
     }, [busy]);
 
     // A mutation is a deliberate action, so name it — "Saving..." over a form

@@ -2,9 +2,10 @@
 
 import { useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowRightToBracket, faSpinner, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faArrowRightToBracket, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 import { Button } from '@/components/ui/button';
+import { PageLoader } from '@/components/common/page-loader';
 import { ApiError } from '@/lib/api-client';
 import { loginUrl, currentUrl, isSiteConfigured, SITE_URL_ENV } from '@/lib/site';
 import { useClientProfile } from '@/hooks/use-client-portal';
@@ -50,14 +51,8 @@ export function ClientAuthGate({ children }: { children: React.ReactNode }) {
         window.location.replace(target);
     }, [notSignedIn]);
 
-    if (isLoading) {
-        return (
-            <Centered>
-                <FontAwesomeIcon icon={faSpinner} spin className="!size-[22px] text-primary" />
-                <p className="mt-3 text-[13px] text-muted-foreground">Checking your session…</p>
-            </Centered>
-        );
-    }
+    // The app's one loader (GlobalLoader leaves this request to us, so only one shows).
+    if (isLoading) return <PageLoader fullScreen text="Loading..." />;
 
     if (notSignedIn) {
         /**
