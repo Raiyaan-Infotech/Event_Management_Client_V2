@@ -636,7 +636,10 @@ function FolderSheet({ eventId, folder, count, onClose }: { eventId: number; fol
 
 /* ── Upload Media ───────────────────────────────────────────────────────── */
 
-type Queued = { key: string; file: File; url: string; kind: "image" | "video"; status: "queued" | "uploading" | "done" | "failed"; error?: string; checked: boolean };
+type Queued = { key: string; file: File; url: string; kind: "image" | "video"; status: "queued" | "uploading" | "done" | "failed" | "wrong_folder"; error?: string; checked: boolean };
+/** The folder does not take this kind of file — checked here, so no request is sent (Jamal, 2026-11-06). */
+const wrongFolderMsg = (k: "image" | "video", f?: GalleryCategory) =>
+    takes(f?.folder_type, k) ? null : `"${f?.name ?? "This folder"}" takes ${f?.folder_type} only — choose another folder for this file.`;
 const IMAGE_RE = /^image\/(jpeg|png|webp|gif)$/;
 const VIDEO_RE = /^video\/(mp4|webm|quicktime)$/;
 
@@ -656,6 +659,14 @@ function UploadView({
         setFolderId(id);
         const f = folders.find((x) => x.id === id);
         if (f?.folder_type && f.folder_type !== "mixed") setKind(kindFor(f));
+        // Re-check the waiting files against the new folder at once: a file it does not take is marked
+        // (never sent); one that fits again goes back to "Ready to upload".
+        setQueue((q) => q.map((x) => {
+            if (x.status === "done" || x.status === "uploading") return x;
+            const msg = wrongFolderMsg(x.kind, f);
+            if (msg) return { ...x, status: "wrong_folder", error: msg };
+            return x.status === "wrong_folder" ? { ...x, status: "queued", error: undefined } : x;
+        }));
     };
     const [queue, setQueue] = useState<Queued[]>([]);
     const [over, setOver] = useState(false);
@@ -688,17 +699,28 @@ function UploadView({
     useEffect(() => () => queue.forEach((q) => URL.revokeObjectURL(q.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const set = (key: string, patch: Partial<Queued>) => setQueue((q) => q.map((x) => (x.key === key ? { ...x, ...patch } : x)));
-    const runOne = (q: Queued) => new Promise<void>((resolve) => {
+    /** Resolves true when the file was uploaded. */
+    const runOne = (q: Queued) => new Promise<boolean>((resolve) => {
+        const wrong = wrongFolderMsg(q.kind, folder);
+        if (wrong) { set(q.key, { status: "wrong_folder", error: wrong }); resolve(false); return; }
         set(q.key, { status: "uploading", error: undefined });
         upload.mutate({ file: q.file, categoryId: folderId }, {
-            onSuccess: () => { set(q.key, { status: "done" }); resolve(); },
-            onError: (e) => { set(q.key, { status: "failed", error: e instanceof Error ? e.message : "Upload failed" }); resolve(); },
+            onSuccess: () => { set(q.key, { status: "done" }); resolve(true); },
+            onError: (e) => { set(q.key, { status: "failed", error: e instanceof Error ? e.message : "Upload failed" }); resolve(false); },
         });
     });
     const uploadAll = async () => {
         setBusy(true);
-        for (const q of queue.filter((x) => x.status === "queued" || x.status === "failed")) await runOne(q); // one by one, as the plan limits are checked per file
+        let ok = 0, bad = 0;
+        for (const q of queue.filter((x) => x.status === "queued" || x.status === "failed")) { // one by one, as the plan limits are checked per file
+            if (await runOne(q)) ok++; else bad++;
+        }
         setBusy(false);
+        // Everything went up -> open that folder's list (Jamal, 2026-11-06). Any failure keeps the page open to retry.
+        if (ok && !bad) {
+            toast.success(`${ok} ${ok === 1 ? "file" : "files"} uploaded to "${folder?.name ?? "Gallery"}"`);
+            onGallery(folderId);
+        }
     };
     const pending = queue.filter((x) => x.status === "queued" || x.status === "failed").length;
     const failed = queue.filter((x) => x.status === "failed").length;
@@ -792,6 +814,7 @@ function UploadView({
                                     {q.status === "uploading" && <span className="flex flex-col gap-1"><span className="text-primary">Uploading…</span><span className="h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full w-2/3 animate-pulse rounded-full bg-primary" /></span></span>}
                                     {q.status === "done" && <span className="flex items-center gap-1 text-success"><Check className="size-3.5" /> Uploaded successfully</span>}
                                     {q.status === "failed" && <span className="block text-destructive" title={q.error}><b>Upload failed</b><br /><span className="text-[11px]">{q.error}</span></span>}
+                                    {q.status === "wrong_folder" && <span className="block text-destructive" title={q.error}><b>Wrong folder</b><br /><span className="text-[11px]">{q.error}</span></span>}
                                 </div>
                                 {q.status === "failed" && <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" onClick={() => runOne(q)}><RotateCcw className="size-3" /> Retry</Button>}
                                 <Button size="icon" variant="ghost" className="size-7 text-destructive" disabled={q.status === "uploading"} aria-label="Remove" onClick={() => setQueue((x) => x.filter((y) => y.key !== q.key))}><Trash2 className="size-4" /></Button>
