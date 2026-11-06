@@ -282,6 +282,10 @@ export interface GalleryItem {
     description?: string | null;
     duration_seconds?: number | null;
     created_at?: string | null;
+    mime_type?: string | null;
+    /** The client id that uploaded it (Details "Uploaded By"). */
+    uploaded_by?: number | null;
+    updated_at?: string | null;
 }
 
 export interface GalleryCategory {
@@ -347,11 +351,11 @@ export function useEventGallery(eventId: number, categoryId?: number) {
 export function useUploadGalleryItem(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: ({ file, categoryId }: { file: File; categoryId?: number }) => {
+        mutationFn: ({ file, categoryId, onProgress }: { file: File; categoryId?: number; onProgress?: (pct: number) => void }) => {
             const form = new FormData();
             form.append('file', file);
             if (categoryId !== undefined) form.append('category_id', String(categoryId));
-            return api.post(`/client/events/${eventId}/gallery`, form);
+            return api.upload(`/client/events/${eventId}/gallery`, form, onProgress);
         },
         onSuccess: () => invalidate(qc, eventId, 'gallery'),
         onError: (e) => report(e, 'Could not upload that file'),
@@ -416,6 +420,55 @@ export function useSaveGalleryCategory(eventId: number) {
             invalidate(qc, eventId, 'gallery');
         },
         onError: (e) => report(e, 'Could not save this category'),
+    });
+}
+
+/** Edit Video / Shorts — what the editor sends (rendered on the server). Only used when VIDEO_EDITOR_ENABLED. */
+export interface VideoEditText {
+    text: string; animation: 'fade' | 'slide' | 'zoom' | 'typewriter'; duration: number;
+    direction: 'in' | 'out' | 'in_out' | 'left' | 'right' | 'up' | 'down';
+    font: string; color: string; bold: boolean; italic: boolean; underline: boolean;
+    /** 0–8, the 3×3 grid row by row. */
+    position: number;
+    /** Seconds on the KEPT clip. */
+    from: number; to: number;
+}
+export interface VideoEditSpec {
+    trim: { start: number; end: number };
+    mute: boolean; video_volume: number; music_volume: number; music_start: number;
+    texts: VideoEditText[];
+}
+
+/** Export: the server renders the edit and stores it as a NEW file in the same folder (the original stays). */
+export function useExportVideoEdit(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ itemId, spec, music, title, onProgress }: { itemId: number; spec: VideoEditSpec; music?: File | null; title?: string; onProgress?: (pct: number) => void }) => {
+            const form = new FormData();
+            form.append('spec', JSON.stringify(spec));
+            if (music) form.append('music', music);
+            if (title) form.append('title', title);
+            return api.upload(`/client/gallery/${itemId}/edit`, form, onProgress);
+        },
+        onSuccess: () => {
+            toast.success('Edited video saved to the gallery');
+            invalidate(qc, eventId, 'gallery');
+        },
+        onError: (e) => report(e, 'Could not export this video'),
+    });
+}
+
+/** Overview Bulk Actions: delete several folders (their files move to Gallery), one toast. */
+export function useDeleteGalleryCategories(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (ids: number[]) => {
+            for (const id of ids) await api.del(`/client/gallery/categories/${id}`);
+            return ids.length;
+        },
+        onSuccess: (n) => toast.success(`${n} folder${n === 1 ? '' : 's'} deleted — their files moved to Gallery`),
+        onError: (e) => report(e, 'Could not delete those folders'),
+        onSettled: () => invalidate(qc, eventId, 'gallery'),
     });
 }
 
@@ -610,9 +663,14 @@ export function useUploadShort(eventId: number) {
             title: string; description?: string; categoryId?: number;
             /** Seconds of the original to keep — the server cuts the clip (the browser cannot). */
             trimStart?: number; trimEnd?: number;
+            /** An ordinary VIDEO with trim / music / mute / cover (Upload Media queue) — video limits, not a short. */
+            asVideo?: boolean;
+            /** 0–100 sent so far. */
+            onProgress?: (pct: number) => void;
         }) => {
             const form = new FormData();
             form.append('file', v.file);
+            if (v.asVideo) form.append('kind', 'video');
             if (v.music) form.append('music', v.music);
             if (v.cover) form.append('cover', v.cover);
             form.append('title', v.title);
@@ -621,7 +679,7 @@ export function useUploadShort(eventId: number) {
             if (v.mute && !v.music) form.append('mute', 'true');
             if (v.categoryId !== undefined && v.categoryId > 0) form.append('category_id', String(v.categoryId));
             if (v.trimEnd !== undefined) { form.append('trim_start', String(v.trimStart ?? 0)); form.append('trim_end', String(v.trimEnd)); }
-            return api.post(`/client/events/${eventId}/gallery/shorts`, form);
+            return api.upload(`/client/events/${eventId}/gallery/shorts`, form, v.onProgress);
         },
         onSuccess: () => invalidate(qc, eventId, 'gallery'),
         onError: (e) => report(e, 'Could not upload the short'),

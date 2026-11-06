@@ -146,7 +146,36 @@ function safeParse(text: string): unknown {
     }
 }
 
+/**
+ * A multipart upload that reports how much has been SENT (0–100). `fetch` has no
+ * upload progress, so this one call uses XMLHttpRequest — same base URL, cookie,
+ * envelope unwrap and ApiError as `request` (Upload Media %, 2026-11-06).
+ */
+function upload<T>(path: string, form: FormData, onProgress?: (pct: number) => void): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', buildUrl(path));
+        xhr.withCredentials = true;
+        if (onProgress) {
+            xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(100, Math.round((e.loaded / e.total) * 100))); };
+        }
+        xhr.onerror = () => reject(new ApiError(0, 'Cannot reach the server. Check that the backend is running.'));
+        xhr.onload = () => {
+            const payload = xhr.responseText ? safeParse(xhr.responseText) : null;
+            if (xhr.status < 200 || xhr.status >= 300) {
+                const message = (payload as { message?: string } | null)?.message || `Request failed (${xhr.status})`;
+                reject(new ApiError(xhr.status, message, payload));
+                return;
+            }
+            const env = payload as ApiEnvelope<T> | null;
+            resolve(env && typeof env === 'object' && 'data' in env ? env.data : (payload as T));
+        };
+        xhr.send(form);
+    });
+}
+
 export const api = {
+    upload,
     get: <T>(path: string, query?: Query) => request<T>('GET', path, undefined, query),
 
     /**
