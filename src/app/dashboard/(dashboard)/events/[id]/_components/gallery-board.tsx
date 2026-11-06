@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowDown, ArrowLeft, ArrowUp, CalendarDays, Check, CheckSquare, ChevronDown, ChevronRight, Clock, CloudUpload, Copy, Download, Eye,
@@ -875,7 +875,6 @@ function UploadView({
     const [dragKey, setDragKey] = useState<string | null>(null);
     // The queued video whose "Trim & Music" panel is open.
     const [editingKey, setEditingKey] = useState<string | null>(null);
-    const editingRow = queue.find((x) => x.key === editingKey) ?? null;
     const pickRef = useRef<HTMLInputElement>(null);
     const seeded = useRef(false);
     const pauseRef = useRef(false);
@@ -1080,7 +1079,8 @@ function UploadView({
                     </div>
                     <div className="divide-y divide-border">
                         {queue.map((q) => (
-                            <div key={q.key} className={cn("flex flex-wrap items-center gap-3 px-3 py-2", dragKey === q.key && "opacity-50")}
+                            <Fragment key={q.key}>
+                            <div className={cn("flex flex-wrap items-center gap-3 px-3 py-2", dragKey === q.key && "opacity-50", editingKey === q.key && "bg-primary/5")}
                                 onDragOver={(e) => { if (dragKey) e.preventDefault(); }} onDrop={() => dropOn(q.key)}>
                                 <span draggable={!busy} onDragStart={() => setDragKey(q.key)} onDragEnd={() => setDragKey(null)}
                                     className={cn("text-muted-foreground", busy ? "cursor-not-allowed opacity-40" : "cursor-grab")} title="Drag to reorder"><GripVertical className="size-4" /></span>
@@ -1122,6 +1122,12 @@ function UploadView({
                                 {q.status === "failed" && <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" onClick={() => runOne(q)}><RotateCcw className="size-3" /> Retry</Button>}
                                 <Button size="icon" variant="ghost" className="size-7 text-destructive" disabled={q.status === "uploading"} aria-label="Remove" onClick={() => setQueue((x) => x.filter((y) => y.key !== q.key))}><Trash2 className="size-4" /></Button>
                             </div>
+                            {/* Trim & Music opens in place, under its own row (Jamal, 2026-11-06 — no slide-in). */}
+                            {editingKey === q.key && (
+                                <VideoEditPanel q={q} maxBytes={maxVid} onClose={() => setEditingKey(null)}
+                                    onApply={(p) => { setOpt(q.key, p); setEditingKey(null); }} />
+                            )}
+                            </Fragment>
                         ))}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2.5">
@@ -1139,10 +1145,6 @@ function UploadView({
             {shortOpen && folder && (
                 <ShortDialog eventId={eventId} category={folder} categories={folders} onClose={() => setShortOpen(false)}
                     onViewGallery={(c) => { setShortOpen(false); onGallery(c?.id); }} />
-            )}
-            {editingRow && (
-                <VideoEditSheet key={editingRow.key} q={editingRow} maxBytes={maxVid} onClose={() => setEditingKey(null)}
-                    onApply={(p) => { setOpt(editingRow.key, p); setEditingKey(null); }} />
             )}
         </div>
     );
@@ -1168,8 +1170,8 @@ function VideoOptions({ q, disabled, onEdit }: { q: Queued; disabled: boolean; o
     );
 }
 
-/** "Trim & Music" for one queued video: player, Timeline & Clip Trimming, Music (Background MP3), Cover. */
-function VideoEditSheet({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes: number; onClose: () => void; onApply: (p: Partial<Queued>) => void }) {
+/** "Trim & Music" for one queued video, in the page under its row: player + Cover, Timeline & Clip Trimming, Music (Background MP3). */
+function VideoEditPanel({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes: number; onClose: () => void; onApply: (p: Partial<Queued>) => void }) {
     const [duration, setDuration] = useState(q.duration ?? 0);
     const [trim, setTrim] = useState<Trim>(q.trim ?? { start: 0, end: q.duration ?? 0 });
     const [mute, setMute] = useState(!!q.mute);
@@ -1204,16 +1206,41 @@ function VideoEditSheet({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
     };
 
     return (
-        <ActionSheet open onClose={close} icon={Scissors} title="Trim & Music" subtitle={q.file.name} width={860}
-            footer={<><Button variant="outline" onClick={close}>Cancel</Button><Button onClick={apply}><Check className="size-4" /> Apply</Button></>}>
-            <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black">
-                <video ref={videoRef} src={q.url} className="size-full object-contain" playsInline onLoadedMetadata={onMeta} onTimeUpdate={onTimeUpdate} onEnded={stop} />
-                {music && <audio ref={audioRef} src={music.url} loop />}
-                <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-white">
-                    <button type="button" onClick={play} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause className="size-4 fill-white" /> : <Play className="size-4 fill-white" />}</button>
-                    <span className="text-[11.5px] tabular-nums">{t0(Math.max(0, time - trim.start))} / {t0(len)}</span>
-                    <input type="range" min={trim.start} max={trim.end || 1} step={0.05} value={Math.min(Math.max(time, trim.start), trim.end)}
-                        onChange={(e) => seek(Number(e.target.value))} className="h-1 flex-1 accent-primary" aria-label="Seek" />
+        <div className="flex flex-col gap-3 border-y border-primary/20 bg-primary/[0.02] px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="flex items-center gap-2 text-[15px] font-bold"><Scissors className="size-4 text-primary" /> Trim &amp; Music</p>
+                    <p className="truncate text-[12px] text-muted-foreground">{q.file.name} — trim the clip, add background music and a cover.</p>
+                </div>
+                <Button size="icon" variant="ghost" className="size-8 shrink-0" onClick={close} aria-label="Close"><X className="size-4" /></Button>
+            </div>
+
+            <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+                    <video ref={videoRef} src={q.url} className="size-full object-contain" playsInline onLoadedMetadata={onMeta} onTimeUpdate={onTimeUpdate} onEnded={stop} />
+                    {music && <audio ref={audioRef} src={music.url} loop />}
+                    <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-white">
+                        <button type="button" onClick={play} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause className="size-4 fill-white" /> : <Play className="size-4 fill-white" />}</button>
+                        <span className="text-[11.5px] tabular-nums">{t0(Math.max(0, time - trim.start))} / {t0(len)}</span>
+                        <input type="range" min={trim.start} max={trim.end || 1} step={0.05} value={Math.min(Math.max(time, trim.start), trim.end)}
+                            onChange={(e) => seek(Number(e.target.value))} className="h-1 flex-1 accent-primary" aria-label="Seek" />
+                    </div>
+                </div>
+
+                {/* Cover — beside the player, like the mockup's side panel. */}
+                <div className="flex h-fit flex-col gap-3 rounded-xl border border-border bg-card p-3 text-[12.5px]">
+                    <p className="flex items-center gap-1.5 text-[14px] font-bold"><ImageIcon className="size-4 text-primary" /> Cover</p>
+                    <p className="text-[12px] text-muted-foreground">The picture shown on the gallery tile. JPG, PNG or WEBP.</p>
+                    <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCover({ file: f, url: URL.createObjectURL(f) }); }} />
+                    <button type="button" onClick={() => coverRef.current?.click()} className="relative aspect-video w-full overflow-hidden rounded-lg border border-dashed border-primary/40 bg-muted">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[12px] text-muted-foreground">First frame (default)</span>}
+                    </button>
+                    <span className="flex gap-2">
+                        <Button size="sm" variant="outline" className="h-8 flex-1" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
+                        {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}
+                    </span>
                 </div>
             </div>
 
@@ -1230,20 +1257,10 @@ function VideoEditSheet({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
                 musicStart={musicStart} onMusicStart={setMusicStart} mute={mute} onMute={setMute} len={len}
                 playing={playing} onPlay={play} musicReplacesSound />
 
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-[12.5px]">
-                <p className="flex items-center gap-1.5 font-bold"><ImageIcon className="size-4" /> Cover</p>
-                <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCover({ file: f, url: URL.createObjectURL(f) }); }} />
-                <button type="button" onClick={() => coverRef.current?.click()} className="relative h-14 w-24 overflow-hidden rounded-md border border-border bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[11px] text-muted-foreground">First frame</span>}
-                </button>
-                <span className="text-muted-foreground">The picture shown on the gallery tile. JPG, PNG or WEBP.</span>
-                <span className="ml-auto flex gap-2">
-                    <Button size="sm" variant="outline" className="h-8" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
-                    {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}
-                </span>
+            <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={close}>Cancel</Button>
+                <Button onClick={apply}><Check className="size-4" /> Apply</Button>
             </div>
-        </ActionSheet>
+        </div>
     );
 }
