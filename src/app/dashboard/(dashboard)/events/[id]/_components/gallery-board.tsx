@@ -648,7 +648,15 @@ function UploadView({
     const def = folders.find((f) => f.is_default) ?? folders[0];
     const [folderId, setFolderId] = useState<number>(initialFolder ?? def?.id ?? 0);
     const folder = folders.find((f) => f.id === folderId) ?? def;
-    const [kind, setKind] = useState<"images" | "videos" | "shorts">(folder?.folder_type === "videos" ? "videos" : folder?.folder_type === "shorts" ? "shorts" : "images");
+    const kindFor = (f?: GalleryCategory) => (f?.folder_type === "videos" ? "videos" : f?.folder_type === "shorts" ? "shorts" : "images") as "images" | "videos" | "shorts";
+    const [kind, setKind] = useState(kindFor(folder));
+    // Changing the folder also switches Images / Videos / Shorts to what that folder takes (Jamal, 2026-11-06):
+    // it stayed on "images" for a Video Only folder, so the picker offered only images and every file was refused.
+    const pickFolder = (id: number) => {
+        setFolderId(id);
+        const f = folders.find((x) => x.id === id);
+        if (f?.folder_type && f.folder_type !== "mixed") setKind(kindFor(f));
+    };
     const [queue, setQueue] = useState<Queued[]>([]);
     const [over, setOver] = useState(false);
     const [shortOpen, setShortOpen] = useState(false);
@@ -722,7 +730,7 @@ function UploadView({
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end">
                 <FormField label="Upload to Folder" required>
-                    <Select value={String(folderId)} onValueChange={(v) => setFolderId(Number(v))}>
+                    <Select value={String(folderId)} onValueChange={(v) => pickFolder(Number(v))}>
                         <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                         <SelectContent>{folders.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.name}{f.is_default ? " (Default)" : f.folder_type && f.folder_type !== "mixed" ? ` (${f.folder_type} only)` : ""}</SelectItem>)}</SelectContent>
                     </Select>
