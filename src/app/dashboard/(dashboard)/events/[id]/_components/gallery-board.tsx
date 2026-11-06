@@ -118,9 +118,7 @@ function Overview({
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState<"order" | "name" | "items">("order");
     const [grid, setGrid] = useState(true);
-    const [over, setOver] = useState(false);
     const [deleting, setDeleting] = useState<GalleryCategory | null>(null);
-    const pickRef = useRef<HTMLInputElement>(null);
     const count = (k: Kind) => items.filter((i) => kindOf(i) === k).length;
     const shown = folders
         .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -157,15 +155,7 @@ function Overview({
                 </div>
             </div>
 
-            <input ref={pickRef} type="file" multiple accept="image/*,video/*" className="hidden" onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; if (f.length) onUpload(f); }} />
-            <button type="button" onClick={() => pickRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-                onDrop={(e) => { e.preventDefault(); setOver(false); const f = [...e.dataTransfer.files]; if (f.length) onUpload(f); }}
-                className={cn("flex items-center justify-center gap-3 rounded-xl border border-dashed px-4 py-3 text-center transition", over ? "border-primary bg-primary/10" : "border-primary/40 bg-primary/[0.03] hover:bg-primary/5")}>
-                <CloudUpload className="size-7 text-primary" />
-                <span className="text-[12.5px]"><span className="text-primary">Drag &amp; drop photos, videos or shorts here, or click to upload</span><br />
-                    <span className="text-[11px] text-muted-foreground">Supports: JPG, PNG, WEBP, MP4, MOV</span></span>
-            </button>
+            {/* Drag & drop upload box removed (Jamal, 2026-11-06) — Upload Media in the header does it. */}
 
             <Toolbar>
                 <SearchBox value={search} onChange={setSearch} placeholder="Search folders..." className="max-w-[320px]" />
