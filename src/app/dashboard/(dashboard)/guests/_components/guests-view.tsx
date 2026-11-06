@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useExportGuests, useGuestGroups, useGuests, useGuestStats, type Guest, type GuestListParams } from "@/hooks/use-guests";
 import { GuestActionSheet, StatusPillFor, guestMenu, type GuestAction } from "./guest-actions";
+import { GuestSheet } from "./guest-sheet";
 import { useEventHref } from "@/lib/event-workspace";
 
 /**
@@ -42,6 +43,7 @@ export function GuestsView({ eventId }: { eventId: number }) {
     const [sort, setSort] = useState<Sort>("name_asc");
     const [page, setPage] = useState(1);
     const [action, setAction] = useState<{ a: GuestAction; g: Guest } | null>(null);
+    const [adding, setAdding] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
@@ -81,7 +83,7 @@ export function GuestsView({ eventId }: { eventId: number }) {
                             <Download className="size-3.5" /> {exportGuests.isPending ? "Exporting…" : "Export"}
                         </Button>
                         <Button asChild variant="outline" size="sm"><Link href={wsHref("/dashboard/guests/groups")}><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
-                        <Button asChild size="sm"><Link href={wsHref(`/dashboard/guests/add?event=${eventId}${tab !== "all" ? `&group=${tab}` : ""}`)}><UserPlus className="size-3.5" /> Add Guest</Link></Button>
+                        <Button size="sm" onClick={() => setAdding(true)}><UserPlus className="size-3.5" /> Add Guest</Button>
                     </>
                 )}
             />
@@ -162,6 +164,8 @@ export function GuestsView({ eventId }: { eventId: number }) {
 
             <Pager page={page} pageSize={PAGE} total={total} onPage={setPage} noun="guests" />
 
+            {/* Add Guest — the slide-in panel, like every module (app fields only). */}
+            {adding && <GuestSheet eventId={eventId} defaultGroup={tab !== "all" ? tab : undefined} onClose={() => setAdding(false)} />}
             <GuestActionSheet
                 action={action?.a ?? null} guest={current} eventId={eventId}
                 onClose={() => setAction(null)}

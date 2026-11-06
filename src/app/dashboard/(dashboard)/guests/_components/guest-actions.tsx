@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { GuestSheet } from "./guest-sheet";
 import { toast } from "sonner";
 import {
     CheckCircle2, Clock, Eye, EyeOff, Mail, MessageSquare, Pencil, Star, Trash2, X, type LucideIcon,
@@ -124,19 +124,9 @@ function ViewGuest({ guest, onClose, onSwitch }: P) {
 
 /* ── Edit Guest ─────────────────────────────────────────────────────────── */
 
-/**
- * Edit Guest = the APP's Edit Guest form (the GuestForm page: First / Last Name, Phone, Group, Email,
- * Company, Address…), not the design's panel with Relationship / Side / VIP (Jamal, 2026-11-06).
- */
+/** Edit Guest = the same slide-in panel as Add Guest, with the app's fields (Jamal, 2026-11-06). */
 function EditGuest({ guest, eventId, onClose }: P) {
-    const router = useRouter();
-    const wsHref = useEventHref();
-    useEffect(() => {
-        router.push(wsHref(`/dashboard/guests/${guest.id}?event=${eventId}`));
-        onClose();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    return null;
+    return <GuestSheet eventId={eventId} guest={guest} onClose={onClose} />;
 }
 
 /* ── Send Invitation ────────────────────────────────────────────────────── */
