@@ -58,8 +58,12 @@ export function GlobalLoader() {
     // the user just submitted is more informative than a generic spinner.
     const text = mutating > 0 ? "Saving..." : "Loading...";
     if (!visible) return null;
-    // Only the main content, not the sidebar / top bar (Jamal, 2026-11-05). Looked up
-    // each time it shows: the dashboard and the event workspace have their own box.
-    const main = document.getElementById(MAIN_CONTENT_ID);
+    // A dialog / slide-in sheet is open (Delete Folder, Create Folder, …): it sits above
+    // the content box, so a content-only loader would be hidden BEHIND it (Jamal,
+    // 2026-11-06). Then cover the whole screen, on top of the dialog.
+    const dialogOpen = !!document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+    // Otherwise only the main content, not the sidebar / top bar (Jamal, 2026-11-05).
+    // Looked up each time it shows: the dashboard and the event workspace have their own box.
+    const main = dialogOpen ? null : document.getElementById(MAIN_CONTENT_ID);
     return main ? createPortal(<PageLoader text={text} />, main) : <PageLoader fullScreen text={text} />;
 }

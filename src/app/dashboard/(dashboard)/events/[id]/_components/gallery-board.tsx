@@ -699,8 +699,26 @@ function UploadView({
 
     return (
         <div className="flex flex-col gap-3">
-            <ModuleHeader title="Upload Media to Gallery" subtitle="Add photos, videos, and short clips to your event gallery."
-                actions={<><Button variant="outline" size="sm" className="h-8" onClick={onNewFolder}><FolderPlus className="size-3.5" /> Create Folder</Button><Button variant="outline" size="sm" className="h-8" onClick={() => onGallery(folderId)}><Images className="size-3.5" /> View Gallery</Button></>} />
+            {/* Back arrow + breadcrumb like the folder page (Jamal, 2026-11-06): back = where Upload was opened from
+                (that folder, or the Gallery Overview). */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                    <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={() => onGallery(initialFolder)} aria-label="Back"><ArrowLeft className="size-4" /></Button>
+                    <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                            <button type="button" onClick={() => onGallery()} className="hover:text-primary">Gallery</button>
+                            {initialFolder !== undefined && <><ChevronRight className="size-3" /><button type="button" onClick={() => onGallery(initialFolder)} className="hover:text-primary">{folders.find((f) => f.id === initialFolder)?.name ?? "Folder"}</button></>}
+                            <ChevronRight className="size-3" /> <span className="text-foreground">Upload Media</span>
+                        </p>
+                        <h3 className="text-[20px] leading-tight font-bold">Upload Media to Gallery</h3>
+                        <p className="text-[12.5px] text-muted-foreground">Add photos, videos, and short clips to your event gallery.</p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" className="h-8" onClick={onNewFolder}><FolderPlus className="size-3.5" /> Create Folder</Button>
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => onGallery(folderId)}><Images className="size-3.5" /> View Gallery</Button>
+                </div>
+            </div>
 
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end">
                 <FormField label="Upload to Folder" required>
