@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
     ArrowDown, ArrowLeft, ArrowUp, CalendarDays, Check, CheckSquare, ChevronDown, ChevronRight, Clock, CloudUpload, Copy, Download, Eye,
     EyeOff, Film, Folder, FolderInput, FolderPlus, GripVertical, Image as ImageIcon, Images, Info, LayoutGrid, Link2, List, Lock, Monitor,
-    MoreVertical, Music, Pause, Pencil, Play, RotateCcw, Save, Scissors, Search, Settings2, Square, Trash2, Upload, User, Video, X, Zap,
+    MoreVertical, Music, Pause, Pencil, Play, RotateCcw, Save, Scissors, Search, Settings2, Square, Trash2, Upload, User, Video, VolumeX, X, Zap,
     type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -36,6 +35,7 @@ import {
 import { EditMediaDialog, MediaViewer, ShortDialog } from "./gallery-panel";
 import { AlbumBuilder, AlbumCards } from "./album-builder";
 import { VideoEditor } from "./video-editor";
+import { MusicSection, TrimTimeline, clampTrim, t0, useClipPlayer, type LoadedMusic, type Trim } from "./media-edit-parts";
 import { VIDEO_EDITOR_ENABLED } from "@/lib/features";
 import { useGalleryAlbums, type GalleryAlbum } from "@/hooks/use-gallery-albums";
 
@@ -538,17 +538,6 @@ function FolderView({
                     </div>
                 ) : listTable(pageItems)}
 
-                {/* "List View (Preview)" under the grid (design 00 default view): the first files as a compact list. */}
-                {grid && pageItems.length > 0 && (
-                    <div className="rounded-xl border border-border bg-card">
-                        <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-                            <p className="flex items-center gap-1.5 text-[13px] font-bold"><List className="size-4" /> List View (Preview)</p>
-                            <span className="text-[11.5px] text-muted-foreground">— Same media shown as a compact list. Switch to List View for full management.</span>
-                            <Button size="sm" variant="outline" className="ml-auto h-7" onClick={() => setGrid(false)}><List className="size-3.5" /> Switch to List View</Button>
-                        </div>
-                        {listTable(pageItems.slice(0, 3), true)}
-                    </div>
-                )}
                 <Pager page={current} pageSize={PAGE} total={shown.length} onPage={setPage} noun="items" />
             </div>
 
@@ -850,7 +839,8 @@ function FolderSheet({ eventId, folder, count, onClose }: { eventId: number; fol
 export type Queued = {
     key: string; file: File; url: string; kind: "image" | "video";
     status: "queued" | "uploading" | "done" | "failed" | "invalid"; error?: string; checked: boolean;
-    duration?: number; trim?: { start: number; end: number }; mute?: boolean; music?: File | null; cover?: File | null; coverUrl?: string;
+    duration?: number; trim?: { start: number; end: number }; mute?: boolean; music?: LoadedMusic | null; musicStart?: number;
+    cover?: File | null; coverUrl?: string;
     /** 0–100 of the file SENT (real, from the upload); 100 = the server is now storing / processing it. */
     progress?: number;
 };
@@ -859,11 +849,6 @@ const VIDEO_RE = /^video\/(mp4|webm|quicktime)$/;
 /** The longest source a trimmed video may be (the server's MAX_SHORT_SOURCE_BYTES). */
 const MAX_TRIM_SOURCE = 50 * 1024 * 1024;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-const parseMmss = (v: string) => {
-    const m = v.trim().match(/^(\d{1,3})(?::(\d{1,2}))?$/);
-    if (!m) return NaN;
-    return m[2] === undefined ? Number(m[1]) : Number(m[1]) * 60 + Number(m[2]);
-};
 const hasOptions = (q: Queued) => !!(q.trim || q.mute || q.music || q.cover);
 
 function UploadView({
@@ -888,6 +873,9 @@ function UploadView({
     const [busy, setBusy] = useState(false);
     const [paused, setPaused] = useState(false);
     const [dragKey, setDragKey] = useState<string | null>(null);
+    // The queued video whose "Trim & Music" panel is open.
+    const [editingKey, setEditingKey] = useState<string | null>(null);
+    const editingRow = queue.find((x) => x.key === editingKey) ?? null;
     const pickRef = useRef<HTMLInputElement>(null);
     const seeded = useRef(false);
     const pauseRef = useRef(false);
@@ -956,7 +944,7 @@ function UploadView({
             onError: (e: unknown) => { set(q.key, { status: "failed", error: e instanceof Error ? e.message : "Upload failed" }); resolve(false); } };
         if (q.kind === "video" && hasOptions(q)) {
             uploadWithOptions.mutate({
-                file: q.file, asVideo: true, title: "", categoryId: folderId, mute: q.mute, music: q.music ?? null, cover: q.cover ?? null,
+                file: q.file, asVideo: true, title: "", categoryId: folderId, mute: q.mute, music: q.music?.file ?? null, musicStart: q.musicStart, cover: q.cover ?? null,
                 trimStart: q.trim?.start, trimEnd: q.trim?.end, onProgress,
             }, done);
         } else {
@@ -1106,7 +1094,7 @@ function UploadView({
                                     <p className="text-[11px] text-muted-foreground">{q.file.type.split("/")[1]?.toUpperCase()} • {bytes(q.file.size)}{q.duration ? ` • ${mmss(q.duration)}` : ""}</p>
                                 </div>
                                 <StatusPill tone={q.kind === "image" ? "primary" : "violet"} icon={q.kind === "image" ? ImageIcon : Video}>{q.kind === "image" ? "Image" : "Video"}</StatusPill>
-                                {q.kind === "video" && <VideoOptions q={q} disabled={q.status === "uploading" || q.status === "done"} onChange={(p) => setOpt(q.key, p)} />}
+                                {q.kind === "video" && <VideoOptions q={q} disabled={q.status === "uploading" || q.status === "done"} onEdit={() => setEditingKey(q.key)} />}
                                 <div className="w-[170px] text-[12px]">
                                     {q.status === "queued" && <span className="text-muted-foreground">{paused ? "Paused — waiting" : "Ready to upload"}</span>}
                                     {q.status === "uploading" && (() => {
@@ -1152,74 +1140,110 @@ function UploadView({
                 <ShortDialog eventId={eventId} category={folder} categories={folders} onClose={() => setShortOpen(false)}
                     onViewGallery={(c) => { setShortOpen(false); onGallery(c?.id); }} />
             )}
+            {editingRow && (
+                <VideoEditSheet key={editingRow.key} q={editingRow} maxBytes={maxVid} onClose={() => setEditingKey(null)}
+                    onApply={(p) => { setOpt(editingRow.key, p); setEditingKey(null); }} />
+            )}
         </div>
     );
 }
 
-/** A queued video's Trim · Mute original audio · Music · Cover (Upload Media design 02). */
-function VideoOptions({ q, disabled, onChange }: { q: Queued; disabled: boolean; onChange: (p: Partial<Queued>) => void }) {
-    const musicRef = useRef<HTMLInputElement>(null);
-    const coverRef = useRef<HTMLInputElement>(null);
-    const [from, setFrom] = useState(mmss(q.trim?.start ?? 0));
-    const [to, setTo] = useState(mmss(q.trim?.end ?? q.duration ?? 0));
-    const applyTrim = () => {
-        const s = parseMmss(from), e = parseMmss(to);
-        if (!Number.isFinite(s) || !Number.isFinite(e)) { toast.error("Use minutes:seconds, e.g. 00:05."); return; }
-        if (q.duration && e > Math.ceil(q.duration)) { toast.error(`The video is only ${mmss(q.duration)} long.`); return; }
-        if (!(e > s)) { toast.error("The end of the trim must be after its start."); return; }
-        onChange({ trim: { start: s, end: e } });
-    };
+/**
+ * A queued video's row: what is set (trim, music, muted, cover) as chips + one "Trim & Music" button —
+ * the editing itself happens in VideoEditSheet, in the gallery editor's design (Jamal, 2026-11-06).
+ */
+function VideoOptions({ q, disabled, onEdit }: { q: Queued; disabled: boolean; onEdit: () => void }) {
+    const chip = "inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary";
     return (
-        <div className="flex flex-wrap items-center gap-2 text-[11.5px]">
-            <div className="flex flex-col gap-1">
-                <span className="flex items-center gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button size="sm" variant="outline" className={cn("h-7 px-2 text-[11.5px]", q.trim && "border-primary text-primary")} disabled={disabled}>
-                                <Scissors className="size-3" /> Trim {q.trim ? `${mmss(q.trim.start)} – ${mmss(q.trim.end)}` : q.duration ? `00:00 – ${mmss(q.duration)}` : ""} <ChevronRight className="size-3" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="flex w-60 flex-col gap-2 p-3 text-[12px]">
-                            <p className="font-semibold">Keep this part of the video</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <label className="flex flex-col gap-1">Start<Input value={from} onChange={(e) => setFrom(e.target.value)} className="h-8" placeholder="00:00" /></label>
-                                <label className="flex flex-col gap-1">End<Input value={to} onChange={(e) => setTo(e.target.value)} className="h-8" placeholder="02:18" /></label>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">The server cuts the video when it is uploaded.</p>
-                            <div className="flex justify-end gap-1.5">
-                                {q.trim && <Button size="sm" variant="ghost" className="h-7" onClick={() => onChange({ trim: undefined })}>Remove trim</Button>}
-                                <Button size="sm" className="h-7" onClick={applyTrim}>Apply</Button>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                    <label className={cn("flex items-center gap-1.5", disabled && "opacity-50")}>
-                        <Checkbox checked={!!q.mute} disabled={disabled || !!q.music} onCheckedChange={(v) => onChange({ mute: v === true })} /> Mute original audio
-                    </label>
-                </span>
-                <input ref={musicRef} type="file" accept="audio/mpeg,audio/mp3,.mp3" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onChange({ music: f, mute: false }); }} />
-                {q.music ? (
-                    <span className="flex max-w-[230px] items-center gap-1.5 rounded-md border border-border px-2 py-1">
-                        <Music className="size-3 shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate" title={q.music.name}>{q.music.name}</span>
-                        {!disabled && <button type="button" onClick={() => onChange({ music: null })} aria-label="Remove music"><X className="size-3" /></button>}
-                    </span>
-                ) : (
-                    <button type="button" disabled={disabled} onClick={() => musicRef.current?.click()} className="flex items-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1 text-muted-foreground hover:text-primary disabled:opacity-50">
-                        <Music className="size-3" /> Add background music (MP3)
-                    </button>
-                )}
-            </div>
-            <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Cover:</span>
-                <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { if (q.coverUrl) URL.revokeObjectURL(q.coverUrl); onChange({ cover: f, coverUrl: URL.createObjectURL(f) }); } }} />
-                <button type="button" disabled={disabled} onClick={() => coverRef.current?.click()} title={q.cover ? "Change cover" : "Choose a cover picture"}
-                    className="relative h-10 w-14 overflow-hidden rounded border border-border bg-muted disabled:opacity-60">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {q.coverUrl ? <img src={q.coverUrl} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[10px] text-muted-foreground">First frame</span>}
-                </button>
-                {q.cover && !disabled && <button type="button" onClick={() => onChange({ cover: null, coverUrl: undefined })} aria-label="Remove cover" className="text-muted-foreground hover:text-destructive"><X className="size-3.5" /></button>}
-            </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+            <Button size="sm" variant="outline" className="h-7 border-primary/40 px-2.5 text-[12px] text-primary" disabled={disabled} onClick={onEdit}>
+                <Scissors className="size-3.5" /> Trim &amp; Music
+            </Button>
+            {q.trim && <span className={chip}><Scissors className="size-3" /> {t0(q.trim.start)} – {t0(q.trim.end)}</span>}
+            {q.music && <span className={cn(chip, "max-w-[150px]")} title={q.music.file.name}><Music className="size-3 shrink-0" /><span className="truncate">{q.music.file.name}</span></span>}
+            {q.mute && !q.music && <span className={chip}><VolumeX className="size-3" /> Muted</span>}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {q.coverUrl && <img src={q.coverUrl} alt="Cover" title="Cover" className="h-6 w-9 rounded object-cover ring-1 ring-primary/40" />}
         </div>
+    );
+}
+
+/** "Trim & Music" for one queued video: player, Timeline & Clip Trimming, Music (Background MP3), Cover. */
+function VideoEditSheet({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes: number; onClose: () => void; onApply: (p: Partial<Queued>) => void }) {
+    const [duration, setDuration] = useState(q.duration ?? 0);
+    const [trim, setTrim] = useState<Trim>(q.trim ?? { start: 0, end: q.duration ?? 0 });
+    const [mute, setMute] = useState(!!q.mute);
+    const [music, setMusic] = useState<LoadedMusic | null>(q.music ?? null);
+    const [musicStart, setMusicStart] = useState(q.musicStart ?? 0);
+    const [cover, setCover] = useState<{ file: File; url: string } | null>(q.cover && q.coverUrl ? { file: q.cover, url: q.coverUrl } : null);
+    const coverRef = useRef<HTMLInputElement>(null);
+    const { videoRef, audioRef, time, playing, play, seek, onTimeUpdate, stop } = useClipPlayer(trim, music, musicStart);
+    const len = Math.max(0, trim.end - trim.start);
+    const whole = duration > 0 && trim.start <= 0.05 && trim.end >= duration - 0.05;
+    // A video over the per-file cap must be trimmed; the kept part is estimated from the source's bitrate.
+    const estimate = duration ? (q.file.size * len) / duration : q.file.size;
+    const tooBig = estimate > maxBytes;
+
+    // Preview the sound as it will be: the song replaces the video's own sound; Mute drops it.
+    useEffect(() => { if (videoRef.current) videoRef.current.muted = mute || !!music; }, [mute, music, videoRef]);
+
+    const onMeta = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+        const d = e.currentTarget.duration;
+        if (!Number.isFinite(d)) return;
+        setDuration(d);
+        setTrim((t) => (t.end > 0 && t.end <= d + 0.05 ? t : { start: 0, end: d }));
+    };
+    const close = () => { stop(); onClose(); };
+    const apply = () => {
+        if (tooBig) { toast.error(`The kept part is about ${bytes(estimate)} — trim it to under ${bytes(maxBytes)}.`); return; }
+        stop();
+        onApply({
+            trim: whole ? undefined : trim, mute: music ? false : mute, music, musicStart: music ? musicStart : 0,
+            cover: cover?.file ?? null, coverUrl: cover?.url, duration: duration || q.duration,
+        });
+    };
+
+    return (
+        <ActionSheet open onClose={close} icon={Scissors} title="Trim & Music" subtitle={q.file.name} width={860}
+            footer={<><Button variant="outline" onClick={close}>Cancel</Button><Button onClick={apply}><Check className="size-4" /> Apply</Button></>}>
+            <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-black">
+                <video ref={videoRef} src={q.url} className="size-full object-contain" playsInline onLoadedMetadata={onMeta} onTimeUpdate={onTimeUpdate} onEnded={stop} />
+                {music && <audio ref={audioRef} src={music.url} loop />}
+                <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-white">
+                    <button type="button" onClick={play} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause className="size-4 fill-white" /> : <Play className="size-4 fill-white" />}</button>
+                    <span className="text-[11.5px] tabular-nums">{t0(Math.max(0, time - trim.start))} / {t0(len)}</span>
+                    <input type="range" min={trim.start} max={trim.end || 1} step={0.05} value={Math.min(Math.max(time, trim.start), trim.end)}
+                        onChange={(e) => seek(Number(e.target.value))} className="h-1 flex-1 accent-primary" aria-label="Seek" />
+                </div>
+            </div>
+
+            <TrimTimeline src={q.url} duration={duration} trim={trim} time={time} onSeek={seek}
+                onTrim={(t) => { const c = clampTrim(t, duration); setTrim(c); if (time < c.start || time > c.end) seek(c.start); }} />
+            {tooBig && (
+                <p className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+                    <Info className="size-4" /> The kept part is about {bytes(estimate)} — videos can be up to {bytes(maxBytes)}. Trim it shorter.
+                </p>
+            )}
+
+            <MusicSection music={music} onPick={(m) => { if (music) URL.revokeObjectURL(music.url); setMusic(m); setMusicStart(0); }}
+                onRemove={() => { if (music) URL.revokeObjectURL(music.url); setMusic(null); }}
+                musicStart={musicStart} onMusicStart={setMusicStart} mute={mute} onMute={setMute} len={len}
+                playing={playing} onPlay={play} musicReplacesSound />
+
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 text-[12.5px]">
+                <p className="flex items-center gap-1.5 font-bold"><ImageIcon className="size-4" /> Cover</p>
+                <input ref={coverRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setCover({ file: f, url: URL.createObjectURL(f) }); }} />
+                <button type="button" onClick={() => coverRef.current?.click()} className="relative h-14 w-24 overflow-hidden rounded-md border border-border bg-muted">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[11px] text-muted-foreground">First frame</span>}
+                </button>
+                <span className="text-muted-foreground">The picture shown on the gallery tile. JPG, PNG or WEBP.</span>
+                <span className="ml-auto flex gap-2">
+                    <Button size="sm" variant="outline" className="h-8" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
+                    {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}
+                </span>
+            </div>
+        </ActionSheet>
     );
 }
