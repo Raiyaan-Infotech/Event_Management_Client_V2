@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     ActionSheet, CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SearchBox, SortSelect,
-    StarBadge, StatTile, StatusPill, TONE_TEXT, Toolbar,
+    StarBadge, StatTile, StatusPill, Toolbar,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
@@ -123,8 +123,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                     <StatTile icon={CircleHelp} value={s?.maybe ?? 0} label="Maybe / Not Attending" caption={`${s?.maybe_pct ?? 0}% of invited`} tone="violet" />
                 </OverviewCard>
 
-                {/* Channels · Recent Activity · Notes — one full-width row (RSVP Summary is on the event Dashboard). */}
-                <RsvpRail board={d} onOpen={(id) => { const r = rows.find((x) => x.id === id); if (r) setAct({ a: "response", r }); }} />
+                {/* RSVP Summary, Channels, Recent Activity and Notes live on the event Dashboard (Jamal, 2026-11-06). */}
 
                 <div className="flex flex-wrap items-center gap-2">
                     <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!d?.pagination.totalItems}><Download className="size-3.5" /> Export</Button>
@@ -249,68 +248,6 @@ function sourceIcon(src: string | null) {
     if (src === "whatsapp") return <MessageCircle className={cn(c, "text-success")} />;
     if (src === "email") return <Mail className={c} />;
     return <Smartphone className={c} />;
-}
-
-/** Invitation Channel Breakdown, Recent Activity, Guest Response Notes (RSVP Summary moved to the event Dashboard, 2026-11-06). */
-function RsvpRail({ board, onOpen }: { board?: ReturnType<typeof useRsvpBoard>["data"]; onOpen: (guestId: number) => void }) {
-    const s = board?.stats;
-    const ch = board?.channels;
-    const card = "rounded-xl border border-primary/15 bg-card";
-    const head = "flex items-center justify-between gap-2 border-b border-primary/15 bg-primary/5 px-3.5 py-2.5 text-[14px] font-bold text-primary";
-    // "Now" read once when the column mounts — fine for "10 min ago" labels.
-    const [now] = useState(() => Date.now());
-    const ago = (iso: string) => {
-        const m = Math.max(1, Math.round((now - new Date(iso).getTime()) / 60000));
-        return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} d ago`;
-    };
-    return (
-        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <div className={card}>
-                <p className={head}><span className="flex items-center gap-2"><Send className="size-4" /> Invitation Channel Breakdown</span></p>
-                <div className="flex flex-col gap-3 p-3.5">
-                    {([["whatsapp", "WhatsApp", MessageCircle], ["email", "Email", Mail], ["in_app", "In-App", Smartphone]] as const).map(([k, label, Icon]) => {
-                        const n = ch?.[k] ?? 0;
-                        const w = s?.invited ? Math.round((n / s.invited) * 100) : 0;
-                        return (
-                            <div key={k} className="flex items-center gap-2.5">
-                                <Icon className={cn("size-4 shrink-0", k === "whatsapp" ? "text-success" : "text-muted-foreground")} />
-                                <div className="min-w-0 flex-1">
-                                    <p className="flex justify-between text-[12px]"><span className="font-semibold">{label}</span><span><b>{n}</b> <span className="text-muted-foreground">({w}%)</span></span></p>
-                                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${w}%` }} /></div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className={card}>
-                <p className={head}><span className="flex items-center gap-2"><Clock className="size-4" /> Recent Activity</span></p>
-                <div className="flex flex-col gap-2.5 p-3.5">
-                    {(board?.recent ?? []).length === 0 ? <p className="text-[12px] text-muted-foreground">No responses yet.</p> : board!.recent.map((x) => {
-                        const m = STATE_META[x.state];
-                        const verb = x.state === "confirmed" ? (x.attending_count && x.attending_count > 1 ? `confirmed for ${x.attending_count} invitees.` : "confirmed their attendance.")
-                            : x.state === "declined" ? "declined the invitation." : x.state === "maybe" ? "marked Maybe." : "is pending a response.";
-                        return (
-                            <button key={`${x.guest_id}-${x.at}`} type="button" onClick={() => onOpen(x.guest_id)} className="flex items-start gap-2 text-left text-[12px]">
-                                <m.icon className={cn("mt-0.5 size-3.5 shrink-0", TONE_TEXT[m.tone])} />
-                                <span className="min-w-0 flex-1"><b>{x.name}</b> {verb}</span>
-                                <span className="shrink-0 text-[11px] text-muted-foreground">{ago(x.at)}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className={card}>
-                <p className={head}><span className="flex items-center gap-2"><Info className="size-4" /> Guest Response Notes</span></p>
-                <ul className="list-disc px-3.5 py-3 pl-8 text-[12px] text-foreground/80">
-                    <li>Guests can respond for multiple invitees (e.g., spouse, family, +1).</li>
-                    <li>Use &ldquo;Send Reminder&rdquo; to follow up with pending guests.</li>
-                </ul>
-            </div>
-        </div>
-    );
 }
 
 /** Send Reminder (top button): the pending guests, one WhatsApp tap each (a browser opens one chat at a time). */

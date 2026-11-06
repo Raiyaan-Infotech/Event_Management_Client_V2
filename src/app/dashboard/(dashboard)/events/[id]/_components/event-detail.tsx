@@ -36,12 +36,12 @@ import { LivePanel } from "./live-panel";
 import { SocialLinksPanel } from "./social-links-panel";
 import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
-import { RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
+import { RsvpChannels, RsvpNotes, RsvpRecent, RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
 import { EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
 import { EventHero } from "./event-hero";
-import { CalendarDays, Info, Link2, MapPin, UsersRound, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock, Info, Link2, MapPin, Send, UsersRound, type LucideIcon } from "lucide-react";
 import { useEventHref } from "@/lib/event-workspace";
 
 /**
@@ -224,6 +224,18 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
 
                         <Panel title="RSVP Summary" icon={UsersRound}>
                             <RsvpSummary eventId={event.id} />
+                        </Panel>
+
+                        <Panel title="Invitation Channel Breakdown" icon={Send}>
+                            <RsvpChannels eventId={event.id} />
+                        </Panel>
+
+                        <Panel title="Recent Activity" icon={Clock}>
+                            <RsvpRecent eventId={event.id} onOpen={() => openTab("rsvps")} />
+                        </Panel>
+
+                        <Panel title="Guest Response Notes" icon={Info}>
+                            <RsvpNotes />
                         </Panel>
 
                         <Panel title="Region" icon={MapPin}>
