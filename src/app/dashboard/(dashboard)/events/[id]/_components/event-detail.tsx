@@ -11,7 +11,6 @@ import {
     faLayerGroup, faPalette, faClockRotateLeft, faCircleInfo,
     faTriangleExclamation, faArrowRight, faCircleCheck, faXmark, faMinus,
 } from "@fortawesome/free-solid-svg-icons";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { EventQr } from "@/components/common/event-qr";
 import { downloadQrAsPng, fileSlug } from "@/lib/export-invitation";
 import { useClientEvent } from "@/hooks/use-client-events";
-import { useParticipantStats } from "@/hooks/use-guests";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
@@ -38,6 +36,7 @@ import { LivePanel } from "./live-panel";
 import { SocialLinksPanel } from "./social-links-panel";
 import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
+import { RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
 import { EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
@@ -67,13 +66,6 @@ const TAB_ICONS = EVENT_TAB_ICONS;
 const STATUS_META = EVENT_STATUS;
 
 const PRIVACY_ICON = { private: faLock, public: faGlobe, unlisted: faEyeSlash } as const;
-
-/** RSVP donut colours — the same three the design uses. */
-const RSVP_SLICES = [
-    { key: "accepted", label: "Accepted", color: "#22C55E" },
-    { key: "pending", label: "Pending", color: "#F59E0B" },
-    { key: "declined", label: "Declined", color: "#EF4444" },
-] as const;
 
 
 
@@ -123,8 +115,6 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
     const [savingQr, setSavingQr] = useState(false);
 
     const query = useClientEvent(eventId);
-    // The people attending THIS event — participants, not the phone book (§581).
-    const rsvp = useParticipantStats(eventId);
 
     if (query.isLoading) {
         return (
@@ -175,13 +165,6 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             toast.error("Your browser blocked clipboard access.");
         }
     };
-
-    const totalRsvp = (rsvp.data?.accepted ?? 0) + (rsvp.data?.pending ?? 0) + (rsvp.data?.declined ?? 0);
-    const donut = RSVP_SLICES
-        .map((s) => ({ ...s, value: (rsvp.data?.[s.key] as number | undefined) ?? 0 }))
-        // Recharts draws a zero slice as an invisible wedge that still owns a
-        // tooltip target.
-        .filter((s) => s.value > 0);
 
     return (
         <div className="flex flex-col gap-3">
@@ -240,40 +223,7 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
                         </Panel>
 
                         <Panel title="RSVP Summary" icon={UsersRound}>
-                            {rsvp.isLoading ? (
-                                <Skeleton className="h-[160px] w-full rounded-md" />
-                            ) : totalRsvp === 0 ? (
-                                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                                    <FontAwesomeIcon icon={faUsers} className="!size-[22px] text-muted-foreground/40" />
-                                    <p className="text-[12.5px] font-semibold text-foreground">No RSVPs yet</p>
-                                    <p className="max-w-[220px] text-[11.5px] text-muted-foreground">Add guests to this event and their responses appear here.</p>
-                                    <Button size="sm" className="mt-1 h-8 text-[12px]" onClick={() => openTab("guests")}>Add a guest</Button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-5 py-1">
-                                    <div className="relative h-[150px] w-[150px] shrink-0">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie data={donut} dataKey="value" nameKey="label" innerRadius={52} outerRadius={72} strokeWidth={0}>
-                                                    {donut.map((sl) => <Cell key={sl.key} fill={sl.color} />)}
-                                                </Pie>
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-[24px] leading-none font-bold tabular-nums text-foreground">{totalRsvp}</span>
-                                            <span className="mt-1 text-[11px] text-muted-foreground">Total RSVPs</span>
-                                        </div>
-                                    </div>
-                                    <ul className="flex min-w-0 flex-1 flex-col divide-y divide-border/70 border-l border-border pl-4">
-                                        {RSVP_SLICES.map((sl) => (
-                                            <li key={sl.key} className="flex items-center justify-between gap-2 py-2.5 text-[13px]">
-                                                <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: sl.color }} />{sl.label}</span>
-                                                <span className="font-semibold tabular-nums">{(rsvp.data?.[sl.key] as number | undefined) ?? 0}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
+                            <RsvpSummary eventId={event.id} />
                         </Panel>
 
                         <Panel title="Region" icon={MapPin}>

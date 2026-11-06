@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import {
     CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock, Download, Eye, EyeOff, Info, Mail, MessageCircle,
     Send, Smartphone, Star, User, Users, XCircle,
@@ -44,12 +43,6 @@ const SORTS: { value: RsvpSort; label: string }[] = [
     { value: "response_asc", label: "Sort: Response Date ↑" },
     { value: "name_asc", label: "Sort: Name (A – Z)" },
     { value: "name_desc", label: "Sort: Name (Z – A)" },
-];
-const DONUT: { key: "confirmed" | "pending" | "declined" | "maybe"; label: string; color: string }[] = [
-    { key: "confirmed", label: "Confirmed", color: "#22C55E" },
-    { key: "pending", label: "Pending", color: "#F59E0B" },
-    { key: "declined", label: "Declined", color: "#EF4444" },
-    { key: "maybe", label: "Maybe / Not Attending", color: "#A855F7" },
 ];
 const GUEST_STATUS: Record<RsvpState, Guest["status"]> = { confirmed: "confirmed", pending: "pending", declined: "declined", maybe: "pending", not_invited: "added" };
 
@@ -130,7 +123,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                     <StatTile icon={CircleHelp} value={s?.maybe ?? 0} label="Maybe / Not Attending" caption={`${s?.maybe_pct ?? 0}% of invited`} tone="violet" />
                 </OverviewCard>
 
-                {/* RSVP Summary · Channels · Recent Activity · Notes — one full-width row (Jamal, 2026-11-04). */}
+                {/* Channels · Recent Activity · Notes — one full-width row (RSVP Summary is on the event Dashboard). */}
                 <RsvpRail board={d} onOpen={(id) => { const r = rows.find((x) => x.id === id); if (r) setAct({ a: "response", r }); }} />
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -258,12 +251,10 @@ function sourceIcon(src: string | null) {
     return <Smartphone className={c} />;
 }
 
-/** The right column: RSVP Summary, Invitation Channel Breakdown, Recent Activity, Guest Response Notes. */
+/** Invitation Channel Breakdown, Recent Activity, Guest Response Notes (RSVP Summary moved to the event Dashboard, 2026-11-06). */
 function RsvpRail({ board, onOpen }: { board?: ReturnType<typeof useRsvpBoard>["data"]; onOpen: (guestId: number) => void }) {
     const s = board?.stats;
     const ch = board?.channels;
-    const slices = DONUT.map((x) => ({ ...x, value: s?.[x.key] ?? 0 }));
-    const pct = (n: number) => (s?.invited ? `${Math.round((n / s.invited) * 1000) / 10}%` : "0%");
     const card = "rounded-xl border border-primary/15 bg-card";
     const head = "flex items-center justify-between gap-2 border-b border-primary/15 bg-primary/5 px-3.5 py-2.5 text-[14px] font-bold text-primary";
     // "Now" read once when the column mounts — fine for "10 min ago" labels.
@@ -273,38 +264,7 @@ function RsvpRail({ board, onOpen }: { board?: ReturnType<typeof useRsvpBoard>["
         return m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} d ago`;
     };
     return (
-        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className={card}>
-                <p className={head}><span className="flex items-center gap-2"><Users className="size-4" /> RSVP Summary</span></p>
-                <div className="flex items-center gap-3 p-3.5">
-                    <div className="relative size-[110px] shrink-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={slices.some((x) => x.value) ? slices : [{ key: "none", value: 1, color: "#E5E7EB" }]} dataKey="value" innerRadius={40} outerRadius={54} paddingAngle={1} stroke="none">
-                                    {(slices.some((x) => x.value) ? slices : [{ color: "#E5E7EB" }]).map((x, i) => <Cell key={i} fill={x.color} />)}
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                            <div><p className="text-[18px] leading-5 font-bold">{s?.responded ?? 0}</p><p className="text-[10px] text-muted-foreground">Responded<br />({s?.responded_pct ?? 0}%)</p></div>
-                        </div>
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-[11.5px]">
-                        {slices.map((x) => (
-                            <p key={x.key} className="flex items-center gap-1.5">
-                                <span className="size-2 shrink-0 rounded-full" style={{ background: x.color }} />
-                                <span className="min-w-0 flex-1 truncate" title={x.label}>{x.label}</span>
-                                <span className="font-semibold">{x.value}</span> <span className="text-muted-foreground">({pct(x.value)})</span>
-                            </p>
-                        ))}
-                    </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
-                    <StatTile icon={Mail} value={s?.invited ?? 0} label="Total Invited" tone="violet" />
-                    <StatTile icon={Users} value={s?.responded ?? 0} label="Responded" tone="primary" />
-                </div>
-            </div>
-
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
             <div className={card}>
                 <p className={head}><span className="flex items-center gap-2"><Send className="size-4" /> Invitation Channel Breakdown</span></p>
                 <div className="flex flex-col gap-3 p-3.5">
