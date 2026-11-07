@@ -22,7 +22,7 @@ import {
     type OrganizerContact, type ParticipantSettings, type RsvpAnswer, type RsvpSettings,
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
-import { Empty, PanelLoading, Section, SwitchRow } from "./module-ui";
+import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 import { FamilySettingsCard } from "./family-panel";
 import { WishSettingsCard } from "./wishes-panel";
 import { useVisibleSettingsPages, type SettingsKey } from "./event-tabs";
@@ -200,10 +200,31 @@ function ParticipantsCard({ eventId }: { eventId: number }) {
     if (query.isError || !query.data) {
         return <Section title="Participants Settings"><Empty title="Could not load the participant settings" /></Section>;
     }
-    return <ParticipantsForm key={JSON.stringify(query.data)} eventId={eventId} settings={query.data} />;
+    return <ParticipantsForm inline key={JSON.stringify(query.data)} eventId={eventId} settings={query.data} />;
 }
 
-function ParticipantsForm({ eventId, settings }: { eventId: number; settings: ParticipantSettings }) {
+/** Participants Settings as a dialog — the ⚙ button on the Participants page (same as Family, Jamal 2026-11-07). */
+export function ParticipantSettingsDialog({ eventId, onClose }: { eventId: number; onClose: () => void }) {
+    const query = useParticipantSettings(eventId);
+    if (!query.data) {
+        return (
+            <Dialog open onOpenChange={(o) => !o && onClose()}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Participants Settings</DialogTitle>
+                        <DialogDescription>{query.isError ? "Could not load the participant settings." : "Loading…"}</DialogDescription>
+                    </DialogHeader>
+                    {query.isLoading && <PanelLoading />}
+                </DialogContent>
+            </Dialog>
+        );
+    }
+    return <ParticipantsForm key={JSON.stringify(query.data)} eventId={eventId} settings={query.data} onClose={onClose} />;
+}
+
+function ParticipantsForm({ eventId, settings, inline, onClose }: {
+    eventId: number; settings: ParticipantSettings; inline?: boolean; onClose?: () => void;
+}) {
     const save = useSaveParticipantSettings(eventId);
     const [profileScreen, setProfileScreen] = useState(settings.profile_screen);
     const [photo, setPhoto] = useState(settings.profile_photo);
@@ -219,7 +240,24 @@ function ParticipantsForm({ eventId, settings }: { eventId: number; settings: Pa
     );
 
     return (
-        <Section title="Participants Settings">
+        <SettingsShell
+            inline={inline} title="Participants Settings" description="What participants can open and see of each other in the app."
+            onClose={() => onClose?.()} busy={save.isPending}
+            footer={(
+                <>
+                    {!inline && <Button variant="outline" onClick={() => onClose?.()} disabled={save.isPending}>Cancel</Button>}
+                    <Button
+                        disabled={save.isPending}
+                        onClick={() => save.mutate(
+                            { profile_screen: profileScreen, profile_photo: photo, relationship, mobile, email },
+                            { onSuccess: () => { if (!inline) onClose?.(); } },
+                        )}
+                    >
+                        Save
+                    </Button>
+                </>
+            )}
+        >
             <SwitchRow
                 id="part-profile" label="Participants Profile Screen"
                 hint="Let a participant be opened to see their profile"
@@ -233,15 +271,7 @@ function ParticipantsForm({ eventId, settings }: { eventId: number; settings: Pa
                 {field("Mobile", mobile, setMobile)}
                 {field("Email", email, setEmail)}
             </div>
-            <div className="mt-4 flex justify-end">
-                <Button
-                    disabled={save.isPending}
-                    onClick={() => save.mutate({ profile_screen: profileScreen, profile_photo: photo, relationship, mobile, email })}
-                >
-                    Save
-                </Button>
-            </div>
-        </Section>
+        </SettingsShell>
     );
 }
 

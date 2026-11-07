@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, User, UserPlus, Users } from "lucide-react";
+import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, Settings, User, UserPlus, Users } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ParticipantSettingsDialog } from "../../events/[id]/_components/settings-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -66,6 +68,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
     const [act, setAct] = useState<{ a: PAction; id: number } | null>(null);
     const [addOpen, setAddOpen] = useState(false);
     const [pickGuest, setPickGuest] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     const rows = useMemo(() => list.data ?? [], [list.data]);
     const count = (t: Tab) => rows.filter((p) => inTab(p, t)).length;
@@ -106,6 +109,15 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Export</Button>
+                        {/* Participants Settings — the ⚙ button, same as Family (Jamal, 2026-11-07). */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button size="icon" variant="outline" className="size-8" aria-label="Participants Settings" onClick={() => setSettingsOpen(true)}>
+                                    <Settings className="size-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Participants Settings</TooltipContent>
+                        </Tooltip>
                         <Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
                     </>
                 )}
@@ -225,6 +237,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                     onPick={(guestId) => router.push(wsHref(`/dashboard/participants/add?event=${eventId}&guest=${guestId}`))}
                 />
             )}
+            {settingsOpen && <ParticipantSettingsDialog eventId={eventId} onClose={() => setSettingsOpen(false)} />}
         </div>
     );
 }

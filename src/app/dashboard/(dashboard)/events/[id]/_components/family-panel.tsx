@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Trash2, User, UserPlus, Users } from "lucide-react";
+import { Download, Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Trash2, User, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -205,6 +205,23 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
 
     const bad = (v: boolean) => tried && v;
 
+    /** Export (Jamal, 2026-11-07): the list as shown — tab, search and sort, every page — as CSV. */
+    const exportCsv = () => {
+        const head = ["Name", "Family Side", "Relationship", "Mobile", "Display Order", "Visibility", "Key Family Member", "Notes"];
+        const lines = ordered.map((m) => [
+            m.full_name, m.side === "bride" ? "Bride Side" : "Groom Side", m.relationship ?? "",
+            m.mobile ? `${m.dial_code ?? ""} ${m.mobile}`.trim() : "", place.get(m.id) ?? "",
+            m.is_visible ? "Show in App" : "Hidden", m.is_key ? "Yes" : "No", m.notes ?? "",
+        ]);
+        const csv = [head, ...lines].map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const a = document.createElement("a");
+        // BOM so Excel reads Tamil / other scripts correctly.
+        a.href = URL.createObjectURL(new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" }));
+        a.download = `family-${(event.name || `event-${event.id}`).replace(/[^\w-]+/g, "-").toLowerCase()}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+
     const aside = (
         <FormPanel
             sheet={{ open: formOpen, onClose: clear }}
@@ -272,6 +289,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                 subtitle="Manage bride and groom family members, relationships, and display order."
                 actions={(
 <>
+                    <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!ordered.length}><Download className="size-3.5" /> Export</Button>
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button size="icon" variant="outline" className="size-8" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
