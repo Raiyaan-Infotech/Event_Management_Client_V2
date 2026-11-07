@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock, Download, FileUp, Mail, Plus, UserPlus, Users, UsersRound } from "lucide-react";
-import { GroupSheet } from "../groups/_components/group-sheet";
+import { CheckCircle2, Clock, Download, FileUp, Gauge, Mail, UserPlus, Users, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -12,7 +11,7 @@ import {
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import { useExportGuests, useGuestGroups, useGuests, useGuestStats, type Guest, type GuestListParams } from "@/hooks/use-guests";
+import { useExportGuests, useGuestCapacity, useGuestGroups, useGuests, useGuestStats, type Guest, type GuestListParams } from "@/hooks/use-guests";
 import { GuestActionSheet, StatusPillFor, guestMenu, type GuestAction } from "./guest-actions";
 import { GuestSheet } from "./guest-sheet";
 import { useEventHref } from "@/lib/event-workspace";
@@ -45,7 +44,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
     const [page, setPage] = useState(1);
     const [action, setAction] = useState<{ a: GuestAction; g: Guest } | null>(null);
     const [adding, setAdding] = useState(false);
-    const [addingGroup, setAddingGroup] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
@@ -61,6 +59,8 @@ export function GuestsView({ eventId }: { eventId: number }) {
     const stats = useGuestStats(eventId);
     const groups = useGuestGroups({ limit: 100 }).data?.data ?? [];
     const exportGuests = useExportGuests();
+    const capacity = useGuestCapacity();
+    const full = !!capacity.data?.full;
 
     const rows = guests.data?.data ?? [];
     const total = guests.data?.pagination?.totalItems ?? 0;
@@ -85,8 +85,7 @@ export function GuestsView({ eventId }: { eventId: number }) {
                             <Download className="size-3.5" /> {exportGuests.isPending ? "Exporting…" : "Export"}
                         </Button>
                         <Button asChild variant="outline" size="sm"><Link href={wsHref("/dashboard/guests/groups")}><UsersRound className="size-3.5" /> Manage Groups</Link></Button>
-                        <Button variant="outline" size="sm" onClick={() => setAddingGroup(true)}><Plus className="size-3.5" /> Add Group</Button>
-                        <Button size="sm" onClick={() => setAdding(true)}><UserPlus className="size-3.5" /> Add Guest</Button>
+                        <Button size="sm" onClick={() => setAdding(true)} disabled={full} title={full ? "Guest limit reached — upgrade your plan" : undefined}><UserPlus className="size-3.5" /> Add Guest</Button>
                     </>
                 )}
             />
@@ -104,6 +103,11 @@ export function GuestsView({ eventId }: { eventId: number }) {
                 <StatTile icon={Mail} value={all - st("added")} label="Invited" tone="violet" />
                 <StatTile icon={CheckCircle2} value={st("confirmed")} label="Confirmed" tone="success" />
                 <StatTile icon={Clock} value={st("invited") + st("pending")} label="Pending RSVP" tone="warning" />
+                {/* The plan's guest limit as a tile, like Participants (was a line in Add Guest — Jamal, 2026-11-07). */}
+                {capacity.data?.limit != null && (
+                    <StatTile icon={Gauge} value={`${capacity.data.used} / ${capacity.data.limit}`} label="Plan Limit" tone={full ? "danger" : "violet"}
+                        caption={full ? "Limit reached — upgrade your plan" : `${Math.max(0, capacity.data.limit - capacity.data.used)} places left`} />
+                )}
             </OverviewCard>
 
             {/* All + the guest groups — the app's pills (tap = filter). */}
@@ -169,7 +173,6 @@ export function GuestsView({ eventId }: { eventId: number }) {
 
             {/* Add Guest — the slide-in panel, like every module (app fields only). */}
             {adding && <GuestSheet eventId={eventId} defaultGroup={tab !== "all" ? tab : undefined} onClose={() => setAdding(false)} />}
-            {addingGroup && <GroupSheet onClose={() => setAddingGroup(false)} />}
             <GuestActionSheet
                 action={action?.a ?? null} guest={current} eventId={eventId}
                 onClose={() => setAction(null)}

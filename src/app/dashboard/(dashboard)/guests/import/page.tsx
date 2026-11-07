@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCloudArrowUp, faFileCsv, faCheck, faArrowRight, faArrowLeft,
-    faDownload, faCircleInfo, faTriangleExclamation, faCircleCheck,
+    faDownload, faTriangleExclamation, faCircleCheck,
     faCircleXmark, faForward,
     faFileImport, faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
@@ -14,8 +14,6 @@ import { GuestLimitGate } from "../_components/guest-limit-gate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -104,7 +102,6 @@ function ImportGuests() {
     const [step, setStep] = useState(1);
     const [file, setFile] = useState<File | null>(null);
     const [content, setContent] = useState("");
-    const [createGroups, setCreateGroups] = useState(true);
     const [dragging, setDragging] = useState(false);
     const [preview, setPreview] = useState<PreviewResult | null>(null);
     const [result, setResult] = useState<CommitResult | null>(null);
@@ -312,15 +309,15 @@ function ImportGuests() {
                                             At least these columns are required.
                                         </p>
 
-                                        <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
+                                        <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Optional Columns</p>
                                         <div className="flex flex-wrap gap-2">
-                                            {["Last Name", "Email", "Guest Group", "WhatsApp Number", "City"].map((c) => (
+                                            {["Guest Group", "Email", "Notes"].map((c) => (
                                                 <Badge key={c} variant="secondary" className="rounded text-[10.5px]">{c}</Badge>
                                             ))}
                                         </div>
                                         <p className="mt-2 text-[11px] text-muted-foreground">
-                                            <span className="font-semibold text-foreground">Phone Number</span> is
-                                            the key: a number already in your guest list is skipped. Email is optional.
+                                            <span className="font-semibold text-foreground">Mobile Number</span> is
+                                            the key: a number already in your guest list is skipped.
                                         </p>
                                     </div>
                                 </CardContent>
@@ -389,36 +386,6 @@ function ImportGuests() {
                                 </CardContent>
                             </Card>
 
-                            <Card className="border border-border py-0 shadow-none">
-                                <CardContent className="p-3.5">
-                                    <div className="grid gap-3.5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <Label className="text-[12.5px] font-medium">Create missing groups</Label>
-                                                <p className="text-[11.5px] text-muted-foreground break-words">
-                                                    A Guest Group name that does not exist yet will be created.
-                                                </p>
-                                            </div>
-                                            <Switch checked={createGroups} onCheckedChange={setCreateGroups}
-                                                aria-label="Create missing groups" />
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-warning/40 bg-warning/5 py-0 shadow-none">
-                                <CardContent className="flex items-start gap-3 p-3.5">
-                                    <FontAwesomeIcon icon={faCircleInfo} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
-                                    <div className="min-w-0">
-                                        <p className="text-[12.5px] font-semibold text-foreground">Important</p>
-                                        <p className="mt-0.5 text-[11.5px] text-muted-foreground break-words">
-                                            Please review your data carefully in the next steps. You will have a chance to
-                                            review and confirm before the data is imported — nothing is written until the
-                                            final step.
-                                        </p>
-                                    </div>
-                                </CardContent>
-                            </Card>
                         </>
                     )}
 
@@ -502,7 +469,7 @@ function ImportGuests() {
                                         <p className="mt-3 rounded-md bg-primary/5 px-3 py-2 text-[11.5px] text-muted-foreground">
                                             New groups in this file:{" "}
                                             <span className="font-semibold text-foreground">{preview.new_groups.join(", ")}</span>
-                                            {createGroups ? " — these will be created." : " — these will be left blank."}
+                                            {" — these will be created."}
                                         </p>
                                     )}
                                 </CardContent>
@@ -662,7 +629,7 @@ function ImportGuests() {
                                 <Button
                                     onClick={() => commit.mutate({
                                         content,
-                                        create_groups: createGroups,
+                                        create_groups: true,
                                     })}
                                     disabled={commit.isPending || preview.valid_count === 0}
                                     className="h-10 rounded-md px-4 text-[13px] font-semibold"

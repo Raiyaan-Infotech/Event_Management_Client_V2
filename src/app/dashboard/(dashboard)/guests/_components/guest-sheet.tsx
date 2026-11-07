@@ -71,10 +71,10 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
                 </>
             )}
         >
-            {!isEdit && capacity.data?.limit != null && (
-                <p className={cn("rounded-md px-3 py-2 text-[12px]", full ? "bg-destructive/10 text-destructive" : "bg-primary/5 text-muted-foreground")}>
-                    <span className="font-semibold text-foreground">{capacity.data.used} / {capacity.data.limit}</span> guests used on your plan
-                    {full && <> — <Link href="/dashboard/billing" className="font-semibold text-primary">upgrade your plan</Link> to add more.</>}
+            {/* The "x / y guests used" line moved to the list's Plan Limit tile (Jamal, 2026-11-07); only the full warning stays. */}
+            {full && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+                    Guest limit reached — <Link href="/dashboard/billing" className="font-semibold text-primary">upgrade your plan</Link> to add more.
                 </p>
             )}
             <FormField label="Full Name" required>

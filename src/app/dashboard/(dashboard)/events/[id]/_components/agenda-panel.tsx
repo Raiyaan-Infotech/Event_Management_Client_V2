@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, CalendarPlus, Clock, Download, ExternalLink, Plus, Save } from "lucide-react";
+import { CalendarDays, CalendarPlus, Download, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +20,7 @@ import { Empty, PanelLoading, Section } from "./module-ui";
 
 /**
  * Event Agenda — Jamal's web design (2026-11-04), exactly as drawn:
- *   · "Event Agenda" + Export Agenda + View Agenda (Guest);
+ *   · "Event Agenda" + Export Agenda + ;
  *   · a card per day ("Mon, 10 Nov 2026 · 6 Sessions") and + Add Date (another
  *     event day that has no session yet);
  *   · the chosen day: Total Sessions / Total Overlap Groups, a timeline (time,
@@ -75,7 +75,6 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
     const [form, setForm] = useState<FormState | null>(null);
     const [tried, setTried] = useState(false);
     const [deleting, setDeleting] = useState<AgendaItem | null>(null);
-    const [guestView, setGuestView] = useState(false);
     const [formOpen, setFormOpen] = useState(false);
 
     const items = useMemo(() => query.data?.items ?? [], [query.data]);
@@ -158,20 +157,6 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                     actions={(
                         <>
                             <Button variant="outline" size="sm" onClick={exportAgenda} disabled={!items.length}><Download className="size-3.5" /> Export Agenda</Button>
-                            <Button variant="outline" size="sm" onClick={() => setGuestView(true)}><ExternalLink className="size-3.5" /> View Agenda (Guest)</Button>
-                            {/* Add Date as a button (Jamal, 2026-11-06; was a dashed card after the day cards). */}
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" disabled={!remaining.length}
-                                        title={remaining.length ? undefined : "Every event day already has its card"}>
-                                        <CalendarPlus className="size-3.5" /> Add Date
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent align="end" className="w-auto p-0">
-                                    <p className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">Pick an event day to add sessions to</p>
-                                    <DayCalendar allowed={remaining} onChange={(d) => { setExtraDays((x) => [...x, d]); setPicked(d); newFor(d); }} />
-                                </PopoverContent>
-                            </Popover>
                             <Button size="sm" onClick={() => newFor(day ?? eventDays[0] ?? "")} disabled={!eventDays.length}><Plus className="size-3.5" /> Add Session</Button>
                         </>
                     )}
@@ -195,6 +180,20 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                             </button>
                         );
                     })}
+                    {/* Add Date = a button right after the day cards (Jamal, 2026-11-07; was in the header). */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-10 self-center justify-self-start border-primary/40 px-4 text-primary hover:bg-primary/5 hover:text-primary"
+                                disabled={!remaining.length}
+                                title={remaining.length ? undefined : "Every event day already has its card"}>
+                                <CalendarPlus className="size-4" /> Add Date
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-auto p-0">
+                            <p className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">Pick an event day to add sessions to</p>
+                            <DayCalendar allowed={remaining} onChange={(d) => { setExtraDays((x) => [...x, d]); setPicked(d); newFor(d); }} />
+                        </PopoverContent>
+                    </Popover>
                 </div>
 
                 <div className="rounded-xl border border-border bg-card">
@@ -291,29 +290,6 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                 </DialogContent>
             </Dialog>
 
-            {guestView && (
-                <Dialog open onOpenChange={(o) => !o && setGuestView(false)}>
-                    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Agenda</DialogTitle>
-                            <DialogDescription>What your guests see in the app.</DialogDescription>
-                        </DialogHeader>
-                        {[...byDay.keys()].sort().map((d) => (
-                            <div key={d} className="flex flex-col gap-2">
-                                <p className="text-[13px] font-bold text-primary">{dayLabel(d)}</p>
-                                {groupDay(byDay.get(d) ?? []).flatMap((g) => g.items).map((i) => (
-                                    <div key={i.id} className="rounded-lg border border-border p-3">
-                                        <p className="text-[13px] font-semibold">{i.title}</p>
-                                        <p className="flex items-center gap-1 text-[12px] text-muted-foreground"><Clock className="size-3" /> {timeLabel(i.start_time)} - {timeLabel(i.end_time)}</p>
-                                        {i.description && <p className="mt-1 text-[12px] text-foreground/80">{i.description}</p>}
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                        {!items.length && <Empty title="No agenda yet" />}
-                    </DialogContent>
-                </Dialog>
-            )}
         </div>
     );
 }
