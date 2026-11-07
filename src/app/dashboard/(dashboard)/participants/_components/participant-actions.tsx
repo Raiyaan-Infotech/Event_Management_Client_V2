@@ -359,7 +359,7 @@ function BlockParticipant({ p, onClose }: P) {
                     </label>
                     <Notice tone="info" title="Effects of Blocking">
                         <ul className="mt-1 list-disc pl-4">
-                            <li>The participant will be denied access to all event features (agenda, gallery, wishes, RSVP, messages…).</li>
+                            <li>The participant will be denied access to all event features (agenda, media, wishes, RSVP, messages…).</li>
                             <li>They cannot join again by scanning the invitation.</li>
                             <li>Their invitation and response history remain recorded; they can be unblocked later.</li>
                         </ul>

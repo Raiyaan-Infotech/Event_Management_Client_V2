@@ -172,7 +172,7 @@ export function VideoEditor({ eventId, item, folderName, onBack, onDone }: {
                 <div className="flex min-w-0 items-start gap-2">
                     <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onBack} aria-label="Back"><ArrowLeft className="size-4" /></Button>
                     <div className="min-w-0">
-                        <p className="text-[12px] text-muted-foreground">Gallery › {folderName} › {item.title || item.file_name}</p>
+                        <p className="text-[12px] text-muted-foreground">Media › {folderName} › {item.title || item.file_name}</p>
                         <h3 className="text-[20px] leading-tight font-bold">Edit Video / Shorts</h3>
                         <p className="text-[12.5px] text-muted-foreground">Trim, add music, and create engaging text animations for your video or short.</p>
                     </div>

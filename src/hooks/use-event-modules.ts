@@ -458,7 +458,7 @@ export function useExportVideoEdit(eventId: number) {
     });
 }
 
-/** Overview Bulk Actions: delete several folders (their files move to Gallery), one toast. */
+/** Overview Bulk Actions: delete several folders (their files move to Media), one toast. */
 export function useDeleteGalleryCategories(eventId: number) {
     const qc = useQueryClient();
     return useMutation({
@@ -466,7 +466,7 @@ export function useDeleteGalleryCategories(eventId: number) {
             for (const id of ids) await api.del(`/client/gallery/categories/${id}`);
             return ids.length;
         },
-        onSuccess: (n) => toast.success(`${n} folder${n === 1 ? '' : 's'} deleted — their files moved to Gallery`),
+        onSuccess: (n) => toast.success(`${n} folder${n === 1 ? '' : 's'} deleted — their files moved to Media`),
         onError: (e) => report(e, 'Could not delete those folders'),
         onSettled: () => invalidate(qc, eventId, 'gallery'),
     });
@@ -477,7 +477,7 @@ export function useDeleteGalleryCategory(eventId: number) {
     return useMutation({
         mutationFn: (id: number) => api.del(`/client/gallery/categories/${id}`),
         onSuccess: () => {
-            toast.success('Category removed — its photos moved to Gallery');
+            toast.success('Category removed — its photos moved to Media');
             invalidate(qc, eventId, 'gallery');
         },
         onError: (e) => report(e, 'Could not remove this category'),

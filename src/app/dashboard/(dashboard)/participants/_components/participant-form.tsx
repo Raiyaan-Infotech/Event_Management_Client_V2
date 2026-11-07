@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, ChevronDown, Minus, Plus, User, X } from "lucide-react";
+import { Camera, ChevronDown, Minus, Plus, User, UserPlus, Users, X } from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { useGuestFormOptions } from "@/hooks/use-guests";
 import { relationSuitsSide, useRelationOptions, useUploadPhoto } from "@/hooks/use-event-modules";
 import { useSaveParticipant, type ParticipantPayload, type ParticipantRow } from "@/hooks/use-event-participants";
 import { useEventHref } from "@/lib/event-workspace";
+import { FormPanel } from "@/components/module-kit";
 
 /**
  * Add / Edit Participant — the app's form, field for field (Jamal, 2026-11-02):
@@ -75,7 +76,7 @@ export interface ParticipantSeed {
 }
 
 export function ParticipantForm({
-    eventId, eventName, participant, fromGuest,
+    eventId, eventName, participant, fromGuest, sheet,
 }: {
     eventId: number;
     eventName?: string | null;
@@ -83,6 +84,9 @@ export function ParticipantForm({
     participant?: ParticipantRow;
     /** Add from Guest: the guest that fills the form. */
     fromGuest?: ParticipantSeed | null;
+    /** Open as the module's slide-in panel ("canvas", like Add Guest / Add Family Member — Jamal 2026-11-07)
+     *  instead of a page. `onFromGuest` shows "Fill from an event guest" at the top. */
+    sheet?: { onClose: () => void; onFromGuest?: () => void };
 }) {
     const wsHref = useEventHref();
     const router = useRouter();
@@ -90,7 +94,7 @@ export function ParticipantForm({
     const seed: ParticipantSeed = participant ?? fromGuest ?? {};
     const back = wsHref(`/dashboard/events/${eventId}/participants`);
 
-    const save = useSaveParticipant(() => router.push(back));
+    const save = useSaveParticipant(() => (sheet ? sheet.onClose() : router.push(back)));
     const upload = useUploadPhoto();
     const relations = useRelationOptions(eventId);
     const formOptions = useGuestFormOptions();
@@ -174,6 +178,10 @@ export function ParticipantForm({
         email: !!email.trim() && !EMAIL.test(email.trim()),
     };
 
+    // In the 520 px panel the viewport breakpoints would squeeze 3–4 columns in; keep 2 there.
+    const cols3 = sheet ? "grid min-w-0 gap-3 sm:grid-cols-2" : "grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3";
+    const cols4 = sheet ? "grid min-w-0 gap-3 sm:grid-cols-2" : "grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+
     const submit = () => {
         if (save.isPending) return;
         setTried(true);
@@ -224,25 +232,21 @@ export function ParticipantForm({
         else save.mutate({ data: { ...data, event_id: eventId, invite_source: "manual" } });
     };
 
-    return (
-        <div className="flex min-w-0 flex-col gap-3">
-            <div className="min-w-0">
-                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
-                    {editing ? "Edit Participant" : "Add Participant"}
-                </h1>
-                <p className="text-[12.5px] text-muted-foreground">
-                    {editing
-                        ? "Update the participant's details"
-                        : fromGuest
-                            ? "Check the guest details and complete the RSVP"
-                            : "Enter the participant's details and RSVP"}
-                    {eventName ? <> · <span className="font-medium text-foreground">{eventName}</span></> : null}
-                </p>
-            </div>
+    const subtitle = editing
+        ? "Update the participant's details"
+        : fromGuest
+            ? "Check the guest details and complete the RSVP"
+            : "Enter the participant's details and RSVP";
 
-            <Card className="border border-border py-0 shadow-none">
-                <CardContent className="flex min-w-0 flex-col gap-3 p-4">
-                    <div className="grid min-w-0 gap-4 lg:grid-cols-[150px_minmax(0,1fr)]">
+    const body = (
+        <>
+                    {sheet?.onFromGuest && !editing && (
+                        <Button type="button" variant="outline" className="h-9 justify-start border-primary/40 text-primary hover:bg-primary/5 hover:text-primary"
+                            onClick={sheet.onFromGuest}>
+                            <Users className="size-4" /> {fromGuest ? "Pick another guest" : "Fill from an event guest"}
+                        </Button>
+                    )}
+                    <div className={cn("grid min-w-0 gap-4", !sheet && "lg:grid-cols-[150px_minmax(0,1fr)]")}>
                         {/* Photo */}
                         <div className="flex flex-col items-center gap-1.5">
                             <button type="button" onClick={() => fileRef.current?.click()} className="relative rounded-full" aria-label="Choose a photo">
@@ -268,7 +272,7 @@ export function ParticipantForm({
                         </div>
 
                         {/* Person */}
-                        <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div className={cn(cols3, "content-start")}>
                             <F label="Title / Salutation" required error={tried && err.title}>
                                 <Select value={title} onValueChange={setTitle}>
                                     <SelectTrigger className={cn("h-10 w-full rounded-md text-[13px]", tried && err.title && "border-destructive")}>
@@ -306,7 +310,7 @@ export function ParticipantForm({
 
                     {/* RSVP — the answer the host records for the participant */}
                     <Section title="RSVP" />
-                    <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className={cols4}>
                         {!editing && (
                             <F label="Number of Guests">
                                 <div className="flex items-center gap-2">
@@ -392,7 +396,7 @@ export function ParticipantForm({
                     {more && (
                         <div className="flex min-w-0 flex-col gap-3">
                             <Section title="Address" />
-                            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className={cols3}>
                                 <F label="Address Line 1">
                                     <Input value={address1} onChange={(e) => setAddress1(e.target.value.slice(0, 255))} placeholder="House no., Building, Street" className="h-10 rounded-md" />
                                 </F>
@@ -432,7 +436,7 @@ export function ParticipantForm({
                                 </F>
                             </div>
                             <Section title="Additional Information" />
-                            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className={cols3}>
                                 <F label="Table Number">
                                     <Input value={table} onChange={(e) => setTable(e.target.value.slice(0, 30))} placeholder="e.g. Table 12" className="h-10 rounded-md" />
                                 </F>
@@ -445,18 +449,11 @@ export function ParticipantForm({
                             </div>
                         </div>
                     )}
+        </>
+    );
 
-                    <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-                        <Button asChild variant="outline" className="h-10 rounded-md px-5 text-[13px]">
-                            <Link href={back}>Cancel</Link>
-                        </Button>
-                        <Button onClick={submit} disabled={save.isPending || upload.isPending} className="h-10 rounded-md px-6 text-[13px] font-semibold">
-                            {save.isPending ? (editing ? "Updating..." : "Adding...") : editing ? "Update" : (<><Plus className="size-4" /> Add Participant</>)}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
+    const saveLabel = save.isPending ? (editing ? "Updating..." : "Adding...") : editing ? "Update" : (<><Plus className="size-4" /> Add Participant</>);
+    const crop = (
             <ImageCropDialog
                 file={cropFile}
                 open={!!cropFile}
@@ -468,6 +465,55 @@ export function ParticipantForm({
                     upload.mutate(file, { onSuccess: (url) => setPhoto(url) });
                 }}
             />
+    );
+
+    if (sheet) {
+        return (
+            <>
+                <FormPanel
+                    sheet={{ open: true, onClose: sheet.onClose }}
+                    icon={UserPlus} title={editing ? "Edit Participant" : "Add Participant"}
+                    subtitle={eventName ? `${subtitle} · ${eventName}` : subtitle}
+                    footer={(
+                        <>
+                            <Button variant="outline" onClick={sheet.onClose}>Cancel</Button>
+                            <Button onClick={submit} disabled={save.isPending || upload.isPending}>{saveLabel}</Button>
+                        </>
+                    )}
+                >
+                    {body}
+                </FormPanel>
+                {crop}
+            </>
+        );
+    }
+
+    return (
+        <div className="flex min-w-0 flex-col gap-3">
+            <div className="min-w-0">
+                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
+                    {editing ? "Edit Participant" : "Add Participant"}
+                </h1>
+                <p className="text-[12.5px] text-muted-foreground">
+                    {subtitle}
+                    {eventName ? <> · <span className="font-medium text-foreground">{eventName}</span></> : null}
+                </p>
+            </div>
+
+            <Card className="border border-border py-0 shadow-none">
+                <CardContent className="flex min-w-0 flex-col gap-3 p-4">
+                    {body}
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                        <Button asChild variant="outline" className="h-10 rounded-md px-5 text-[13px]">
+                            <Link href={back}>Cancel</Link>
+                        </Button>
+                        <Button onClick={submit} disabled={save.isPending || upload.isPending} className="h-10 rounded-md px-6 text-[13px] font-semibold">
+                            {saveLabel}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+            {crop}
         </div>
     );
 }

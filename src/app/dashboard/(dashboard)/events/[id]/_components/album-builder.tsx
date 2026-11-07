@@ -240,7 +240,7 @@ export function AlbumCards({ eventId, albums, onEdit }: { eventId: number; album
             {playing && <PlayAlbumDialog album={playing} onClose={() => setPlaying(null)} />}
             <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Delete Album?</DialogTitle><DialogDescription>&ldquo;{deleting?.name}&rdquo; will be removed. Its photos stay in the gallery.</DialogDescription></DialogHeader>
+                    <DialogHeader><DialogTitle>Delete Album?</DialogTitle><DialogDescription>&ldquo;{deleting?.name}&rdquo; will be removed. Its photos stay in Media.</DialogDescription></DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
                         <Button variant="destructive" disabled={remove.isPending} onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}>Delete Album</Button>
@@ -332,7 +332,7 @@ export function AlbumBuilder({
     return (
         <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-3">
-                <Button variant="outline" size="sm" className="h-8" onClick={onBack}><ArrowLeft className="size-3.5" /> Gallery</Button>
+                <Button variant="outline" size="sm" className="h-8" onClick={onBack}><ArrowLeft className="size-3.5" /> Media</Button>
                 <div className="min-w-0 flex-1">
                     <h3 className="text-[20px] leading-tight font-bold">{album ? "Edit Album" : "Create Album"}</h3>
                     <p className="text-[12.5px] text-muted-foreground">Build a beautiful slideshow album from your event photos, add animated intro text, music, and more.</p>
@@ -345,7 +345,7 @@ export function AlbumBuilder({
                 {/* ── Album Slides ── */}
                 <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card">
                     <div className="flex items-start justify-between gap-2 border-b border-border p-3">
-                        <div><p className="text-[14px] font-bold">Album Slides ({slides.length})</p><p className="text-[11px] text-muted-foreground">Pick photos from your gallery and arrange them in the order you want.</p></div>
+                        <div><p className="text-[14px] font-bold">Album Slides ({slides.length})</p><p className="text-[11px] text-muted-foreground">Pick photos from your media and arrange them in the order you want.</p></div>
                         <Button size="sm" variant="outline" className="h-7 shrink-0 border-primary/40 text-primary" onClick={() => setPicking(true)}><Plus className="size-3.5" /> Add Images</Button>
                     </div>
                     <div className="flex max-h-[560px] flex-col gap-1.5 overflow-y-auto p-2">
@@ -551,7 +551,7 @@ function PickImages({ images, folders, chosen, onClose, onAdd }: { images: Galle
     return (
         <Dialog open onOpenChange={(o) => !o && onClose()}>
             <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto sm:max-w-3xl">
-                <DialogHeader><DialogTitle>Add Images</DialogTitle><DialogDescription>Choose photos from your event gallery for this album.</DialogDescription></DialogHeader>
+                <DialogHeader><DialogTitle>Add Images</DialogTitle><DialogDescription>Choose photos from your event media for this album.</DialogDescription></DialogHeader>
                 <Select value={folder} onValueChange={setFolder}>
                     <SelectTrigger className="h-9 w-60"><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="all">All folders</SelectItem>{folders.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>)}</SelectContent>

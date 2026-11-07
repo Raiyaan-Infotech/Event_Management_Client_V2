@@ -19,7 +19,7 @@ export const EVENT_TABS = [
     { value: "information", label: "Event Info" },
     { value: "agenda", label: "Agenda" },
     { value: "venue", label: "Venue" },
-    { value: "gallery", label: "Gallery" },
+    { value: "gallery", label: "Media" },
     { value: "family", label: "Family" },
     { value: "wishes", label: "Wed Wishes" },
     { value: "live", label: "Live Streaming" },

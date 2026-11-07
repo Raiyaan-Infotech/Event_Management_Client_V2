@@ -108,7 +108,7 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
     }, [create, folders, search, router, pathname]);
 
     if (query.isLoading) return <div className="flex flex-col gap-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-40 w-full" /></div>;
-    if (query.isError || !query.data) return <p className="py-10 text-center text-[13px] text-muted-foreground">Could not load the gallery. Please try again.</p>;
+    if (query.isError || !query.data) return <p className="py-10 text-center text-[13px] text-muted-foreground">Could not load the media. Please try again.</p>;
 
     return (
         <>
@@ -124,7 +124,7 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
                     onEditVideo={VIDEO_EDITOR_ENABLED ? (item) => setView({ kind: "edit", item, back: view.id }) : undefined} />
             )}
             {VIDEO_EDITOR_ENABLED && view.kind === "edit" && (
-                <VideoEditor eventId={eventId} item={view.item} folderName={folders.find((f) => f.id === view.item.category_id)?.name ?? "Gallery"}
+                <VideoEditor eventId={eventId} item={view.item} folderName={folders.find((f) => f.id === view.item.category_id)?.name ?? "Media"}
                     onBack={() => setView({ kind: "folder", id: view.back })} onDone={() => setView({ kind: "folder", id: view.back })} />
             )}
             {view.kind === "album" && (
@@ -183,7 +183,7 @@ function Overview({
 
     return (
         <div className="flex flex-col gap-3">
-            <ModuleHeader title="Gallery Overview" subtitle="Manage your event photos, videos, shorts and albums in organized folders."
+            <ModuleHeader title="Media Overview" subtitle="Manage your event photos, videos, shorts and albums in organized folders."
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={() => onFolder("new")}><FolderPlus className="size-3.5" /> Create Folder</Button>
@@ -280,7 +280,7 @@ function Overview({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Delete Folder?</DialogTitle>
-                        <DialogDescription>&ldquo;{deleting?.name}&rdquo; will be removed. Its {deleting?.item_count ?? 0} files move to Gallery — nothing is deleted.</DialogDescription>
+                        <DialogDescription>&ldquo;{deleting?.name}&rdquo; will be removed. Its {deleting?.item_count ?? 0} files move to Media — nothing is deleted.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
@@ -293,7 +293,7 @@ function Overview({
                     <DialogHeader>
                         <DialogTitle>Delete {picked.length} folder{picked.length === 1 ? "" : "s"}?</DialogTitle>
                         <DialogDescription>
-                            {picked.map((f) => `“${f.name}”`).join(", ")} will be removed. Their {picked.reduce((n, f) => n + f.item_count, 0)} files move to Gallery — nothing is deleted.
+                            {picked.map((f) => `“${f.name}”`).join(", ")} will be removed. Their {picked.reduce((n, f) => n + f.item_count, 0)} files move to Media — nothing is deleted.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -423,7 +423,7 @@ function FolderView({
     };
     const allOn = pageItems.length > 0 && pageItems.every((i) => sel.includes(i.id));
     const name = (i: GalleryItem) => i.title || i.file_name || `${KIND_META[kindOf(i)].label} #${i.id}`;
-    const folderName = (id: number | null) => folders.find((f) => f.id === id)?.name ?? "Gallery";
+    const folderName = (id: number | null) => folders.find((f) => f.id === id)?.name ?? "Media";
     const download = (list: GalleryItem[]) => list.forEach((i) => { const a = document.createElement("a"); a.href = mediaUrl(i.url) ?? i.url; a.download = i.file_name || ""; a.target = "_blank"; a.click(); });
 
     const menu = (i: GalleryItem) => (
@@ -490,9 +490,9 @@ function FolderView({
             <div className="flex min-w-0 flex-col gap-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-2">
-                        <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onBack} aria-label="Back to Gallery Overview"><ArrowLeft className="size-4" /></Button>
+                        <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={onBack} aria-label="Back to Media Overview"><ArrowLeft className="size-4" /></Button>
                         <div className="min-w-0">
-                            <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground"><button type="button" onClick={onBack} className="hover:text-primary">Gallery</button> <ChevronRight className="size-3" /> <span className="text-foreground">{folder?.name ?? "All Media"}</span></p>
+                            <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground"><button type="button" onClick={onBack} className="hover:text-primary">Media</button> <ChevronRight className="size-3" /> <span className="text-foreground">{folder?.name ?? "All Media"}</span></p>
                             <h3 className="text-[20px] leading-tight font-bold">{folder?.name ?? "All Media"}</h3>
                             <p className="text-[12.5px] text-muted-foreground">{folder?.description || (folder?.is_default ? "Default folder for all event media." : folder ? "" : "Every photo, video and short of this event.")}</p>
                         </div>
@@ -586,7 +586,7 @@ function FolderView({
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Delete {deleting?.length === 1 ? "this file" : `${deleting?.length} files`}?</DialogTitle>
-                        <DialogDescription>They are removed from the gallery and from the event app. This cannot be undone.</DialogDescription>
+                        <DialogDescription>They are removed from Media and from the event app. This cannot be undone.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
@@ -735,7 +735,7 @@ function RenameDialog({ eventId, item, current, onClose }: { eventId: number; it
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Rename</DialogTitle>
-                    <DialogDescription>The name shown in the gallery and the event app.</DialogDescription>
+                    <DialogDescription>The name shown in Media and the event app.</DialogDescription>
                 </DialogHeader>
                 <Input value={value} maxLength={150} autoFocus onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
                 <DialogFooter>
@@ -843,7 +843,7 @@ function FolderSheet({ eventId, folder, count, onClose }: { eventId: number; fol
                 </div>
             </FormField>
             {!isDefault && (
-                <FormField label="Sort Order" required note="Display order in Gallery — 1 comes first after the default Gallery.">
+                <FormField label="Sort Order" required note="Display order in Media — 1 comes first after the default Media folder.">
                     <div className="w-40"><NumberStepper value={position} onChange={setPosition} min={1} max={Math.max(1, count + (folder ? 0 : 1))} /></div>
                 </FormField>
             )}
@@ -993,7 +993,7 @@ function UploadSheet({
         }
         setBusy(false);
         if (ok && !bad) {
-            toast.success(`${ok} ${ok === 1 ? "file" : "files"} uploaded to "${folder?.name ?? "Gallery"}"`);
+            toast.success(`${ok} ${ok === 1 ? "file" : "files"} uploaded to "${folder?.name ?? "Media"}"`);
             onDone(folderId);
         } else if (bad) {
             toast.error(`${bad} ${bad === 1 ? "file" : "files"} could not be uploaded — see the list, then Retry.`);
@@ -1220,7 +1220,7 @@ function VideoEditPanel({ q, maxBytes, onClose, onApply }: { q: Queued; maxBytes
                             {cover ? <img src={cover.url} alt="" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[11.5px] text-muted-foreground">First frame</span>}
                         </button>
                         <div className="flex min-w-[150px] flex-1 flex-col gap-2">
-                            <p className="text-[12px] text-muted-foreground">The picture shown on the gallery tile. Without one, the video&apos;s first frame is used. JPG, PNG or WEBP.</p>
+                            <p className="text-[12px] text-muted-foreground">The picture shown on the media tile. Without one, the video&apos;s first frame is used. JPG, PNG or WEBP.</p>
                             <span className="flex flex-wrap gap-2">
                                 <Button size="sm" variant="outline" className="h-8" onClick={() => coverRef.current?.click()}><Upload className="size-3.5" /> {cover ? "Change" : "Choose"} Cover</Button>
                                 {cover && <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => setCover(null)}><X className="size-3.5" /> Remove</Button>}

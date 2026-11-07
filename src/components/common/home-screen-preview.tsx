@@ -21,7 +21,7 @@ import type { TemplateColor } from '@/hooks/use-home-screen-templates';
 const MENUS = [
     { label: 'Our Story', Icon: BookOpen },
     { label: 'Events', Icon: CalendarDays },
-    { label: 'Gallery', Icon: Images },
+    { label: 'Media', Icon: Images },
     { label: 'RSVP', Icon: MailCheck },
     { label: 'Venue', Icon: MapPin },
     { label: 'Family', Icon: Users },

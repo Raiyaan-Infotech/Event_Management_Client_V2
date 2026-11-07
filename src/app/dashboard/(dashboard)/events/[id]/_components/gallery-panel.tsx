@@ -86,7 +86,7 @@ function CategoryList({ eventId, onOpen }: { eventId: number; onOpen: (c: Galler
 
     if (query.isLoading) return <PanelLoading />;
     if (query.isError || !query.data) {
-        return <Section title="Gallery"><Empty title="Could not load the gallery">Please try again in a moment.</Empty></Section>;
+        return <Section title="Media"><Empty title="Could not load the media">Please try again in a moment.</Empty></Section>;
     }
     const { categories } = query.data;
     const q = search.trim().toLowerCase();
@@ -119,7 +119,7 @@ function CategoryList({ eventId, onOpen }: { eventId: number; onOpen: (c: Galler
 
     return (
         <div className="flex flex-col gap-5">
-            <Section title="Gallery Categories">
+            <Section title="Media Categories">
                 <div className="mb-3 flex items-center gap-2">
                     <div className="relative min-w-0 flex-1">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -177,7 +177,7 @@ function CategoryList({ eventId, onOpen }: { eventId: number; onOpen: (c: Galler
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Delete &quot;{deleting?.name}&quot;?</DialogTitle>
-                        <DialogDescription>Its photos and videos are not deleted — they move to Gallery.</DialogDescription>
+                        <DialogDescription>Its photos and videos are not deleted — they move to Media.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
@@ -264,7 +264,7 @@ function CategoryDialog({
         <Dialog open onOpenChange={(o) => !o && onClose()}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{category ? "Edit Gallery Category" : "Add Gallery Category"}</DialogTitle>
+                    <DialogTitle>{category ? "Edit Media Category" : "Add Media Category"}</DialogTitle>
                     <DialogDescription className="sr-only">Category</DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-3">
@@ -311,7 +311,7 @@ function CategoryDialog({
                             <Label className="text-[12.5px]">Display Order</Label>
                             <Input type="number" min={2} max={categories.length + (category ? 0 : 1)} value={order}
                                 onChange={(e) => setOrder(e.target.value)} className="max-w-[120px]" />
-                            <p className="text-[11.5px] text-muted-foreground">Its place in the list (Gallery is always first).</p>
+                            <p className="text-[11.5px] text-muted-foreground">Its place in the list (the default Media folder is always first).</p>
                         </div>
                     )}
                 </div>
@@ -497,7 +497,7 @@ function CategoryMedia({
                                 { icon: GripVertical, label: "Reorder Media", run: () => setOrder(items.map((i) => i.id)) },
                                 { icon: SquareCheck, label: "Select", run: () => setSelected(new Set([acting.id])) },
                                 { icon: Download, label: "Download", run: () => window.open(mediaUrl(acting.url), "_blank") },
-                                { icon: Trash2, label: "Remove from Gallery", run: () => setRemoving([acting]), danger: true },
+                                { icon: Trash2, label: "Remove from Media", run: () => setRemoving([acting]), danger: true },
                             ].map((a) => (
                                 <button key={a.label} type="button" onClick={() => { setActing(null); a.run(); }}
                                     className={cn("flex items-center gap-3 rounded-md px-2 py-2.5 text-left text-[13px] hover:bg-muted", a.danger && "text-destructive")}>
@@ -526,7 +526,7 @@ function CategoryMedia({
             <Dialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Remove from Gallery?</DialogTitle>
+                        <DialogTitle>Remove from Media?</DialogTitle>
                         <DialogDescription>
                             {removing && removing.length > 1 ? `${removing.length} items are` : "This item is"} deleted from the gallery and the file removed. This cannot be undone.
                         </DialogDescription>
@@ -907,7 +907,7 @@ export function ShortDialog({
                         <DialogTitle className="text-[18px]">Upload Successful</DialogTitle>
                         <DialogDescription>Your short has been added to {album?.name ?? "the gallery"}.</DialogDescription>
                         <div className="mt-2 grid w-full gap-2">
-                            <Button onClick={() => onViewGallery(album)}>View Gallery</Button>
+                            <Button onClick={() => onViewGallery(album)}>View Media</Button>
                             <Button variant="outline" onClick={reset}>Upload More</Button>
                         </div>
                     </div>

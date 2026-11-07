@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, Settings, User, UserPlus, Users } from "lucide-react";
+import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, Settings, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ParticipantSettingsDialog } from "../../events/[id]/_components/settings-panel";
 import { Button } from "@/components/ui/button";
@@ -18,12 +17,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import { useClientEvent } from "@/hooks/use-client-events";
-import { useGuests, useParticipantCapacity } from "@/hooks/use-guests";
+import { useGuest, useGuests, useParticipantCapacity } from "@/hooks/use-guests";
+import { ParticipantForm } from "./participant-form";
 import { useEventParticipants, useSaveParticipant, type ParticipantRow } from "@/hooks/use-event-participants";
 import {
     AccessPill, InvitePill, LinkedPill, ParticipantSheet, RsvpPill, accessOf, participantMenu, type PAction,
 } from "./participant-actions";
-import { useEventHref } from "@/lib/event-workspace";
 
 /**
  * Event Participants — Jamal's web design (2026-11-04), from the module kit:
@@ -54,8 +53,6 @@ const SORT_FN: Record<Sort, (a: ParticipantRow, b: ParticipantRow) => number> = 
 };
 
 export function ParticipantsView({ eventId }: { eventId: number }) {
-    const wsHref = useEventHref();
-    const router = useRouter();
     const fmt = useDateFormatter();
     const list = useEventParticipants(eventId);
     const capacity = useParticipantCapacity(eventId);
@@ -66,7 +63,8 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
     const [sort, setSort] = useState<Sort>("joined_desc");
     const [page, setPage] = useState(1);
     const [act, setAct] = useState<{ a: PAction; id: number } | null>(null);
-    const [addOpen, setAddOpen] = useState(false);
+    // Add Participant = the slide-in panel (Jamal, 2026-11-07); guestId = filled from that event guest.
+    const [addSheet, setAddSheet] = useState<{ guestId: number | null } | null>(null);
     const [pickGuest, setPickGuest] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -118,7 +116,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                             </TooltipTrigger>
                             <TooltipContent>Participants Settings</TooltipContent>
                         </Tooltip>
-                        <Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
+                        <Button size="sm" className="h-8" onClick={() => setAddSheet({ guestId: null })} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
                     </>
                 )}
             />
@@ -205,36 +203,19 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
             <ParticipantSheet action={act?.a ?? null} p={selected} eventId={eventId}
                 onClose={() => setAct(null)} onSwitch={(a) => setAct((x) => (x ? { ...x, a } : x))} />
 
-            {/* Add Participant: from Guest or Manually (the app's sheet) */}
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle>Add Participant</DialogTitle>
-                        <DialogDescription>{eventName ? `To ${eventName}` : "Choose how to add"}</DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col gap-2">
-                        <button type="button" onClick={() => { setAddOpen(false); setPickGuest(true); }}
-                            className="flex items-center gap-3 rounded-md border p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5">
-                            <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary"><UserPlus className="size-4" /></span>
-                            <span><span className="block text-[13px] font-semibold">Add from Guest</span>
-                                <span className="block text-[11.5px] text-muted-foreground">Pick one of this event&apos;s guests</span></span>
-                        </button>
-                        <button type="button" onClick={() => { setAddOpen(false); router.push(wsHref(`/dashboard/participants/add?event=${eventId}`)); }}
-                            className="flex items-center gap-3 rounded-md border p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5">
-                            <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary"><User className="size-4" /></span>
-                            <span><span className="block text-[13px] font-semibold">Add Manually</span>
-                                <span className="block text-[11.5px] text-muted-foreground">Enter the participant&apos;s details</span></span>
-                        </button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {addSheet && (
+                <AddParticipantSheet
+                    eventId={eventId} eventName={eventName} guestId={addSheet.guestId}
+                    onClose={() => setAddSheet(null)} onFromGuest={() => setPickGuest(true)}
+                />
+            )}
 
             {pickGuest && (
                 <SelectGuestDialog
                     eventId={eventId}
                     taken={new Set(rows.map((r) => last10(r.mobile)).filter(Boolean))}
                     onClose={() => setPickGuest(false)}
-                    onPick={(guestId) => router.push(wsHref(`/dashboard/participants/add?event=${eventId}&guest=${guestId}`))}
+                    onPick={(guestId) => { setPickGuest(false); setAddSheet({ guestId }); }}
                 />
             )}
             {settingsOpen && <ParticipantSettingsDialog eventId={eventId} onClose={() => setSettingsOpen(false)} />}
@@ -309,5 +290,19 @@ function SelectGuestDialog({ eventId, taken, onClose, onPick }: {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/** Add Participant in the slide-in panel; with a guest picked, that guest fills the form (the app's Add from Guest). */
+function AddParticipantSheet({ eventId, eventName, guestId, onClose, onFromGuest }: {
+    eventId: number; eventName?: string | null; guestId: number | null; onClose: () => void; onFromGuest: () => void;
+}) {
+    const guest = useGuest(guestId);
+    if (guestId && guest.isLoading) return null;
+    return (
+        <ParticipantForm
+            key={guestId ?? "manual"} eventId={eventId} eventName={eventName}
+            fromGuest={guest.data ?? null} sheet={{ onClose, onFromGuest }}
+        />
     );
 }

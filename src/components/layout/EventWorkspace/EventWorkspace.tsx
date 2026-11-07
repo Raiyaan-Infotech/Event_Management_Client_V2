@@ -100,7 +100,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                     Images / Video; Create Shorts opens Upload Short. */}
                                 {t.value === "gallery" && !collapsed && (
                                     <>
-                                        <SidebarMenuAction aria-label={galleryOpen ? "Hide gallery menu" : "Show gallery menu"}
+                                        <SidebarMenuAction aria-label={galleryOpen ? "Hide media menu" : "Show media menu"}
                                             onClick={() => setGalleryToggled(!galleryOpen)}>
                                             <ChevronDown className={cn("size-4 transition-transform", galleryOpen && "rotate-180")} />
                                         </SidebarMenuAction>

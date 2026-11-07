@@ -75,7 +75,7 @@ export function EditEventHub({ eventId }: { eventId: number }) {
         { icon: faPeopleGroup, title: "Family", description: "Manage family members", href: tab("family") },
         { icon: faUsers, title: "Participants", description: "Manage event participants", href: tab("rsvps") },
         { icon: faSquareCheck, title: "RSVP", description: "Configure RSVP settings", href: tab("settings") },
-        { icon: faImages, title: "Photo Gallery", description: "Add, edit and manage event gallery", href: tab("gallery") },
+        { icon: faImages, title: "Media", description: "Add, edit and manage event photos, videos and shorts", href: tab("gallery") },
         { icon: faHeart, title: "Wed Wishes", description: "View, hide and manage participant wishes", href: tab("wishes") },
         { icon: faVideo, title: "Live Streaming", description: "Manage your event's live streaming content", href: tab("live") },
         { icon: faLink, title: "Social Links", description: "Add, edit and delete event social links", href: tab("social") },

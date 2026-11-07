@@ -1324,12 +1324,13 @@ export function EventWizard({
             </div>
             )}
 
-            {/* Embedded (event workspace → Venue): full width like Agenda, no card frame (Jamal, 2026-11-07). */}
-            <Card className={cn("border border-border shadow-none py-0", embedded && "border-0 bg-transparent")}>
-                <CardContent className={cn("p-4 lg:p-5", embedded && "p-0 lg:p-0")}>
-                    {section && embedded ? (
-                        <ModuleHeader title={`Event ${SECTION_PAGES[section].title}`} subtitle={PAGE_TITLES[step] ?? SECTION_PAGES[section].subtitle} />
-                    ) : section ? (
+            {/* Embedded (event workspace → Venue): heading outside like Agenda, then ONE overall card (Jamal, 2026-11-07). */}
+            {section && embedded && (
+                <ModuleHeader title={`Event ${SECTION_PAGES[section].title}`} subtitle={PAGE_TITLES[step] ?? SECTION_PAGES[section].subtitle} />
+            )}
+            <Card className={cn("border border-border shadow-none py-0", embedded && "rounded-xl")}>
+                <CardContent className="p-4 lg:p-5">
+                    {section && embedded ? null : section ? (
                         <>
                             {sectionPages && sectionPages.length > 1 && (
                                 <p className="text-[12px] font-medium text-muted-foreground">
@@ -1345,7 +1346,7 @@ export function EventWizard({
                         null
                     )}
 
-                    <div className={section ? "mt-6" : ""}>
+                    <div className={section && !embedded ? "mt-6" : ""}>
                         {/* ── Step 1 — real taxonomy ─────────────────────────── */}
                         {step === S_TYPE && (
                             // Full card width, not capped: three selects in a row
@@ -1569,11 +1570,11 @@ export function EventWizard({
 
                         {/* ── Step 4 — Venue ─────────────────────────────────── */}
                         {step === S_VENUE && (
-                            <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-5">
+                            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-x-4">
                                 {/* Venue pin on a Google map, as in the app. Fills
                                     lat/lng, and name / address / map link only when
                                     those are still empty — never overwrites typing. */}
-                                <div className="flex min-w-0 flex-col gap-2">
+                                <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-3.5">
                                 <div>
                                     <p className="text-[13.5px] font-semibold text-foreground">Step 1 (Search on Map)</p>
                                     <p className="text-[12px] text-muted-foreground">Find the venue, then drop or move the pin.</p>
@@ -1617,7 +1618,7 @@ export function EventWizard({
                                     />
                                 </Field>
                                 </div>
-                                <div className="grid min-w-0 content-start gap-2.5 sm:grid-cols-2">
+                                <div className="grid min-w-0 content-start gap-2.5 rounded-xl border border-border bg-card p-3.5 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
                                     <p className="text-[13.5px] font-semibold text-foreground">Step 2 (Want to Edit)</p>
                                     <p className="text-[12px] text-muted-foreground">Enter manually, or correct what the map filled in.</p>
