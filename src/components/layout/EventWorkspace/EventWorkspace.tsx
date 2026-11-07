@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { CalendarDays, ChevronDown, LogOut, MapPin, Tag } from "lucide-react";
+import { CalendarDays, ChevronDown, Clapperboard, ImagePlus, LogOut, MapPin, Tag, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -106,13 +106,13 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         </SidebarMenuAction>
                                         {galleryOpen && (
                                             <SidebarMenuSub>
-                                                {([["image", "Upload Image"], ["video", "Create Video"], ["short", "Create Shorts"]] as const).map(([key, label]) => {
+                                                {([["image", "Upload Image", ImagePlus], ["video", "Create Video", Clapperboard], ["short", "Create Shorts", Zap]] as const).map(([key, label, SubIcon]) => {
                                                     const subOn = on && galleryCreate === key;
                                                     return (
                                                         <SidebarMenuSubItem key={key}>
                                                             <SidebarMenuSubButton asChild isActive={subOn}
                                                                 className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
-                                                                <Link href={`${base}?tab=gallery&create=${key}`} scroll={false}>{label}</Link>
+                                                                <Link href={`${base}?tab=gallery&create=${key}`} scroll={false}><SubIcon className="size-3.5" /> <span>{label}</span></Link>
                                                             </SidebarMenuSubButton>
                                                         </SidebarMenuSubItem>
                                                     );
