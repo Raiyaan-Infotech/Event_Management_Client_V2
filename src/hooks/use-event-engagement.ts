@@ -106,7 +106,7 @@ export function useCreateWish(eventId: number) {
     return useMutation({
         mutationFn: ({ message, audience, guestName, file }: {
             message: string; audience: WishAudience; guestName?: string; file?: File | null;
-        }) => {
+        }): Promise<{ wish?: Wish }> => {
             if (!file) {
                 return api.post(`/client/events/${eventId}/wishes`, {
                     message, audience, ...(guestName ? { guest_name: guestName } : {}),
@@ -132,6 +132,20 @@ export function useUpdateWish(eventId: number) {
             api.put(`/client/wishes/${id}`, data),
         onSuccess: (_r, v) => { if (v.done) toast.success(v.done); refresh(); },
         onError: (e) => report(e, 'Could not update this post'),
+    });
+}
+
+/** Put a new image / video on a post (organizer's own post) — `POST /wishes/:id/media`. */
+export function useReplaceWishMedia(eventId: number) {
+    const refresh = useRefresh(eventId, 'wishes');
+    return useMutation({
+        mutationFn: ({ id, file }: { id: number; file: File }) => {
+            const form = new FormData();
+            form.append('file', file);
+            return api.post(`/client/wishes/${id}/media`, form);
+        },
+        onSuccess: () => refresh(),
+        onError: (e) => report(e, 'Could not change the photo / video'),
     });
 }
 
