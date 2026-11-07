@@ -81,7 +81,7 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
     // Upload Media is a right-side panel (2026-11-07); Short opens the trim + music Upload Short dialog.
     const [uploadAt, setUploadAt] = useState<{ folderId?: number; type?: "image" | "video" } | null>(null);
     const [shortFor, setShortFor] = useState<GalleryCategory | null>(null);
-    // Sidebar Gallery → Upload Image / Create Video / Create Shorts arrive as ?create=image|video|short — opened once, then the
+    // Sidebar Media → Create Album / Create Video / Create Short arrive as ?create=album|video|short (image still works) — opened once, then the
     // param is dropped so the same menu item works again.
     const search = useSearchParams();
     const router = useRouter();
@@ -93,11 +93,13 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
     const items = useMemo(() => query.data?.items ?? [], [query.data]);
     const folders = useMemo(() => query.data?.categories ?? [], [query.data]);
     useEffect(() => {
-        if ((create !== "image" && create !== "video" && create !== "short") || !folders.length) return;
+        if (!create || !["gallery", "image", "video", "short", "album"].includes(create) || !folders.length) return;
         const def = folders.find((f) => f.is_default) ?? folders[0];
         const t = setTimeout(() => {
             // Upload Image (Jamal, 2026-11-07): Upload Media on Images, in a folder that takes images.
-            if (create === "image") setUploadAt({ folderId: takes(def.folder_type, "image") ? def.id : folders.find((f) => takes(f.folder_type, "image"))?.id, type: "image" });
+            if (create === "gallery") setView({ kind: "overview" });
+            else if (create === "album") setView({ kind: "album", album: null });
+            else if (create === "image") setUploadAt({ folderId: takes(def.folder_type, "image") ? def.id : folders.find((f) => takes(f.folder_type, "image"))?.id, type: "image" });
             else if (create === "video") setUploadAt({ folderId: takes(def.folder_type, "video") ? def.id : folders.find((f) => takes(f.folder_type, "video"))?.id, type: "video" });
             else setShortFor(takes(def.folder_type, "short") ? def : folders.find((f) => takes(f.folder_type, "short")) ?? def);
             const params = new URLSearchParams(search.toString());

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { CalendarDays, ChevronDown, Clapperboard, ImagePlus, LogOut, MapPin, Tag, Zap } from "lucide-react";
+import { CalendarDays, ChevronDown, Clapperboard, Images, LibraryBig, LogOut, MapPin, Tag, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -29,6 +29,16 @@ import { useEventOptions } from "@/hooks/use-client-portal";
  * event — so every section gets the whole page.
  */
 
+/** Media's child menu (Jamal, 2026-11-07). Each is ?tab=gallery&create=<key>. */
+const MEDIA_CHILDREN = [
+    ["gallery", "Gallery", Images],
+    ["album", "Create Album", LibraryBig],
+    ["video", "Create Video", Clapperboard],
+    ["short", "Create Short", Zap],
+] as const;
+/** Menu slugs a section may have in the DB — Gallery's became "media" on production (2026-11-07). */
+const SLUG_ALIASES: Record<string, string[]> = { gallery: ["gallery", "media"] };
+
 /** The event's sections, as a sidebar. Each one is `?tab=` on /event/:id. */
 export function EventSidebar({ eventId }: { eventId: number }) {
     const search = useSearchParams();
@@ -44,7 +54,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     // Menu Settings opens its list on its own page; the chevron opens / closes it anywhere.
     const [settingsToggled, setSettingsToggled] = useState<boolean | null>(null);
     const settingsOpen = settingsToggled ?? tab === "settings";
-    // Gallery's child menu shows by default; the chevron hides / shows it.
+    // Media's child menu shows by default; clicking Media hides / shows it.
     const [galleryToggled, setGalleryToggled] = useState<boolean | null>(null);
     const galleryOpen = galleryToggled ?? true;
     const galleryCreate = search.get("create");
@@ -54,7 +64,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const event = useClientEvent(eventId).data;
     const planMenus = useEventOptions().data?.menus;
     const isDefaultMenu = (slug: string) => {
-        const m = event?.menus?.find((x) => x.slug === slug) ?? planMenus?.find((x) => x.slug === slug);
+        const slugs = SLUG_ALIASES[slug] ?? [slug];
+        const m = event?.menus?.find((x) => slugs.includes(x.slug)) ?? planMenus?.find((x) => slugs.includes(x.slug));
         return m ? m.is_default === true || Number(m.is_default) === 1 : false;
     };
     const groups: { key: string; label: string | null; items: typeof tabs }[] = [
@@ -90,36 +101,38 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                         const on = tab === t.value;
                         return (
                             <SidebarMenuItem key={t.value}>
-                                <SidebarMenuButton asChild isActive={on} tooltip={t.label}
-                                    className={cn("h-9 gap-3 text-[13.5px]", on && "bg-primary/10 font-semibold text-primary hover:bg-primary/10 hover:text-primary")}>
-                                    <Link href={t.value === "overview" ? base : `${base}?tab=${t.value}`} scroll={false}>
-                                        <Icon className="size-[18px]" /> <span>{t.label}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                                {/* Gallery's child menu (Jamal, 2026-11-07): Upload Image / Create Video open Upload Media on
-                                    Images / Video; Create Shorts opens Upload Short. */}
-                                {t.value === "gallery" && !collapsed && (
-                                    <>
-                                        <SidebarMenuAction aria-label={galleryOpen ? "Hide media menu" : "Show media menu"}
-                                            onClick={() => setGalleryToggled(!galleryOpen)}>
-                                            <ChevronDown className={cn("size-4 transition-transform", galleryOpen && "rotate-180")} />
-                                        </SidebarMenuAction>
-                                        {galleryOpen && (
-                                            <SidebarMenuSub>
-                                                {([["image", "Upload Image", ImagePlus], ["video", "Create Video", Clapperboard], ["short", "Create Shorts", Zap]] as const).map(([key, label, SubIcon]) => {
-                                                    const subOn = on && galleryCreate === key;
-                                                    return (
-                                                        <SidebarMenuSubItem key={key}>
-                                                            <SidebarMenuSubButton asChild isActive={subOn}
-                                                                className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
-                                                                <Link href={`${base}?tab=gallery&create=${key}`} scroll={false}><SubIcon className="size-3.5" /> <span>{label}</span></Link>
-                                                            </SidebarMenuSubButton>
-                                                        </SidebarMenuSubItem>
-                                                    );
-                                                })}
-                                            </SidebarMenuSub>
-                                        )}
-                                    </>
+                                {/* Media (was Gallery) is a parent only — no page of its own; its children navigate
+                                    (Jamal, 2026-11-07). Collapsed sidebar: the icon opens the Gallery view. */}
+                                {t.value === "gallery" && !collapsed ? (
+                                    <SidebarMenuButton isActive={on} tooltip={t.label} aria-expanded={galleryOpen} onClick={() => setGalleryToggled(!galleryOpen)}
+                                        className={cn("h-9 gap-3 text-[13.5px]", on && "font-semibold text-primary hover:text-primary")}>
+                                        <Icon className="size-[18px]" /> <span className="flex-1">{t.label}</span>
+                                        <ChevronDown className={cn("size-4 transition-transform", galleryOpen && "rotate-180")} />
+                                    </SidebarMenuButton>
+                                ) : (
+                                    <SidebarMenuButton asChild isActive={on} tooltip={t.label}
+                                        className={cn("h-9 gap-3 text-[13.5px]", on && "bg-primary/10 font-semibold text-primary hover:bg-primary/10 hover:text-primary")}>
+                                        <Link href={t.value === "overview" ? base : `${base}?tab=${t.value}`} scroll={false}>
+                                            <Icon className="size-[18px]" /> <span>{t.label}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                )}
+                                {/* Media's child menu: Gallery (Gallery view → Upload Media), Create Album, Create Video, Create Short. */}
+                                {t.value === "gallery" && !collapsed && galleryOpen && (
+                                    <SidebarMenuSub>
+                                        {MEDIA_CHILDREN.map(([key, label, SubIcon]) => {
+                                            // Gallery lights up on the Media page; the create items open a panel and drop their param.
+                                            const subOn = on && (key === "gallery" ? !galleryCreate || galleryCreate === "gallery" : galleryCreate === key);
+                                            return (
+                                                <SidebarMenuSubItem key={key}>
+                                                    <SidebarMenuSubButton asChild isActive={subOn}
+                                                        className={cn("h-8 text-[12.5px]", subOn && "bg-primary/10 font-semibold text-primary")}>
+                                                        <Link href={`${base}?tab=gallery&create=${key}`} scroll={false}><SubIcon className="size-3.5" /> <span>{label}</span></Link>
+                                                    </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                            );
+                                        })}
+                                    </SidebarMenuSub>
                                 )}
                                 {t.value === "settings" && !collapsed && (
                                     <>
