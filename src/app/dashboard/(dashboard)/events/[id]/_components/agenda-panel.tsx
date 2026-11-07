@@ -183,10 +183,14 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                     {/* Add Date = a button right after the day cards (Jamal, 2026-11-07; was in the header). */}
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className="h-10 self-center justify-self-start border-primary/40 px-4 text-primary hover:bg-primary/5 hover:text-primary"
+                            {/* Same size as a day card, filled primary (Jamal, 2026-11-07). */}
+                            <Button className="h-full min-h-[62px] w-full justify-start gap-3 rounded-lg border border-primary p-3 text-left"
                                 disabled={!remaining.length}
                                 title={remaining.length ? undefined : "Every event day already has its card"}>
-                                <CalendarPlus className="size-4" /> Add Date
+                                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary-foreground/15">
+                                    <CalendarPlus className="size-4" />
+                                </span>
+                                <span className="text-[13px] font-semibold">Add Date</span>
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent align="start" className="w-auto p-0">
