@@ -1328,8 +1328,8 @@ export function EventWizard({
             {section && embedded && (
                 <ModuleHeader title={`Event ${SECTION_PAGES[section].title}`} subtitle={PAGE_TITLES[step] ?? SECTION_PAGES[section].subtitle} />
             )}
-            <Card className={cn("border border-border shadow-none py-0", embedded && "rounded-xl")}>
-                <CardContent className="p-4 lg:p-5">
+            <Card className={cn("border border-border shadow-none py-0", embedded && "border-0 bg-transparent")}>
+                <CardContent className={cn("p-4 lg:p-5", embedded && "p-0 lg:p-0")}>
                     {section && embedded ? null : section ? (
                         <>
                             {sectionPages && sectionPages.length > 1 && (

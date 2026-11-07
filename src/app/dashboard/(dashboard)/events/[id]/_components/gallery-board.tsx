@@ -123,6 +123,7 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
                 <FolderView eventId={eventId} items={items} folders={folders} folderId={view.id}
                     onBack={() => setView({ kind: "overview" })} onUpload={(folderId) => setUploadAt({ folderId })}
                     onFolder={setFolderSheet} onOpen={(id) => setView({ kind: "folder", id })}
+                    onAlbum={() => setView({ kind: "album", album: null })}
                     onEditVideo={VIDEO_EDITOR_ENABLED ? (item) => setView({ kind: "edit", item, back: view.id }) : undefined} />
             )}
             {VIDEO_EDITOR_ENABLED && view.kind === "edit" && (
@@ -190,7 +191,6 @@ function Overview({
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={() => onFolder("new")}><FolderPlus className="size-3.5" /> Create Folder</Button>
                         <Button variant="outline" size="sm" className="h-8" onClick={() => onUpload()}><Upload className="size-3.5" /> Upload Media</Button>
-                        <Button size="sm" className="h-8" onClick={() => onAlbum(null)}><Images className="size-3.5" /> Create Album</Button>
                     </>
                 )} />
 
@@ -378,10 +378,10 @@ function FolderCard({ f, selected, onSelect, onOpen, onEdit, onUpload, onDelete 
 const PAGE = 24;
 
 function FolderView({
-    eventId, items, folders, folderId, onBack, onUpload, onFolder, onOpen, onEditVideo,
+    eventId, items, folders, folderId, onBack, onUpload, onFolder, onOpen, onAlbum, onEditVideo,
 }: {
     eventId: number; items: GalleryItem[]; folders: GalleryCategory[]; folderId: number | null;
-    onBack: () => void; onUpload: (folderId?: number) => void; onFolder: (f: GalleryCategory) => void; onOpen: (id: number | null) => void;
+    onBack: () => void; onUpload: (folderId?: number) => void; onFolder: (f: GalleryCategory) => void; onOpen: (id: number | null) => void; onAlbum: () => void;
     /** Set only when VIDEO_EDITOR_ENABLED — otherwise no "Edit Video" anywhere. */
     onEditVideo?: (item: GalleryItem) => void;
 }) {
@@ -504,6 +504,8 @@ function FolderView({
                         <Button size="sm" variant={grid ? "default" : "outline"} className="h-8" onClick={() => setGrid(true)}><LayoutGrid className="size-3.5" /> Grid View</Button>
                         <Button size="sm" variant={!grid ? "default" : "outline"} className="h-8" onClick={() => setGrid(false)}><List className="size-3.5" /> List View</Button>
                         {folder && <Button variant="outline" size="sm" className="h-8" onClick={() => onFolder(folder)}><Pencil className="size-3.5" /> Edit Folder</Button>}
+                        {/* Create Album lives in the folder's top bar (Jamal, 2026-11-07; was on the Media Overview). */}
+                        <Button variant="outline" size="sm" className="h-8" onClick={onAlbum}><Images className="size-3.5" /> Create Album</Button>
                         <Button size="sm" className="h-8" onClick={() => onUpload(folder?.id)}><Upload className="size-3.5" /> Upload Media</Button>
                     </div>
                 </div>
