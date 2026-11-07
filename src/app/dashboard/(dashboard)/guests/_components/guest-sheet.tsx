@@ -12,7 +12,7 @@ import { PhoneInput } from "@/components/common/phone-input";
 import { CharCount, FormField, FormPanel } from "@/components/module-kit";
 import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
 import { cn } from "@/lib/utils";
-import { useEventHref } from "@/lib/event-workspace";
+import { GroupSheet } from "../groups/_components/group-sheet";
 import { useAllGuestGroups, useCreateGuest, useGuestCapacity, useUpdateGuest, type Guest } from "@/hooks/use-guests";
 
 /**
@@ -25,7 +25,6 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
     eventId: number; guest?: Guest | null; defaultGroup?: string; onClose: () => void;
 }) {
     const isEdit = !!guest;
-    const wsHref = useEventHref();
     const groups = useAllGuestGroups();
     const capacity = useGuestCapacity();
     const [name, setName] = useState(guest ? [guest.first_name, guest.last_name].filter(Boolean).join(" ") || guest.name : "");
@@ -35,6 +34,7 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
     const [email, setEmail] = useState(guest?.email ?? "");
     const [note, setNote] = useState(guest?.notes ?? "");
     const [errors, setErrors] = useState<Record<string, boolean>>({});
+    const [addingGroup, setAddingGroup] = useState(false);
     const create = useCreateGuest(() => onClose());
     const update = useUpdateGuest(() => onClose());
     const saving = create.isPending || update.isPending;
@@ -86,9 +86,7 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
             </FormField>
             <FormField label="Group" required>
                 {!groups.isLoading && list.length === 0 ? (
-                    <Button asChild variant="outline" className="h-9 justify-start">
-                        <Link href={wsHref("/dashboard/guests/groups/add")}><Plus className="size-3.5" /> Create a group first</Link>
-                    </Button>
+                    <Button variant="outline" className="h-9 justify-start" onClick={() => setAddingGroup(true)}><Plus className="size-3.5" /> Create a group first</Button>
                 ) : (
                     <Select value={group} onValueChange={setGroup}>
                         <SelectTrigger className={cn("h-9 w-full", errors.group && "border-destructive")}><SelectValue placeholder="Select group" /></SelectTrigger>
@@ -103,6 +101,7 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
                 <Textarea value={note} maxLength={300} rows={3} placeholder="Add a note (e.g., relation, occasion)" onChange={(e) => setNote(e.target.value)} />
                 <CharCount value={note} max={300} />
             </FormField>
+            {addingGroup && <GroupSheet onClose={() => setAddingGroup(false)} />}
         </FormPanel>
     );
 }

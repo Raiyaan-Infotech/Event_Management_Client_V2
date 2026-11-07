@@ -7,8 +7,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCloudArrowUp, faFileCsv, faCheck, faArrowRight, faArrowLeft,
     faDownload, faCircleInfo, faTriangleExclamation, faCircleCheck,
-    faCircleXmark, faForward, faLightbulb, faHeadset,
-    faUsers, faFileImport, faSpinner,
+    faCircleXmark, faForward,
+    faFileImport, faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { GuestLimitGate } from "../_components/guest-limit-gate";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { api, ApiError } from "@/lib/api-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGuestStats, useDownloadSampleCsv } from "@/hooks/use-guests";
+import { useDownloadSampleCsv } from "@/hooks/use-guests";
 import { useEventHref } from "@/lib/event-workspace";
 
 /**
@@ -109,7 +109,6 @@ function ImportGuests() {
     const [preview, setPreview] = useState<PreviewResult | null>(null);
     const [result, setResult] = useState<CommitResult | null>(null);
 
-    const stats = useGuestStats();
     const downloadSample = useDownloadSampleCsv();
 
     const analyse = useMutation({
@@ -191,11 +190,20 @@ function ImportGuests() {
 
     return (
         <div className="flex flex-col gap-3.5">
-            <div className="min-w-0">
-                <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Import Guests</h1>
-                <p className="mt-1 text-[13.5px] text-muted-foreground">
-                    Import guests in bulk using a CSV file. It&rsquo;s quick and easy!
-                </p>
+            <div className="flex min-w-0 items-start gap-3">
+                {/* Back to the event's Guests list (Jamal, 2026-11-07). */}
+                <Button asChild variant="outline" size="icon" className="mt-0.5 h-9 w-9 shrink-0 rounded-md"
+                    aria-label="Back to Guests" title="Back to Guests">
+                    <Link href={wsHref(importEventId() ? `/dashboard/events/${importEventId()}/guests` : "/dashboard/events")}>
+                        <FontAwesomeIcon icon={faArrowLeft} className="!size-[13px]" />
+                    </Link>
+                </Button>
+                <div className="min-w-0">
+                    <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Import Guests</h1>
+                    <p className="mt-1 text-[13.5px] text-muted-foreground">
+                        Import guests in bulk using a CSV file. It&rsquo;s quick and easy!
+                    </p>
+                </div>
             </div>
 
             {/* ── Stepper ─────────────────────────────────────────────────── */}
@@ -239,7 +247,7 @@ function ImportGuests() {
                 </ol>
             </div>
 
-            <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_290px]">
+            <div className="grid grid-cols-1 gap-3.5">
                 <div className="flex min-w-0 flex-col gap-3.5">
                     {/* ── Step 1 ──────────────────────────────────────────── */}
                     {step === 1 && (
@@ -264,6 +272,57 @@ function ImportGuests() {
                                         <FontAwesomeIcon icon={faDownload} className="mr-1.5 !size-[12px]" />
                                         {downloadSample.isPending ? "Downloading…" : "Download Sample CSV"}
                                     </Button>
+                                </CardContent>
+                            </Card>
+
+                            {/* Guidelines + required columns ABOVE the upload box (Jamal, 2026-11-07). */}
+                            <Card className="border border-border py-0 shadow-none">
+                                <CardContent className="grid gap-3.5 p-3.5 sm:grid-cols-2">
+                                    <div className="min-w-0">
+                                        <p className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
+                                            <FontAwesomeIcon icon={faFileCsv} className="!size-[12px] text-success" />
+                                            CSV File Guidelines
+                                        </p>
+                                        <ul className="flex flex-col gap-1.5">
+                                            {[
+                                                "File must be in CSV format",
+                                                "Maximum file size: 10 MB",
+                                                "First row should contain column headers",
+                                                "A mobile number already in your guest list is skipped",
+                                                "In Excel, format the phone column as Text (stops +91… turning into 9.19E+11)",
+                                            ].map((line) => (
+                                                <li key={line} className="flex items-start gap-2 text-[11.5px] text-muted-foreground">
+                                                    <FontAwesomeIcon icon={faCheck} className="mt-0.5 !size-[10px] shrink-0 text-success" />
+                                                    <span className="min-w-0 break-words">{line}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="min-w-0">
+                                        <p className="mb-2 text-[12.5px] font-semibold text-foreground">Required Columns</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {["First Name*", "Mobile Number*"].map((c) => (
+                                                <Badge key={c} variant="ghost" className="rounded bg-primary/10 text-[10.5px] font-semibold text-primary">
+                                                    {c}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                        <p className="mt-2 text-[11px] text-muted-foreground">
+                                            At least these columns are required.
+                                        </p>
+
+                                        <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {["Last Name", "Email", "Guest Group", "WhatsApp Number", "City"].map((c) => (
+                                                <Badge key={c} variant="secondary" className="rounded text-[10.5px]">{c}</Badge>
+                                            ))}
+                                        </div>
+                                        <p className="mt-2 text-[11px] text-muted-foreground">
+                                            <span className="font-semibold text-foreground">Phone Number</span> is
+                                            the key: a number already in your guest list is skipped. Email is optional.
+                                        </p>
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -326,53 +385,6 @@ function ImportGuests() {
                                                 e.target.value = "";
                                             }}
                                         />
-                                    </div>
-
-                                    <div className="mt-3 grid gap-3.5 sm:grid-cols-2">
-                                        <div className="min-w-0">
-                                            <p className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
-                                                <FontAwesomeIcon icon={faFileCsv} className="!size-[12px] text-success" />
-                                                CSV File Guidelines
-                                            </p>
-                                            <ul className="flex flex-col gap-1.5">
-                                                {[
-                                                    "File must be in CSV format",
-                                                    "Maximum file size: 10 MB",
-                                                    "First row should contain column headers",
-                                                    "A mobile number already in your guest list is skipped",
-                                                ].map((line) => (
-                                                    <li key={line} className="flex items-start gap-2 text-[11.5px] text-muted-foreground">
-                                                        <FontAwesomeIcon icon={faCheck} className="mt-0.5 !size-[10px] shrink-0 text-success" />
-                                                        <span className="min-w-0 break-words">{line}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="min-w-0">
-                                            <p className="mb-2 text-[12.5px] font-semibold text-foreground">Required Columns</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {["First Name*", "Mobile Number*"].map((c) => (
-                                                    <Badge key={c} variant="ghost" className="rounded bg-primary/10 text-[10.5px] font-semibold text-primary">
-                                                        {c}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                            <p className="mt-2 text-[11px] text-muted-foreground">
-                                                At least these columns are required.
-                                            </p>
-
-                                            <p className="mb-2 mt-3 text-[12.5px] font-semibold text-foreground">Recommended Columns</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {["Last Name", "Email", "Guest Group", "WhatsApp Number", "City"].map((c) => (
-                                                    <Badge key={c} variant="secondary" className="rounded text-[10.5px]">{c}</Badge>
-                                                ))}
-                                            </div>
-                                            <p className="mt-2 text-[11px] text-muted-foreground">
-                                                <span className="font-semibold text-foreground">Phone Number</span> is
-                                                the key: a number already in your guest list is skipped. Email is optional.
-                                            </p>
-                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -668,68 +680,6 @@ function ImportGuests() {
                         </div>
                     )}
                 </div>
-
-                {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-3.5">
-                    <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <div className="mb-3 flex items-center gap-2">
-                                <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/10">
-                                    <FontAwesomeIcon icon={faFileCsv} className="!size-[11px] text-primary" />
-                                </span>
-                                <p className="text-[13px] font-bold text-foreground">Import Summary</p>
-                            </div>
-
-                            <dl className="flex flex-col gap-2.5">
-                                <SummaryRow icon={faUsers} label="Guests in your list"
-                                    value={String(stats.data?.total_guests ?? 0)} />
-                                <SummaryRow icon={faFileCsv} label="File"
-                                    value={file?.name ?? "None chosen"} />
-                                <SummaryRow icon={faCircleCheck} label="Rows in file"
-                                    value={preview ? String(preview.total_rows) : "—"} />
-                            </dl>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <div className="mb-2 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
-                                <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>
-                            </div>
-                            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                                Make sure your CSV file follows the recommended format to avoid import errors.
-                                Formatting the phone column as <span className="font-semibold text-foreground">Text</span>{" "}
-                                in Excel stops it turning +91… into 9.19E+11.
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <div className="mb-2 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faHeadset} className="!size-[12px] text-primary" />
-                                <p className="text-[13px] font-bold text-foreground">Need Help?</p>
-                            </div>
-                            <ul className="flex flex-col gap-2">
-                                <li>
-                                    <button
-                                        onClick={() => downloadSample.mutate()}
-                                        disabled={downloadSample.isPending}
-                                        className="flex w-full items-center gap-2 text-left text-[11.5px] font-medium text-primary hover:underline"
-                                    >
-                                        <FontAwesomeIcon icon={faDownload} className="!size-[10px]" />
-                                        Download a sample CSV
-                                    </button>
-                                </li>
-                                <li className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                                    <FontAwesomeIcon icon={faCircleInfo} className="!size-[10px]" />
-                                    Required: First Name, Mobile Number
-                                </li>
-                            </ul>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
         </div>
     );
@@ -749,20 +699,6 @@ function ReviewTile({
                 <p className="text-[18px] font-bold leading-none tabular-nums text-foreground">{value}</p>
                 <p className="mt-1 text-[11px] text-muted-foreground break-words">{label}</p>
             </div>
-        </div>
-    );
-}
-
-function SummaryRow({ icon, label, value }: { icon: typeof faCheck; label: string; value: string }) {
-    return (
-        <div className="flex items-start justify-between gap-3">
-            <dt className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-                <FontAwesomeIcon icon={icon} className="!size-[11px]" />
-                {label}
-            </dt>
-            <dd className="min-w-0 max-w-[55%] text-right text-[12px] font-medium text-foreground break-words">
-                {value}
-            </dd>
         </div>
     );
 }

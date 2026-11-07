@@ -44,6 +44,10 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     // Menu Settings opens its list on its own page; the chevron opens / closes it anywhere.
     const [settingsToggled, setSettingsToggled] = useState<boolean | null>(null);
     const settingsOpen = settingsToggled ?? tab === "settings";
+    // Gallery's child menu shows by default; the chevron hides / shows it.
+    const [galleryToggled, setGalleryToggled] = useState<boolean | null>(null);
+    const galleryOpen = galleryToggled ?? true;
+    const galleryCreate = search.get("create");
     const { state } = useSidebar();
     const collapsed = state === "collapsed";
     // DEFAULT MENU / ADDITIONAL MENU = the event's own menus (`is_default`), else the plan's list.
@@ -92,6 +96,31 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         <Icon className="size-[18px]" /> <span>{t.label}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                                {/* Gallery's child menu (Jamal, 2026-11-07): Create Video opens Upload Media on Video;
+                                    Create Shorts opens Upload Short. */}
+                                {t.value === "gallery" && !collapsed && (
+                                    <>
+                                        <SidebarMenuAction aria-label={galleryOpen ? "Hide gallery menu" : "Show gallery menu"}
+                                            onClick={() => setGalleryToggled(!galleryOpen)}>
+                                            <ChevronDown className={cn("size-4 transition-transform", galleryOpen && "rotate-180")} />
+                                        </SidebarMenuAction>
+                                        {galleryOpen && (
+                                            <SidebarMenuSub>
+                                                {([["video", "Create Video"], ["short", "Create Shorts"]] as const).map(([key, label]) => {
+                                                    const subOn = on && galleryCreate === key;
+                                                    return (
+                                                        <SidebarMenuSubItem key={key}>
+                                                            <SidebarMenuSubButton asChild isActive={subOn}
+                                                                className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
+                                                                <Link href={`${base}?tab=gallery&create=${key}`} scroll={false}>{label}</Link>
+                                                            </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                    );
+                                                })}
+                                            </SidebarMenuSub>
+                                        )}
+                                    </>
+                                )}
                                 {t.value === "settings" && !collapsed && (
                                     <>
                                         <SidebarMenuAction aria-label={settingsOpen ? "Hide settings list" : "Show settings list"}

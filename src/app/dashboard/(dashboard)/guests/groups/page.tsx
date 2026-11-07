@@ -6,8 +6,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faPeopleGroup, faUsers, faCalendarCheck, faLock, faGlobe,
     faSearch, faSliders, faDownload, faPlus,
-    faChevronLeft, faChevronRight, faArrowRight,
-    faLightbulb, faTriangleExclamation, faUserPlus, faFileImport, faPaperPlane,
+    faChevronLeft, faChevronRight, faArrowLeft,
+    faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,7 @@ import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from '@/components/common/sign-in-prompt';
 import { useDateFormatter } from '@/hooks/use-client-settings';
 import { useEventHref } from "@/lib/event-workspace";
+import { GroupSheet } from "./_components/group-sheet";
 
 /**
  * Manage Groups.
@@ -61,6 +62,8 @@ export default function ManageGroupsPage() {
     const [visibility, setVisibility] = useState("all");
     const [page, setPage] = useState(1);
     const [pendingDelete, setPendingDelete] = useState<GuestGroup | null>(null);
+    // Add / Edit Group open as the slide-in panel (2026-11-07).
+    const [groupSheet, setGroupSheet] = useState<GuestGroup | "new" | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -98,18 +101,37 @@ export default function ManageGroupsPage() {
         <div className="flex flex-col gap-3.5">
             {/* ── Header ──────────────────────────────────────────────────── */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Manage Groups</h1>
-                    <p className="mt-1 text-[13.5px] text-muted-foreground">
-                        Organize your guests into groups for better management.
-                    </p>
+                <div className="flex min-w-0 items-start gap-3">
+                    {/* Back to the Guests list (Jamal, 2026-11-07). */}
+                    <Button asChild variant="outline" size="icon" className="mt-0.5 h-9 w-9 shrink-0 rounded-md"
+                        aria-label="Back to Guests" title="Back to Guests">
+                        <Link href={wsHref("/dashboard/guests")}>
+                            <FontAwesomeIcon icon={faArrowLeft} className="!size-[13px]" />
+                        </Link>
+                    </Button>
+                    <div className="min-w-0">
+                        <h1 className="text-[20px] font-bold leading-tight tracking-tight text-foreground">Manage Groups</h1>
+                        <p className="mt-1 text-[13.5px] text-muted-foreground">
+                            Organize your guests into groups for better management.
+                        </p>
+                    </div>
                 </div>
-                <Button asChild className="h-10 shrink-0 rounded-md px-4 text-[13px] font-semibold">
-                    <Link href={wsHref("/dashboard/guests/groups/add")}>
+                {/* Export sits beside Add Guest Group in the header (Jamal, 2026-11-07). */}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                        variant="outline"
+                        disabled={exportGuests.isPending}
+                        onClick={() => exportGuests.mutate({})}
+                        className="h-10 rounded-md border-primary/40 px-4 text-[13px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
+                    >
+                        <FontAwesomeIcon icon={faDownload} className="mr-2 !size-[12px]" />
+                        Export
+                    </Button>
+                    <Button className="h-10 rounded-md px-4 text-[13px] font-semibold" onClick={() => setGroupSheet("new")}>
                         <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[12px]" />
-                        Add Group
-                    </Link>
-                </Button>
+                        Add Guest Group
+                    </Button>
+                </div>
             </div>
 
             {authError && (
@@ -196,20 +218,10 @@ export default function ManageGroupsPage() {
                         </div>
                     </PopoverContent>
                 </Popover>
-
-                <Button
-                    variant="outline"
-                    disabled={exportGuests.isPending}
-                    onClick={() => exportGuests.mutate({})}
-                    className="h-10 shrink-0 rounded-md border-primary/40 px-4 text-[13px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
-                >
-                    <FontAwesomeIcon icon={faDownload} className="mr-2 !size-[12px]" />
-                    Export
-                </Button>
             </div>
 
-            {/* ── Table + rail ────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-[minmax(0,1fr)_264px]">
+            {/* ── Table ────────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 gap-3.5">
                 <Card className="min-w-0 gap-0 border border-border p-0 shadow-none">
                     <CardContent className="p-0">
                         {groups.isLoading ? (
@@ -234,9 +246,7 @@ export default function ManageGroupsPage() {
                                         : "Groups let you message a specific set of guests instead of everyone."}
                                 </p>
                                 {!debouncedSearch && visibility === "all" && (
-                                    <Button asChild size="sm" className="mt-2 h-8 text-[12px]">
-                                        <Link href={wsHref("/dashboard/guests/groups/add")}>Add your first group</Link>
-                                    </Button>
+                                    <Button size="sm" className="mt-2 h-8 text-[12px]" onClick={() => setGroupSheet("new")}>Add your first group</Button>
                                 )}
                             </div>
                         ) : (
@@ -328,10 +338,8 @@ export default function ManageGroupsPage() {
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="w-52">
-                                                                <DropdownMenuItem asChild className="gap-2.5 py-2 text-[13px]">
-                                                                    <Link href={wsHref(`/dashboard/guests/groups/${group.id}`)}>
-                                                                        <Pencil className="size-4 text-muted-foreground" /> Edit Group
-                                                                    </Link>
+                                                                <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={() => setGroupSheet(group)}>
+                                                                    <Pencil className="size-4 text-muted-foreground" /> Edit Group
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem asChild className="gap-2.5 py-2 text-[13px]">
                                                                     <Link href={wsHref(`/dashboard/messages/send?group=${group.id}&from=guest-groups`)}>
@@ -392,61 +400,6 @@ export default function ManageGroupsPage() {
                     </CardContent>
                 </Card>
 
-                {/* ── Right rail ──────────────────────────────────────────── */}
-                <div className="flex min-w-0 flex-col gap-3.5">
-                    <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <div className="mb-2 flex items-center gap-2">
-                                <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/10">
-                                    <FontAwesomeIcon icon={faPeopleGroup} className="!size-[11px] text-primary" />
-                                </span>
-                                <p className="text-[13px] font-bold text-foreground">About Groups</p>
-                            </div>
-                            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                                Groups help you organize guests better and send messages or invitations to a
-                                specific set of guests easily.
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border border-border py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <p className="mb-3 text-[13px] font-bold text-foreground">Quick Actions</p>
-                            <ul className="flex flex-col">
-                                {[
-                                    { label: "Add Group", href: "/dashboard/guests/groups/add", icon: faPlus },
-                                    { label: "Import Guests", href: "/dashboard/guests/import", icon: faFileImport },
-                                    { label: "View All Guests", href: "/dashboard/guests", icon: faUserPlus },
-                                    { label: "Send Message to Group", href: "/dashboard/messages/send", icon: faPaperPlane },
-                                ].map((action) => (
-                                    <li key={action.label}>
-                                        <Link
-                                            href={action.href}
-                                            className="flex items-center gap-2.5 rounded-md px-2 py-2.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-primary/5 hover:text-primary"
-                                        >
-                                            <FontAwesomeIcon icon={action.icon} className="!size-[12px] shrink-0 text-primary" />
-                                            <span className="min-w-0 flex-1 break-words">{action.label}</span>
-                                            <FontAwesomeIcon icon={faArrowRight} className="!size-[10px] shrink-0 text-muted-foreground" />
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-primary/20 bg-primary/5 py-0 shadow-none">
-                        <CardContent className="p-3.5">
-                            <div className="mb-2 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faLightbulb} className="!size-[12px] text-primary" />
-                                <p className="text-[12.5px] font-bold text-primary">Pro Tip</p>
-                            </div>
-                            <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-                                Make groups private to keep guest lists confidential. You can change visibility
-                                anytime.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
 
             {/* ── Delete confirm ──────────────────────────────────────────── */}
@@ -481,6 +434,8 @@ export default function ManageGroupsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {groupSheet && <GroupSheet group={groupSheet === "new" ? null : groupSheet} onClose={() => setGroupSheet(null)} />}
         </div>
     );
 }

@@ -22,6 +22,7 @@ import { faWhatsapp as faWhatsappBrand } from "@fortawesome/free-brands-svg-icon
 import { ChevronDown, ChevronUp, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ModuleHeader } from "@/components/module-kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -1323,9 +1324,12 @@ export function EventWizard({
             </div>
             )}
 
-            <Card className="border border-border shadow-none py-0">
-                <CardContent className="p-4 lg:p-5">
-                    {section ? (
+            {/* Embedded (event workspace → Venue): full width like Agenda, no card frame (Jamal, 2026-11-07). */}
+            <Card className={cn("border border-border shadow-none py-0", embedded && "border-0 bg-transparent")}>
+                <CardContent className={cn("p-4 lg:p-5", embedded && "p-0 lg:p-0")}>
+                    {section && embedded ? (
+                        <ModuleHeader title={`Event ${SECTION_PAGES[section].title}`} subtitle={PAGE_TITLES[step] ?? SECTION_PAGES[section].subtitle} />
+                    ) : section ? (
                         <>
                             {sectionPages && sectionPages.length > 1 && (
                                 <p className="text-[12px] font-medium text-muted-foreground">

@@ -2,10 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-    ArrowDown, ArrowLeft, ArrowUp, CalendarDays, Check, CheckSquare, ChevronDown, ChevronRight, Clock, CloudUpload, Copy, Download, Eye,
-    EyeOff, Film, Folder, FolderInput, FolderPlus, GripVertical, Image as ImageIcon, Images, Info, LayoutGrid, Link2, List, Lock, Monitor,
-    MoreVertical, Music, Pause, Pencil, Play, RotateCcw, Save, Scissors, Search, Settings2, Square, Trash2, Upload, User, Video, VolumeX, X, Zap,
+    ArrowLeft, CalendarDays, Check, CheckSquare, ChevronDown, ChevronRight, Clock, CloudUpload, Copy, Download, Eye,
+    EyeOff, Film, Folder, FolderInput, FolderPlus, Image as ImageIcon, Images, Info, LayoutGrid, Link2, List, Lock, Monitor,
+    Loader2, MoreVertical, Music, Pause, Pencil, Play, RotateCcw, Scissors, Search, Settings2, Square, Trash2, Upload, User, Video, VolumeX, X, Zap,
     type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ import { useGalleryAlbums, type GalleryAlbum } from "@/hooks/use-gallery-albums"
  * Create Album = album-builder.tsx. Not yet: the Edit Video text editor.
  */
 
-type View = { kind: "overview" } | { kind: "folder"; id: number | null } | { kind: "upload"; folderId?: number; files?: File[] } | { kind: "album"; album: GalleryAlbum | null }
+type View = { kind: "overview" } | { kind: "folder"; id: number | null } | { kind: "album"; album: GalleryAlbum | null }
     // Edit Video / Shorts — only reachable when VIDEO_EDITOR_ENABLED (off until a paid server).
     | { kind: "edit"; item: GalleryItem; back: number | null };
 type Kind = "image" | "video" | "short";
@@ -77,13 +78,32 @@ const thumbOf = (i: GalleryItem) => mediaUrl(i.thumbnail_url || (i.type === "ima
 export function GalleryBoard({ eventId }: { eventId: number }) {
     const [view, setView] = useState<View>({ kind: "overview" });
     const [folderSheet, setFolderSheet] = useState<GalleryCategory | "new" | null>(null);
-    // Upload Media "Save as Draft": the queue kept while this page is open (files cannot outlive a reload).
-    const [draft, setDraft] = useState<{ folderId: number; queue: Queued[] } | null>(null);
+    // Upload Media is a right-side panel (2026-11-07); Short opens the trim + music Upload Short dialog.
+    const [uploadAt, setUploadAt] = useState<{ folderId?: number; type?: "image" | "video" } | null>(null);
+    const [shortFor, setShortFor] = useState<GalleryCategory | null>(null);
+    // Sidebar Gallery → Create Video / Create Shorts arrive as ?create=video|short — opened once, then the
+    // param is dropped so the same menu item works again.
+    const search = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const create = search.get("create");
     const query = useEventGallery(eventId);
     const albumsQuery = useGalleryAlbums(eventId);
     const albums = albumsQuery.data?.albums ?? [];
     const items = useMemo(() => query.data?.items ?? [], [query.data]);
     const folders = useMemo(() => query.data?.categories ?? [], [query.data]);
+    useEffect(() => {
+        if ((create !== "video" && create !== "short") || !folders.length) return;
+        const def = folders.find((f) => f.is_default) ?? folders[0];
+        const t = setTimeout(() => {
+            if (create === "video") setUploadAt({ folderId: takes(def.folder_type, "video") ? def.id : folders.find((f) => takes(f.folder_type, "video"))?.id, type: "video" });
+            else setShortFor(takes(def.folder_type, "short") ? def : folders.find((f) => takes(f.folder_type, "short")) ?? def);
+            const params = new URLSearchParams(search.toString());
+            params.delete("create");
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        }, 0);
+        return () => clearTimeout(t);
+    }, [create, folders, search, router, pathname]);
 
     if (query.isLoading) return <div className="flex flex-col gap-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-40 w-full" /></div>;
     if (query.isError || !query.data) return <p className="py-10 text-center text-[13px] text-muted-foreground">Could not load the gallery. Please try again.</p>;
@@ -92,12 +112,12 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
         <>
             {view.kind === "overview" && (
                 <Overview eventId={eventId} items={items} folders={folders} usage={query.data.usage} albums={albums}
-                    onOpen={(id) => setView({ kind: "folder", id })} onUpload={(files, folderId) => setView({ kind: "upload", files, folderId })}
+                    onOpen={(id) => setView({ kind: "folder", id })} onUpload={(folderId) => setUploadAt({ folderId })}
                     onFolder={setFolderSheet} onAlbum={(album) => setView({ kind: "album", album })} />
             )}
             {view.kind === "folder" && (
                 <FolderView eventId={eventId} items={items} folders={folders} folderId={view.id}
-                    onBack={() => setView({ kind: "overview" })} onUpload={(folderId) => setView({ kind: "upload", folderId })}
+                    onBack={() => setView({ kind: "overview" })} onUpload={(folderId) => setUploadAt({ folderId })}
                     onFolder={setFolderSheet} onOpen={(id) => setView({ kind: "folder", id })}
                     onEditVideo={VIDEO_EDITOR_ENABLED ? (item) => setView({ kind: "edit", item, back: view.id }) : undefined} />
             )}
@@ -109,9 +129,14 @@ export function GalleryBoard({ eventId }: { eventId: number }) {
                 <AlbumBuilder key={view.album?.id ?? "new"} eventId={eventId} album={view.album} folders={folders}
                     images={items.filter((i) => i.type === "image")} onBack={() => setView({ kind: "overview" })} />
             )}
-            {view.kind === "upload" && (
-                <UploadView eventId={eventId} folders={folders} initialFolder={view.folderId} initialFiles={view.files} draft={draft} onDraft={setDraft}
-                    onGallery={(id) => setView(id === undefined ? { kind: "overview" } : { kind: "folder", id })} onNewFolder={() => setFolderSheet("new")} />
+            {uploadAt && (
+                <UploadSheet eventId={eventId} folders={folders} initialFolder={uploadAt.folderId} initialType={uploadAt.type} onClose={() => setUploadAt(null)}
+                    onDone={(id) => { setUploadAt(null); setView({ kind: "folder", id }); }}
+                    onShort={(f) => { setUploadAt(null); setShortFor(f); }} />
+            )}
+            {shortFor && (
+                <ShortDialog eventId={eventId} category={shortFor} categories={folders} onClose={() => setShortFor(null)}
+                    onViewGallery={(c) => { setShortFor(null); setView(c ? { kind: "folder", id: c.id } : { kind: "overview" }); }} />
             )}
             {folderSheet && <FolderSheet eventId={eventId} folder={folderSheet === "new" ? null : folderSheet} count={folders.length} onClose={() => setFolderSheet(null)} />}
         </>
@@ -124,7 +149,7 @@ function Overview({
     eventId, items, folders, usage, albums, onOpen, onUpload, onFolder, onAlbum,
 }: {
     eventId: number; items: GalleryItem[]; folders: GalleryCategory[]; usage: NonNullable<ReturnType<typeof useEventGallery>["data"]>["usage"];
-    onOpen: (id: number | null) => void; onUpload: (files?: File[], folderId?: number) => void; onFolder: (f: GalleryCategory | "new") => void;
+    onOpen: (id: number | null) => void; onUpload: (folderId?: number) => void; onFolder: (f: GalleryCategory | "new") => void;
     albums: GalleryAlbum[]; onAlbum: (a: GalleryAlbum | null) => void;
 }) {
     const fmt = useDateFormatter();
@@ -193,7 +218,7 @@ function Overview({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
                         {picked.length === 1 && <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => onOpen(picked[0].id)}><Eye className="size-4" /> Open Folder</DropdownMenuItem>}
-                        {picked.length === 1 && <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => onUpload(undefined, picked[0].id)}><Upload className="size-4" /> Upload Here</DropdownMenuItem>}
+                        {picked.length === 1 && <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => onUpload(picked[0].id)}><Upload className="size-4" /> Upload Here</DropdownMenuItem>}
                         {picked.length === 1 && <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => onFolder(picked[0])}><Pencil className="size-4" /> Edit Folder</DropdownMenuItem>}
                         {picked.length === 1 && <DropdownMenuSeparator />}
                         <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => setSel([])}><X className="size-4" /> Clear Selection</DropdownMenuItem>
@@ -214,7 +239,7 @@ function Overview({
             ) : grid ? (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {shown.map((f) => <FolderCard key={f.id} f={f} selected={sel.includes(f.id)} onSelect={f.is_default ? undefined : () => toggle(f.id)}
-                        onOpen={() => onOpen(f.id)} onEdit={() => onFolder(f)} onUpload={() => onUpload(undefined, f.id)} onDelete={() => setDeleting(f)} />)}
+                        onOpen={() => onOpen(f.id)} onEdit={() => onFolder(f)} onUpload={() => onUpload(f.id)} onDelete={() => setDeleting(f)} />)}
                 </div>
             ) : (
                 <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -851,58 +876,73 @@ const MAX_TRIM_SOURCE = 50 * 1024 * 1024;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const hasOptions = (q: Queued) => !!(q.trim || q.mute || q.music || q.cover);
 
-function UploadView({
-    eventId, folders, initialFolder, initialFiles, draft, onDraft, onGallery, onNewFolder,
+type FileType = "image" | "video" | "short";
+const FILE_TYPES: { value: FileType; label: string; icon: LucideIcon }[] = [
+    { value: "image", label: "Image", icon: ImageIcon },
+    { value: "video", label: "Video", icon: Video },
+    { value: "short", label: "Short", icon: Zap },
+];
+const folderIcon = (f: GalleryCategory): LucideIcon => (f.is_default ? ImageIcon : FOLDER_TYPES.find((t) => t.value === f.folder_type && t.value !== "mixed")?.icon ?? Folder);
+
+/**
+ * Upload Media — a right-side panel (Jamal's design, 2026-11-07; was a full page):
+ * Select Folder → File Type (Image / Video / Short) → drop zone / Choose Files → Selected Files → Upload N Files.
+ * Videos keep Trim & Music (opens in a dialog); Short hands over to the trim + music Upload Short dialog.
+ */
+function UploadSheet({
+    eventId, folders, initialFolder, initialType, onClose, onDone, onShort,
 }: {
-    eventId: number; folders: GalleryCategory[]; initialFolder?: number; initialFiles?: File[];
-    draft: { folderId: number; queue: Queued[] } | null; onDraft: (d: { folderId: number; queue: Queued[] } | null) => void;
-    onGallery: (id?: number) => void; onNewFolder: () => void;
+    eventId: number; folders: GalleryCategory[]; initialFolder?: number; initialType?: "image" | "video";
+    onClose: () => void; onDone: (folderId: number) => void; onShort: (f: GalleryCategory) => void;
 }) {
     const upload = useUploadGalleryItem(eventId);
     const uploadWithOptions = useUploadShort(eventId);
     const usage = useEventGallery(eventId).data?.usage;
     const def = folders.find((f) => f.is_default) ?? folders[0];
-    // A saved draft reopens with its folder and files (Save as Draft — kept while this page is open).
-    const [folderId, setFolderId] = useState<number>(initialFolder ?? draft?.folderId ?? def?.id ?? 0);
+    const [folderId, setFolderId] = useState<number>(initialFolder ?? def?.id ?? 0);
     const folder = folders.find((f) => f.id === folderId) ?? def;
-    const kindFor = (f?: GalleryCategory) => (f?.folder_type === "videos" ? "videos" : f?.folder_type === "shorts" ? "shorts" : "images") as "images" | "videos" | "shorts";
-    const [kind, setKind] = useState(kindFor(folder));
-    const [queue, setQueue] = useState<Queued[]>(() => (initialFiles?.length ? [] : draft?.queue ?? []));
+    const typeFor = (f?: GalleryCategory): FileType => (f?.folder_type === "videos" ? "video" : f?.folder_type === "shorts" ? "short" : "image");
+    const [type, setType] = useState<FileType>(initialType && takes(folder?.folder_type, initialType) ? initialType : typeFor(folder));
+    const [queue, setQueue] = useState<Queued[]>([]);
     const [over, setOver] = useState(false);
-    const [shortOpen, setShortOpen] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [paused, setPaused] = useState(false);
-    const [dragKey, setDragKey] = useState<string | null>(null);
-    // The queued video whose "Trim & Music" panel is open.
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const pickRef = useRef<HTMLInputElement>(null);
-    const seeded = useRef(false);
-    const pauseRef = useRef(false);
-    const keepUrls = useRef(false);
+    const queueRef = useRef(queue);
+    useEffect(() => { queueRef.current = queue; }, [queue]);
     const maxImg = usage?.max_image_bytes ?? 10 * 1024 * 1024;
     const maxVid = usage?.max_video_bytes ?? 100 * 1024 * 1024;
 
     /** Why this file cannot go into this folder as it is — checked here, so no request is sent. */
     const problem = (q: Queued, f = folder): string | null => {
-        if (!takes(f?.folder_type, q.kind)) return `"${f?.name ?? "This folder"}" takes ${f?.folder_type} only — choose another folder for this file.`;
+        if (!takes(f?.folder_type, q.kind)) return `"${f?.name ?? "This folder"}" takes ${f?.folder_type} only — choose another folder.`;
         if (q.kind === "image" && q.file.size > maxImg) return `Larger than ${bytes(maxImg)}.`;
-        if (q.kind === "video" && q.file.size > maxVid && !q.trim) return `Larger than ${bytes(maxVid)} — trim it shorter to upload.`;
+        if (q.kind === "video" && q.file.size > maxVid && !q.trim) return `Larger than ${bytes(maxVid)} — use Trim & Music to cut it shorter.`;
         if (q.trim && !(q.trim.end > q.trim.start)) return "The end of the trim must be after its start.";
         return null;
     };
-    /** Re-check every waiting file (after a folder or option change). */
     const recheck = (list: Queued[], f = folder) => list.map((x): Queued => {
         if (x.status === "done" || x.status === "uploading") return x;
         const msg = problem(x, f);
         if (msg) return { ...x, status: "invalid", error: msg };
         return x.status === "invalid" ? { ...x, status: "queued", error: undefined } : x;
     });
+    const drop = (list: Queued[]) => list.forEach((q) => { URL.revokeObjectURL(q.url); if (q.coverUrl) URL.revokeObjectURL(q.coverUrl); });
 
     const pickFolder = (id: number) => {
         setFolderId(id);
         const f = folders.find((x) => x.id === id);
-        if (f?.folder_type && f.folder_type !== "mixed") setKind(kindFor(f));
+        if (f?.folder_type && f.folder_type !== "mixed") pickType(typeFor(f));
         setQueue((q) => recheck(q, f));
+    };
+    // Switching the file type drops files of the other type that are not uploaded yet.
+    const pickType = (t: FileType) => {
+        setType(t);
+        setQueue((q) => {
+            const keep = q.filter((x) => x.kind === t || x.status === "done");
+            drop(q.filter((x) => !keep.includes(x)));
+            return keep;
+        });
     };
 
     const add = (files: File[]) => {
@@ -910,7 +950,7 @@ function UploadView({
         for (const file of files) {
             const k = IMAGE_RE.test(file.type) ? "image" : VIDEO_RE.test(file.type) ? "video" : null;
             if (!k) { toast.error(`${file.name}: not a JPG, PNG, WEBP, GIF, MP4, WebM or MOV file.`); continue; }
-            if (!takes(folder?.folder_type, k)) { toast.error(`${file.name}: "${folder?.name}" takes ${folder?.folder_type} only.`); continue; }
+            if (k !== type) { toast.error(`${file.name} is ${k === "image" ? "an image" : "a video"} — choose File Type "${k === "image" ? "Image" : "Video"}" first.`); continue; }
             if (file.size > (k === "image" ? maxImg : MAX_TRIM_SOURCE)) { toast.error(`${file.name} is larger than ${bytes(k === "image" ? maxImg : MAX_TRIM_SOURCE)}.`); continue; }
             const item: Queued = { key: `${file.name}-${file.size}-${Math.random()}`, file, url: URL.createObjectURL(file), kind: k, status: "queued", checked: false };
             const msg = problem(item);
@@ -918,20 +958,12 @@ function UploadView({
         }
         setQueue((q) => [...q, ...next]);
     };
-    // Files dropped on the overview arrive here once.
-    useEffect(() => {
-        if (seeded.current || !initialFiles?.length) return;
-        seeded.current = true;
-        const t = setTimeout(() => add(initialFiles), 0);
-        return () => clearTimeout(t);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    // Free the previews when leaving — not when they were kept as a draft.
-    useEffect(() => () => { if (!keepUrls.current) queue.forEach((q) => { URL.revokeObjectURL(q.url); if (q.coverUrl) URL.revokeObjectURL(q.coverUrl); }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Free the previews when the panel closes.
+    useEffect(() => () => drop(queueRef.current), []);
 
     const set = (key: string, patch: Partial<Queued>) => setQueue((q) => q.map((x) => (x.key === key ? { ...x, ...patch } : x)));
-    /** Change a video's options, then re-check it (a trim can make a too-large video fit). */
     const setOpt = (key: string, patch: Partial<Queued>) => setQueue((q) => recheck(q.map((x) => (x.key === key ? { ...x, ...patch } : x))));
+    const remove = (keys: string[]) => setQueue((q) => { drop(q.filter((x) => keys.includes(x.key))); return q.filter((x) => !keys.includes(x.key)); });
 
     /** Resolves true when the file was uploaded. */
     const runOne = (q: Queued) => new Promise<boolean>((resolve) => {
@@ -951,202 +983,148 @@ function UploadView({
         }
     });
     const uploadAll = async () => {
-        setBusy(true); setPaused(false); pauseRef.current = false;
-        let ok = 0, bad = 0, stopped = false;
-        // One by one, in the queue's order, as the plan limits are checked per file.
+        setBusy(true);
+        let ok = 0, bad = 0;
+        // One by one, in order, as the plan limits are checked per file.
         for (const q of queue.filter((x) => x.status === "queued" || x.status === "failed")) {
-            if (pauseRef.current) { stopped = true; break; }
             if (await runOne(q)) ok++; else bad++;
         }
         setBusy(false);
-        if (stopped) { toast.message("Upload paused — the rest are waiting. Press Upload Media to carry on."); return; }
-        // Everything went up -> open that folder's list (Jamal, 2026-11-06). Any failure keeps the page open to retry.
         if (ok && !bad) {
-            onDraft(null);
             toast.success(`${ok} ${ok === 1 ? "file" : "files"} uploaded to "${folder?.name ?? "Gallery"}"`);
-            onGallery(folderId);
+            onDone(folderId);
+        } else if (bad) {
+            toast.error(`${bad} ${bad === 1 ? "file" : "files"} could not be uploaded — see the list, then Retry.`);
         }
     };
-    // Pause = stop after the file now uploading (a file already on its way cannot be halted half-way).
-    const pause = () => { pauseRef.current = true; setPaused(true); };
-
-    /** Move Up / Move Down the ticked files, or drag a row by its handle. */
-    const move = (dir: -1 | 1) => setQueue((q) => {
-        const a = [...q];
-        const order = dir === -1 ? a.map((_, i) => i) : a.map((_, i) => a.length - 1 - i);
-        for (const i of order) {
-            const j = i + dir;
-            if (a[i].checked && j >= 0 && j < a.length && !a[j].checked) [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-    });
-    const dropOn = (target: string) => {
-        if (!dragKey || dragKey === target) return;
-        setQueue((q) => {
-            const a = [...q];
-            const from = a.findIndex((x) => x.key === dragKey);
-            const [row] = a.splice(from, 1);
-            a.splice(a.findIndex((x) => x.key === target), 0, row);
-            return a;
-        });
-        setDragKey(null);
-    };
-    const saveDraft = () => {
-        const left = queue.filter((x) => x.status !== "done");
-        if (!left.length) { toast.message("Nothing to keep — every file is uploaded."); return; }
-        keepUrls.current = true;
-        onDraft({ folderId, queue: left.map((x) => (x.status === "uploading" ? { ...x, status: "queued" } : x)) });
-        toast.success("Draft saved — reopen Upload Media to carry on (kept until this page is closed).");
-    };
+    const close = () => { if (busy) { toast.message("Uploading — please wait until it finishes."); return; } onClose(); };
 
     const pending = queue.filter((x) => x.status === "queued" || x.status === "failed").length;
-    const failed = queue.filter((x) => x.status === "failed").length;
-    const checked = queue.filter((x) => x.checked).length;
-    const accept = kind === "images" ? "image/jpeg,image/png,image/webp,image/gif" : "video/mp4,video/webm,video/quicktime";
+    const editing = queue.find((x) => x.key === editingKey) ?? null;
+    const accept = type === "image" ? "image/jpeg,image/png,image/webp,image/gif" : "video/mp4,video/webm,video/quicktime";
+    const DropIcon = type === "image" ? Images : type === "video" ? Film : Zap;
 
     return (
-        <div className="flex flex-col gap-3">
-            {/* Back arrow + breadcrumb like the folder page (Jamal, 2026-11-06): back = where Upload was opened from
-                (that folder, or the Gallery Overview). */}
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2">
-                    <Button size="icon" variant="outline" className="size-8 shrink-0" onClick={() => onGallery(initialFolder)} aria-label="Back"><ArrowLeft className="size-4" /></Button>
-                    <div className="min-w-0">
-                        <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                            <button type="button" onClick={() => onGallery()} className="hover:text-primary">Gallery</button>
-                            {initialFolder !== undefined && <><ChevronRight className="size-3" /><button type="button" onClick={() => onGallery(initialFolder)} className="hover:text-primary">{folders.find((f) => f.id === initialFolder)?.name ?? "Folder"}</button></>}
-                            <ChevronRight className="size-3" /> <span className="text-foreground">Upload Media</span>
-                        </p>
-                        <h3 className="text-[20px] leading-tight font-bold">Upload Media to Gallery</h3>
-                        <p className="text-[12.5px] text-muted-foreground">Add photos, videos, and short clips to your event gallery.</p>
-                    </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" className="h-8" onClick={onNewFolder}><FolderPlus className="size-3.5" /> Create Folder</Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => onGallery(folderId)}><Images className="size-3.5" /> View Gallery</Button>
-                </div>
-            </div>
+        <ActionSheet open onClose={close} icon={CloudUpload} title="Upload Media" subtitle="Add photos, videos or short videos to the selected folder." width={540}
+            footer={<>
+                <Button variant="outline" className="h-11" disabled={busy} onClick={close}>Cancel</Button>
+                <Button className="h-11" disabled={!pending || busy || type === "short"} onClick={uploadAll}>
+                    {busy ? <><Loader2 className="size-4 animate-spin" /> Uploading…</> : <><Upload className="size-4" /> Upload {pending || ""} {pending === 1 ? "File" : "Files"}</>}
+                </Button>
+            </>}>
+            <FormField label="Select Folder" required>
+                <Select value={String(folderId)} onValueChange={(v) => pickFolder(Number(v))} disabled={busy}>
+                    <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        {folders.map((f) => {
+                            const I = folderIcon(f);
+                            return (
+                                <SelectItem key={f.id} value={String(f.id)}>
+                                    <span className="flex items-center gap-2">
+                                        <I className="size-4 text-muted-foreground" /> {f.name}
+                                        {f.is_default && <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">Default</span>}
+                                        {!f.is_default && f.folder_type && f.folder_type !== "mixed" && <span className="text-[11px] text-muted-foreground">({f.folder_type} only)</span>}
+                                    </span>
+                                </SelectItem>
+                            );
+                        })}
+                    </SelectContent>
+                </Select>
+            </FormField>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end">
-                <FormField label="Upload to Folder" required>
-                    <Select value={String(folderId)} onValueChange={(v) => pickFolder(Number(v))}>
-                        <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
-                        <SelectContent>{folders.map((f) => <SelectItem key={f.id} value={String(f.id)}>{f.name}{f.is_default ? " (Default)" : f.folder_type && f.folder_type !== "mixed" ? ` (${f.folder_type} only)` : ""}</SelectItem>)}</SelectContent>
-                    </Select>
-                </FormField>
+            <FormField label="File Type" required>
                 <div className="grid grid-cols-3 gap-2">
-                    {([["images", "Images", ImageIcon], ["videos", "Videos", Video], ["shorts", "Shorts", Zap]] as const).map(([v, l, I]) => (
-                        <button key={v} type="button" onClick={() => setKind(v)} disabled={!takes(folder?.folder_type, v === "images" ? "image" : v === "videos" ? "video" : "short")}
-                            className={cn("flex h-9 items-center justify-center gap-2 rounded-lg border text-[13px] font-semibold transition disabled:opacity-40", kind === v ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted")}>
-                            <I className="size-4" /> {l}
-                        </button>
-                    ))}
+                    {FILE_TYPES.map(({ value, label, icon: I }) => {
+                        const on = type === value;
+                        return (
+                            <button key={value} type="button" disabled={busy || !takes(folder?.folder_type, value)} onClick={() => pickType(value)}
+                                className={cn("flex h-12 items-center gap-2 rounded-lg border px-3 text-[13.5px] font-semibold transition disabled:opacity-40",
+                                    on ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted")}>
+                                <I className="size-5 shrink-0" /> <span className="flex-1 text-left">{label}</span>
+                                <span className={cn("grid size-4 place-items-center rounded-full border-2", on ? "border-primary" : "border-muted-foreground/40")}>
+                                    {on && <span className="size-2 rounded-full bg-primary" />}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
-            </div>
+            </FormField>
 
-            {kind === "shorts" ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/[0.03] px-4 py-6 text-center">
-                    <Zap className="size-7 text-primary" />
-                    <p className="text-[13px]">Shorts are short vertical clips (up to 1 minute). Pick a video, trim it, add background music and a cover.</p>
-                    <Button size="sm" onClick={() => setShortOpen(true)}><Upload className="size-3.5" /> Upload a Short</Button>
+            {type === "short" ? (
+                <div className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-primary/30 bg-primary/[0.03] px-4 py-7 text-center">
+                    <Zap className="size-12 stroke-[1.25] text-primary/70" />
+                    <p className="text-[15px] font-bold">Upload a Short</p>
+                    <p className="max-w-[340px] text-[12px] text-muted-foreground">Short vertical clips, up to 1 minute. Pick a video, trim it, add background music and a cover.</p>
+                    <Button className="mt-1" onClick={() => folder && onShort(folder)}><Upload className="size-4" /> Choose Short Video</Button>
                 </div>
             ) : (
-                <>
+                <div onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+                    onDrop={(e) => { e.preventDefault(); setOver(false); if (!busy) add([...e.dataTransfer.files]); }}
+                    className={cn("flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-7 text-center transition", over ? "border-primary bg-primary/10" : "border-primary/30 bg-primary/[0.03]")}>
                     <input ref={pickRef} type="file" multiple accept={accept} className="hidden" onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = ""; }} />
-                    <button type="button" onClick={() => pickRef.current?.click()}
-                        onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-                        onDrop={(e) => { e.preventDefault(); setOver(false); add([...e.dataTransfer.files]); }}
-                        className={cn("flex flex-col items-center gap-1 rounded-xl border border-dashed px-4 py-6 text-center transition", over ? "border-primary bg-primary/10" : "border-primary/40 bg-primary/[0.03] hover:bg-primary/5")}>
-                        <CloudUpload className="size-7 text-primary" />
-                        <span className="text-[13px]">Drag &amp; drop {kind} here, or <span className="font-semibold text-primary">click to browse</span></span>
-                        <span className="text-[11px] text-muted-foreground">{kind === "images" ? `JPG, PNG, WEBP, GIF • Max ${bytes(maxImg)} per image` : `MP4, WebM, MOV • Max ${bytes(maxVid)} per video (longer ones: trim them in the queue, source up to ${bytes(MAX_TRIM_SOURCE)})`} • You can upload multiple files at once.</span>
-                    </button>
-                </>
+                    <DropIcon className="size-12 stroke-[1.25] text-primary/70" />
+                    <p className="text-[15px] font-bold">Drag &amp; drop {type === "image" ? "images" : "videos"} here</p>
+                    <p className="text-[12px] text-muted-foreground">or</p>
+                    <Button disabled={busy} onClick={() => pickRef.current?.click()}><Upload className="size-4" /> Choose Files</Button>
+                    <p className="mt-1 text-[11.5px] text-muted-foreground">Supported: {type === "image" ? "JPG, JPEG, PNG, WEBP, GIF" : "MP4, WebM, MOV"}</p>
+                    <p className="text-[11.5px] text-muted-foreground">
+                        Max file size: {type === "image" ? `${bytes(maxImg)} per image` : `${bytes(maxVid)} per video (longer: trim it, source up to ${bytes(MAX_TRIM_SOURCE)})`} | You can select multiple files
+                    </p>
+                </div>
             )}
 
             {queue.length > 0 && (
-                <div className="rounded-xl border border-border bg-card">
-                    <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-                        <p className="text-[14px] font-bold">Upload Queue <span className="font-normal text-muted-foreground">({queue.length} files)</span></p>
-                        <span className="ml-auto flex flex-wrap gap-1.5">
-                            <label className="flex items-center gap-1.5 px-1 text-[12px]"><Checkbox checked={checked === queue.length} onCheckedChange={(v) => setQueue((q) => q.map((x) => ({ ...x, checked: v === true })))} /> Select All</label>
-                            <Button size="sm" variant="outline" className="h-7" disabled={!checked || busy} onClick={() => move(-1)}><ArrowUp className="size-3.5" /> Move Up</Button>
-                            <Button size="sm" variant="outline" className="h-7" disabled={!checked || busy} onClick={() => move(1)}><ArrowDown className="size-3.5" /> Move Down</Button>
-                            <Button size="sm" variant="outline" className="h-7 border-destructive/40 text-destructive" disabled={!checked || busy} onClick={() => setQueue((q) => q.filter((x) => !x.checked))}><Trash2 className="size-3.5" /> Remove Selected ({checked})</Button>
-                            <Button size="sm" variant="outline" className="h-7" disabled={!failed || busy} onClick={uploadAll}><RotateCcw className="size-3.5" /> Retry Failed ({failed})</Button>
-                            <Button size="sm" variant="outline" className="h-7" disabled={busy} onClick={() => setQueue((q) => q.filter((x) => x.status !== "done"))}><Check className="size-3.5" /> Clear Completed</Button>
-                        </span>
+                <div className="overflow-hidden rounded-xl border border-border">
+                    <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2.5">
+                        <p className="text-[13.5px] font-bold">Selected Files ({queue.length})</p>
+                        <button type="button" disabled={busy} onClick={() => remove(queue.map((x) => x.key))}
+                            className="flex items-center gap-1 text-[12.5px] font-semibold text-primary disabled:opacity-40"><X className="size-3.5" /> Remove All</button>
                     </div>
                     <div className="divide-y divide-border">
                         {queue.map((q) => (
-                            <Fragment key={q.key}>
-                            <div className={cn("flex flex-wrap items-center gap-3 px-3 py-2", dragKey === q.key && "opacity-50", editingKey === q.key && "bg-primary/5")}
-                                onDragOver={(e) => { if (dragKey) e.preventDefault(); }} onDrop={() => dropOn(q.key)}>
-                                <span draggable={!busy} onDragStart={() => setDragKey(q.key)} onDragEnd={() => setDragKey(null)}
-                                    className={cn("text-muted-foreground", busy ? "cursor-not-allowed opacity-40" : "cursor-grab")} title="Drag to reorder"><GripVertical className="size-4" /></span>
-                                <Checkbox checked={q.checked} onCheckedChange={(v) => set(q.key, { checked: v === true })} />
+                            <div key={q.key} className="flex items-start gap-3 px-3 py-2.5">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                {q.kind === "image" ? <img src={q.url} alt="" className="h-10 w-14 rounded object-cover" />
-                                    : <video src={q.url} muted className="h-10 w-14 rounded bg-black object-cover"
+                                {q.kind === "image" ? <img src={q.url} alt="" className="h-11 w-14 shrink-0 rounded-md object-cover" />
+                                    : <video src={q.url} muted className="h-11 w-14 shrink-0 rounded-md bg-black object-cover"
                                         onLoadedMetadata={(e) => { const d = e.currentTarget.duration; if (Number.isFinite(d) && !q.duration) set(q.key, { duration: d }); }} />}
-                                <div className="min-w-0 flex-1 basis-[160px]">
-                                    <p className="truncate text-[12.5px] font-semibold">{q.file.name}</p>
-                                    <p className="text-[11px] text-muted-foreground">{q.file.type.split("/")[1]?.toUpperCase()} • {bytes(q.file.size)}{q.duration ? ` • ${mmss(q.duration)}` : ""}</p>
-                                </div>
-                                <StatusPill tone={q.kind === "image" ? "primary" : "violet"} icon={q.kind === "image" ? ImageIcon : Video}>{q.kind === "image" ? "Image" : "Video"}</StatusPill>
-                                {q.kind === "video" && <VideoOptions q={q} disabled={q.status === "uploading" || q.status === "done"} onEdit={() => setEditingKey(q.key)} />}
-                                <div className="w-[170px] text-[12px]">
-                                    {q.status === "queued" && <span className="text-muted-foreground">{paused ? "Paused — waiting" : "Ready to upload"}</span>}
-                                    {q.status === "uploading" && (() => {
-                                        const pct = q.progress ?? 0;
-                                        const sending = pct < 100;
-                                        return (
-                                            <span className="flex flex-col gap-1">
-                                                <span className="h-1.5 overflow-hidden rounded-full bg-muted">
-                                                    <span className={cn("block h-full rounded-full bg-primary transition-[width] duration-200", !sending && "animate-pulse")} style={{ width: `${Math.max(3, pct)}%` }} />
-                                                </span>
-                                                <span className="text-[11px] text-primary">
-                                                    {sending
-                                                        ? <>{pct}% • Uploading… <span className="text-muted-foreground">({bytes((q.file.size * pct) / 100)} / {bytes(q.file.size)})</span></>
-                                                        : hasOptions(q) ? "100% • Processing on the server…" : "100% • Saving…"}
-                                                </span>
+                                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                    <p className="truncate text-[13px] font-semibold">{q.file.name}</p>
+                                    <p className="text-[11.5px] text-muted-foreground">{bytes(q.file.size)}{q.duration ? ` • ${mmss(q.duration)}` : ""}</p>
+                                    {q.kind === "video" && q.status !== "done" && <VideoOptions q={q} disabled={busy} onEdit={() => setEditingKey(q.key)} />}
+                                    {q.status === "uploading" && (
+                                        <span className="flex items-center gap-2">
+                                            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                                                <span className={cn("block h-full rounded-full bg-primary transition-[width] duration-200", (q.progress ?? 0) >= 100 && "animate-pulse")} style={{ width: `${Math.max(3, q.progress ?? 0)}%` }} />
                                             </span>
-                                        );
-                                    })()}
-                                    {q.status === "done" && <span className="flex items-center gap-1 text-success"><Check className="size-3.5" /> Uploaded successfully</span>}
-                                    {q.status === "failed" && <span className="block text-destructive" title={q.error}><b>Upload failed</b><br /><span className="text-[11px]">{q.error}</span></span>}
-                                    {q.status === "invalid" && <span className="block text-destructive" title={q.error}><b>Cannot upload</b><br /><span className="text-[11px]">{q.error}</span></span>}
+                                            <span className="text-[11px] text-primary tabular-nums">{(q.progress ?? 0) < 100 ? `${q.progress ?? 0}%` : hasOptions(q) ? "Processing…" : "Saving…"}</span>
+                                        </span>
+                                    )}
+                                    {q.status === "done" && <span className="flex items-center gap-1 text-[11.5px] text-success"><Check className="size-3.5" /> Uploaded</span>}
+                                    {(q.status === "failed" || q.status === "invalid") && <span className="text-[11.5px] text-destructive">{q.status === "failed" ? "Upload failed: " : ""}{q.error}</span>}
                                 </div>
-                                {q.status === "uploading" && <Button size="icon" variant="outline" className="size-7" aria-label="Pause after this file" title="Pause after this file" disabled={paused} onClick={pause}><Pause className="size-3.5" /></Button>}
-                                {q.status === "done" && <Button size="icon" variant="outline" className="size-7" aria-label="Preview" title="Preview" onClick={() => window.open(q.url, "_blank")}><Eye className="size-3.5" /></Button>}
-                                {q.status === "failed" && <Button size="sm" variant="outline" className="h-7 border-primary/40 text-primary" onClick={() => runOne(q)}><RotateCcw className="size-3" /> Retry</Button>}
-                                <Button size="icon" variant="ghost" className="size-7 text-destructive" disabled={q.status === "uploading"} aria-label="Remove" onClick={() => setQueue((x) => x.filter((y) => y.key !== q.key))}><Trash2 className="size-4" /></Button>
+                                {q.status === "failed" && !busy && (
+                                    <Button size="icon" variant="ghost" className="size-8 text-primary" aria-label="Retry" title="Retry" onClick={() => runOne(q)}><RotateCcw className="size-4" /></Button>
+                                )}
+                                {q.status !== "done" && (
+                                    <Button size="icon" variant="ghost" className="size-8 text-primary" disabled={busy} aria-label="Remove" onClick={() => remove([q.key])}><X className="size-4" /></Button>
+                                )}
                             </div>
-                            {/* Trim & Music opens in place, under its own row (Jamal, 2026-11-06 — no slide-in). */}
-                            {editingKey === q.key && (
-                                <VideoEditPanel q={q} maxBytes={maxVid} onClose={() => setEditingKey(null)}
-                                    onApply={(p) => { setOpt(q.key, p); setEditingKey(null); }} />
-                            )}
-                            </Fragment>
                         ))}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-2.5">
-                        <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground"><Info className="size-3.5" /> Images (JPG, PNG, WEBP, GIF) • Videos (MP4, WebM, MOV) • Max {bytes(maxImg)} per image, {bytes(maxVid)} per video • Shorts: use the Shorts tab.</p>
-                        <span className="ml-auto flex gap-2">
-                            <Button variant="outline" disabled={busy} onClick={saveDraft}><Save className="size-3.5" /> Save as Draft</Button>
-                            {busy
-                                ? <Button variant="outline" disabled={paused} onClick={pause}><Pause className="size-3.5" /> {paused ? "Pausing…" : "Pause"}</Button>
-                                : <Button disabled={!pending} onClick={uploadAll}><Upload className="size-3.5" /> Upload Media ({pending})</Button>}
-                        </span>
                     </div>
                 </div>
             )}
 
-            {shortOpen && folder && (
-                <ShortDialog eventId={eventId} category={folder} categories={folders} onClose={() => setShortOpen(false)}
-                    onViewGallery={(c) => { setShortOpen(false); onGallery(c?.id); }} />
-            )}
-        </div>
+            {/* Trim & Music for one video, over the panel. */}
+            <Dialog open={!!editing} onOpenChange={(o) => !o && setEditingKey(null)}>
+                <DialogContent showCloseButton={false} className="max-h-[92vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
+                    <DialogTitle className="sr-only">Trim &amp; Music</DialogTitle>
+                    {editing && (
+                        <VideoEditPanel q={editing} maxBytes={maxVid} onClose={() => setEditingKey(null)}
+                            onApply={(p) => { setOpt(editing.key, p); setEditingKey(null); }} />
+                    )}
+                </DialogContent>
+            </Dialog>
+        </ActionSheet>
     );
 }
 
