@@ -96,8 +96,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         <Icon className="size-[18px]" /> <span>{t.label}</span>
                                     </Link>
                                 </SidebarMenuButton>
-                                {/* Gallery's child menu (Jamal, 2026-11-07): Create Video opens Upload Media on Video;
-                                    Create Shorts opens Upload Short. */}
+                                {/* Gallery's child menu (Jamal, 2026-11-07): Upload Image / Create Video open Upload Media on
+                                    Images / Video; Create Shorts opens Upload Short. */}
                                 {t.value === "gallery" && !collapsed && (
                                     <>
                                         <SidebarMenuAction aria-label={galleryOpen ? "Hide gallery menu" : "Show gallery menu"}
@@ -106,7 +106,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         </SidebarMenuAction>
                                         {galleryOpen && (
                                             <SidebarMenuSub>
-                                                {([["video", "Create Video"], ["short", "Create Shorts"]] as const).map(([key, label]) => {
+                                                {([["image", "Upload Image"], ["video", "Create Video"], ["short", "Create Shorts"]] as const).map(([key, label]) => {
                                                     const subOn = on && galleryCreate === key;
                                                     return (
                                                         <SidebarMenuSubItem key={key}>

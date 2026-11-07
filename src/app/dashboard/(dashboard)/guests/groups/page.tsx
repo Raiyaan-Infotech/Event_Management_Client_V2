@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -329,7 +329,7 @@ export default function ManageGroupsPage() {
 
                                                 <td className="py-2 pr-4 align-top">
                                                     <div className="flex items-center justify-end gap-1">
-                                                        {/* Edit / Send message / Delete — all in the ⋯ menu, like the other lists (Jamal, 2026-11-05). */}
+                                                        {/* Edit / Delete in the ⋯ menu (Send Message to Group removed — Jamal, 2026-11-07). */}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button size="icon" variant="outline" aria-label={`Actions for ${group.name}`}
@@ -340,11 +340,6 @@ export default function ManageGroupsPage() {
                                                             <DropdownMenuContent align="end" className="w-52">
                                                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={() => setGroupSheet(group)}>
                                                                     <Pencil className="size-4 text-muted-foreground" /> Edit Group
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem asChild className="gap-2.5 py-2 text-[13px]">
-                                                                    <Link href={wsHref(`/dashboard/messages/send?group=${group.id}&from=guest-groups`)}>
-                                                                        <Send className="size-4 text-muted-foreground" /> Send Message to Group
-                                                                    </Link>
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px] text-destructive focus:text-destructive"

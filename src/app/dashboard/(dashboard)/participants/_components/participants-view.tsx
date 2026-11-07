@@ -80,7 +80,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
     const full = !!capacity.data?.full;
     const selected = act ? rows.find((p) => p.id === act.id) ?? null : null;
 
-    /** Download CSV (Jamal, 2026-11-06): the list as shown — current tab, search and sort, every page. */
+    /** Export = CSV (Jamal, 2026-11-06; renamed from "Download CSV" 2026-11-07): the list as shown — current tab, search and sort, every page. */
     const downloadCsv = () => {
         const side = (s?: string | null) => (s === "bride" ? "Bride Side" : s === "groom" ? "Groom Side" : "");
         const access = (p: ParticipantRow) => ({ active: "Active", pending: "Pending", blocked: "Blocked" }[accessOf(p)] ?? "");
@@ -105,7 +105,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                 subtitle="Manage participant access, invitation status, and event engagement."
                 actions={(
                     <>
-                        <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Download CSV</Button>
+                        <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Export</Button>
                         <Button size="sm" className="h-8" onClick={() => setAddOpen(true)} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
                     </>
                 )}

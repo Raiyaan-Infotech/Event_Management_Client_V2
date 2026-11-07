@@ -20,7 +20,7 @@ import { Empty, PanelLoading, Section } from "./module-ui";
 
 /**
  * Event Agenda — Jamal's web design (2026-11-04), exactly as drawn:
- *   · "Event Agenda" + Export Agenda + ;
+ *   · "Event Agenda" + Export (CSV) + Add Session;
  *   · a card per day ("Mon, 10 Nov 2026 · 6 Sessions") and + Add Date (another
  *     event day that has no session yet);
  *   · the chosen day: Total Sessions / Total Overlap Groups, a timeline (time,
@@ -156,7 +156,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                     subtitle="Manage event sessions, timings and activities for each day."
                     actions={(
                         <>
-                            <Button variant="outline" size="sm" onClick={exportAgenda} disabled={!items.length}><Download className="size-3.5" /> Export Agenda</Button>
+                            <Button variant="outline" size="sm" onClick={exportAgenda} disabled={!items.length}><Download className="size-3.5" /> Export</Button>
                             <Button size="sm" onClick={() => newFor(day ?? eventDays[0] ?? "")} disabled={!eventDays.length}><Plus className="size-3.5" /> Add Session</Button>
                         </>
                     )}
