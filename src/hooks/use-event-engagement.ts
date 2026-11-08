@@ -60,6 +60,12 @@ export interface Wish {
     status: WishStatus;
     added_by_organizer: boolean;
     author_blocked: boolean;
+    /** Organizer only: why the writer is blocked (2026-11-09). */
+    author_block?: { reason: BlockReason | null; note: string | null } | null;
+    /** Comments under it (2026-11-09). */
+    comment_count?: number;
+    /** Organizer only: how many participants reported it. */
+    report_count?: number;
     participant_id: number | null;
     is_mine: boolean;
     can_edit: boolean;
@@ -75,19 +81,44 @@ export interface WishSettings {
     name: boolean;
     wish_photo: boolean;
     time: boolean;
+    /** Participants may comment (2026-11-09). */
+    allow_comments?: boolean;
+    /** Participants see like counts (2026-11-09). */
+    show_likes?: boolean;
 }
+
+export type BlockReason = 'inappropriate' | 'spam' | 'harassment' | 'other';
+export type WordAction = 'replace' | 'hold' | 'hide';
+
+export interface WishComment {
+    id: number;
+    wish_id: number;
+    guest_name: string;
+    message: string;
+    is_hidden: boolean;
+    status: 'visible' | 'hidden';
+    is_flagged: boolean;
+    added_by_organizer: boolean;
+    is_mine: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    created_at: string | null;
+}
+
+export interface WishReport { id: number; reporter_name: string; reason: BlockReason; note: string | null; created_at: string | null }
 
 export interface WishesPage {
     wishes: Wish[];
     settings: WishSettings;
     can_manage: boolean;
     can_write: boolean;
-    counts?: { all: number; visible: number; hidden: number; blocked: number; blocked_users: number; flagged: number };
+    counts?: { all: number; visible: number; hidden: number; blocked: number; blocked_users: number; flagged: number; reported?: number };
 }
 
 export interface WishFilter {
     enabled: boolean;
-    words: { word: string; replace: string }[];
+    /** `action` (2026-11-09): replace = masked only · hold = hidden until reviewed · hide = hidden. */
+    words: { word: string; replace: string; action?: WordAction }[];
     auto_hide: boolean;
     notify: boolean;
 }
@@ -162,8 +193,8 @@ export function useDeleteWish(eventId: number) {
 export function useBlockWishWriter(eventId: number) {
     const refresh = useRefresh(eventId, 'wishes');
     return useMutation({
-        mutationFn: ({ id, blocked }: { id: number; blocked: boolean }) =>
-            blocked ? api.post(`/client/wishes/${id}/block`) : api.del(`/client/wishes/${id}/block`),
+        mutationFn: ({ id, blocked, reason, note }: { id: number; blocked: boolean; reason?: BlockReason; note?: string }) =>
+            blocked ? api.post(`/client/wishes/${id}/block`, { reason, note }) : api.del(`/client/wishes/${id}/block`),
         onSuccess: (_r, v) => { toast.success(v.blocked ? 'Participant blocked from Wed Wishes' : 'Participant unblocked'); refresh(); },
         onError: (e) => report(e, 'Could not change the block'),
     });
@@ -212,6 +243,49 @@ export function useSaveWishFilter(eventId: number) {
         mutationFn: (filter: WishFilter) => api.put(`/client/events/${eventId}/wish-filter`, filter),
         onSuccess: () => { toast.success('Content filter saved'); refreshFilter(); refreshWishes(); },
         onError: (e) => report(e, 'Could not save the content filter'),
+    });
+}
+
+/* ── Wish comments + reports (2026-11-09) ─────────────────────────────────── */
+
+export function useWishComments(eventId: number, wishId: number | null) {
+    return useQuery({
+        queryKey: [...key(eventId, 'wishes'), 'comments', wishId],
+        queryFn: async () => (await api.get<{ comments: WishComment[] }>(`/client/wishes/${wishId}/comments`)).comments,
+        enabled: !!wishId,
+        retry: false,
+    });
+}
+
+/** Add (organizer), edit own / hide / show / review, delete — each refreshes the comments and the list's counts. */
+export function useWishCommentActions(eventId: number) {
+    const refresh = useRefresh(eventId, 'wishes');
+    const done = (msg?: string) => () => { if (msg) toast.success(msg); refresh(); };
+    return {
+        add: useMutation({
+            mutationFn: ({ wishId, message }: { wishId: number; message: string }) => api.post(`/client/wishes/${wishId}/comments`, { message }),
+            onSuccess: done('Comment added'),
+            onError: (e) => report(e, 'Could not add the comment'),
+        }),
+        update: useMutation({
+            mutationFn: ({ id, data }: { id: number; data: Record<string, unknown>; done?: string }) => api.put(`/client/wish-comments/${id}`, data),
+            onSuccess: (_r, v) => { if (v.done) toast.success(v.done); refresh(); },
+            onError: (e) => report(e, 'Could not update the comment'),
+        }),
+        remove: useMutation({
+            mutationFn: (id: number) => api.del(`/client/wish-comments/${id}`),
+            onSuccess: done('Comment deleted'),
+            onError: (e) => report(e, 'Could not delete the comment'),
+        }),
+    };
+}
+
+export function useWishReports(eventId: number, wishId: number | null, enabled = true) {
+    return useQuery({
+        queryKey: [...key(eventId, 'wishes'), 'reports', wishId],
+        queryFn: async () => (await api.get<{ reports: WishReport[] }>(`/client/wishes/${wishId}/reports`)).reports,
+        enabled: !!wishId && enabled,
+        retry: false,
     });
 }
 

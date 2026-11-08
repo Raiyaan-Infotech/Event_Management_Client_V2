@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowLeft, Ban, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, Pencil, Plus,
+    ArrowLeft, Ban, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Flag, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus,
     Send, Settings, ShieldAlert, ShieldCheck, Trash2, Upload, Video, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,8 @@ import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
     useBlockWishWriter, useCreateWish, useDeleteWish, useEventWishes, useMessageWishWriter, useReplaceWishMedia, useSaveWishFilter,
-    useSaveWishSettings, useUpdateWish, useWishFilter,
-    type Wish, type WishAudience, type WishFilter, type WishSettings,
+    useSaveWishSettings, useUpdateWish, useWishCommentActions, useWishComments, useWishFilter, useWishReports,
+    type BlockReason, type Wish, type WishAudience, type WishComment, type WishFilter, type WishSettings, type WordAction,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 
@@ -35,7 +35,8 @@ import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module
  * participant's wish) · Moderate · Send In-App Message · Block · Delete · Post a Wish
  * · Blocked Words. Wishes Settings is its own page (two cards).
  * "Pending" = caught by the blocked-words filter, not reviewed yet (the server has no
- * other approval step). Not built (no server support yet): comments, Reported, block reason.
+ * other approval step). Since 2026-11-09 also: Manage Comments, the Reported tab, block reason + note,
+ * and a per-word action in Blocked Words (replace / hold for review / hide) — all on the server.
  */
 
 const AUDIENCE: Record<WishAudience, string> = { both: "Both", bride: "Bride", groom: "Groom" };
@@ -44,7 +45,14 @@ const TYPE_LABEL = { text: "Text", image: "Image", video: "Video" } as const;
 const MAX_MESSAGE = 500;
 const PAGE_SIZE = 10;
 
-type Tab = "all" | "published" | "pending" | "hidden" | "blocked";
+type Tab = "all" | "published" | "pending" | "hidden" | "blocked" | "reported";
+const REASON_LABEL: Record<BlockReason, string> = {
+    inappropriate: "Inappropriate or offensive content", spam: "Spam / repeated posts", harassment: "Harassment of other participants", other: "Other",
+};
+const ACTION_META: Record<WordAction, { label: string; tone: Tone }> = {
+    replace: { label: "Replace", tone: "success" }, hold: { label: "Hold for Review", tone: "warning" }, hide: { label: "Hide", tone: "danger" },
+};
+const reported = (w: Wish) => (w.report_count ?? 0) > 0;
 type Status = { label: string; tone: Tone };
 const statusOf = (w: Wish): Status =>
     w.status === "blocked" ? { label: "Blocked", tone: "danger" }
@@ -65,7 +73,7 @@ function startOf(v: "all" | "today" | "7" | "30") {
 }
 
 type Panel =
-    | { kind: "view" | "edit" | "moderate" | "message" | "block" | "delete"; wish: Wish }
+    | { kind: "view" | "edit" | "moderate" | "message" | "block" | "delete" | "comments"; wish: Wish }
     | { kind: "post" | "words" };
 
 export function WishesPanel({ event }: { event: ClientEvent }) {
@@ -100,11 +108,11 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             && (!q || w.guest_name.toLowerCase().includes(q) || w.message.toLowerCase().includes(q)));
     }, [wishes, search, type, recipient, since]);
     const counts = useMemo(() => {
-        const c: Record<Tab, number> = { all: filtered.length, published: 0, pending: 0, hidden: 0, blocked: 0 };
-        filtered.forEach((w) => { c[tabOf(w)] += 1; });
+        const c: Record<Tab, number> = { all: filtered.length, published: 0, pending: 0, hidden: 0, blocked: 0, reported: 0 };
+        filtered.forEach((w) => { c[tabOf(w)] += 1; if (reported(w)) c.reported += 1; });
         return c;
     }, [filtered]);
-    const shown = tab === "all" ? filtered : filtered.filter((w) => tabOf(w) === tab);
+    const shown = tab === "all" ? filtered : tab === "reported" ? filtered.filter(reported) : filtered.filter((w) => tabOf(w) === tab);
     const rows = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     if (query.isLoading) return <PanelLoading />;
@@ -126,12 +134,13 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     const actionsFor = (w: Wish): RowAction[] => [
         { label: "View Wish", icon: Eye, onClick: () => open({ kind: "view", wish: w }) },
         { label: "Edit Wish", icon: Pencil, onClick: () => open({ kind: "edit", wish: w }), hidden: !w.can_edit },
-        { label: "Approve / Publish", icon: Check, onClick: () => open({ kind: "moderate", wish: w }), hidden: !data.can_manage || tabOf(w) === "published" },
+        { label: "Approve / Publish", icon: Check, onClick: () => open({ kind: "moderate", wish: w }), hidden: !data.can_manage || (tabOf(w) === "published" && !reported(w)) },
         w.is_hidden
             ? { label: "Show Wish", icon: Eye, onClick: () => update.mutate({ id: w.id, data: { show_in_app: true }, done: "Wish is visible again" }), hidden: !data.can_manage || w.status === "blocked" }
             : { label: "Hide Wish", icon: EyeOff, onClick: () => update.mutate({ id: w.id, data: { show_in_app: false }, done: "Wish hidden" }), hidden: !data.can_manage },
         { label: "Send In-App Message", icon: Mail, onClick: () => open({ kind: "message", wish: w }), hidden: !data.can_manage || !fromParticipant(w) },
         { label: w.author_blocked ? "Unblock Participant" : "Block Participant", icon: Ban, onClick: () => open({ kind: "block", wish: w }), hidden: !data.can_manage || !fromParticipant(w) },
+        { label: `Manage Comments${w.comment_count ? ` (${w.comment_count})` : ""}`, icon: MessageSquare, onClick: () => open({ kind: "comments", wish: w }), hidden: !data.can_manage },
         { label: "Delete Wish", icon: Trash2, onClick: () => open({ kind: "delete", wish: w }), danger: true, divider: true, hidden: !w.can_delete },
     ];
 
@@ -186,6 +195,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
                 { value: "pending", label: "Pending", count: counts.pending },
                 { value: "hidden", label: "Hidden", count: counts.hidden },
                 { value: "blocked", label: "Blocked", count: counts.blocked },
+                { value: "reported", label: "Reported", count: counts.reported },
             ]} />
             <ListCard title="Wishes List" icon={Heart} note="Participants can post text and images; the organizer can also post videos.">
                 {wishes.length === 0 ? (
@@ -226,7 +236,12 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
                                                 <p className="text-[11px] text-muted-foreground">To: {AUDIENCE[w.audience]}</p>
                                             </td>
                                             <td className="px-3 py-2.5"><StatusPill tone="primary">{TYPE_LABEL[w.post_type]}</StatusPill></td>
-                                            <td className="px-3 py-2.5"><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
+                                            <td className="px-3 py-2.5">
+                                                <span className="flex flex-wrap gap-1">
+                                                    <StatusPill tone={st.tone}>{st.label}</StatusPill>
+                                                    {reported(w) && <StatusPill tone="danger" icon={Flag}>Reported ({w.report_count})</StatusPill>}
+                                                </span>
+                                            </td>
                                             <td className="px-3 py-2.5 whitespace-nowrap"><Heart className="mr-1 inline size-3 fill-current text-primary" />{w.like_count}</td>
                                             <td className="px-3 py-2.5 whitespace-nowrap">{dateOf(w.created_at)}</td>
                                             <td className="px-3 py-2.5 text-right"><RowActions items={actionsFor(w)} compact /></td>
@@ -249,7 +264,8 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             {panel ? (
                 <SplitLayout asideWidth={420} aside={(
                     <InlineSheets>
-                        {panel.kind === "view" && <ViewWish wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} />}
+                        {panel.kind === "view" && <ViewWish eventId={event.id} wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} onComments={() => open({ kind: "comments", wish: panel.wish })} />}
+                        {panel.kind === "comments" && <ManageComments key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} settings={data.settings} onClose={close} />}
                         {panel.kind === "edit" && <EditWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                         {panel.kind === "moderate" && <ModerateWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                         {panel.kind === "message" && <MessageWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
@@ -297,7 +313,11 @@ function Who({ wish }: { wish: Wish }) {
 
 /* ── View ────────────────────────────────────────────────────────────────── */
 
-function ViewWish({ wish, onClose, onEdit }: { wish: Wish; onClose: () => void; onEdit: () => void }) {
+function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { eventId: number; wish: Wish; onClose: () => void; onEdit: () => void; onComments: () => void }) {
+    const comments = useWishComments(eventId, wish.id);
+    const reports = useWishReports(eventId, wish.id, reported(wish));
+    const update = useUpdateWish(eventId);
+    const latest = (comments.data ?? []).filter((c) => !c.is_hidden).slice(-3).reverse();
     return (
         <ActionSheet open onClose={onClose} icon={Eye} title="View Wish" subtitle="Review the wish, media and reactions."
             footer={<>
@@ -316,6 +336,32 @@ function ViewWish({ wish, onClose, onEdit }: { wish: Wish; onClose: () => void; 
                 <DetailRow label="Posted On">{dateTimeOf(wish.created_at)}</DetailRow>
             </DetailSection>
             {wish.is_flagged && <Notice tone="warning">A blocked word was found in this wish. Approve it to publish, or hide it.</Notice>}
+            {reported(wish) && (
+                <>
+                    <p className="flex items-center gap-1.5 text-[13.5px] font-bold text-destructive"><Flag className="size-4" /> Reports ({wish.report_count})</p>
+                    <div className="divide-y divide-border rounded-xl border border-destructive/30 bg-destructive/5">
+                        {(reports.data ?? []).map((r) => (
+                            <div key={r.id} className="px-3 py-2 text-[12.5px]">
+                                <p className="font-semibold">{r.reporter_name} <span className="font-normal text-muted-foreground">· {REASON_LABEL[r.reason] ?? r.reason}</span></p>
+                                {r.note && <p className="text-muted-foreground">{r.note}</p>}
+                            </div>
+                        ))}
+                    </div>
+                    <Button variant="outline" size="sm" disabled={update.isPending}
+                        onClick={() => update.mutate({ id: wish.id, data: { dismiss_reports: true }, done: "Reports dismissed" })}>
+                        <Check className="size-3.5" /> Dismiss Reports
+                    </Button>
+                </>
+            )}
+            <div className="flex items-center justify-between">
+                <p className="text-[13.5px] font-bold text-primary">Latest Comments</p>
+                <button type="button" onClick={onComments} className="text-[12px] font-semibold text-primary hover:underline">Manage ({wish.comment_count ?? 0})</button>
+            </div>
+            {latest.length === 0
+                ? <p className="text-[12.5px] text-muted-foreground">No comments yet.</p>
+                : <div className="divide-y divide-border">{latest.map((c) => (
+                    <div key={c.id} className="py-2 text-[12.5px]"><p className="font-semibold">{c.guest_name}</p><p className="break-words">{c.message}</p></div>
+                ))}</div>}
         </ActionSheet>
     );
 }
@@ -398,7 +444,7 @@ function ModerateWish({ eventId, wish, onClose }: { eventId: number; wish: Wish;
         if (decision === "keep") { onClose(); return; }
         if (decision === "reject") { remove.mutate(wish.id, { onSuccess: onClose }); return; }
         update.mutate(
-            { id: wish.id, data: decision === "approve" ? { show_in_app: true, reviewed: true } : { show_in_app: false, reviewed: true }, done: decision === "approve" ? "Wish published" : "Wish hidden" },
+            { id: wish.id, data: decision === "approve" ? { show_in_app: true, reviewed: true, dismiss_reports: true } : { show_in_app: false, reviewed: true }, done: decision === "approve" ? "Wish published" : "Wish hidden" },
             { onSuccess: onClose },
         );
     };
@@ -477,11 +523,13 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
     const block = useBlockWishWriter(eventId);
     const update = useUpdateWish(eventId);
     const [hideAll, setHideAll] = useState(true);
+    const [reason, setReason] = useState<BlockReason>("inappropriate");
+    const [note, setNote] = useState("");
     const unblock = wish.author_blocked;
     const busy = block.isPending || update.isPending;
     const run = async () => {
         try {
-            await block.mutateAsync({ id: wish.id, blocked: !unblock });
+            await block.mutateAsync({ id: wish.id, blocked: !unblock, ...(unblock ? {} : { reason, note: note.trim() }) });
             if (!unblock && hideAll) await update.mutateAsync({ id: wish.id, data: { show_in_app: false, all_from_writer: true } });
             onClose();
         } catch { /* the hooks showed the error */ }
@@ -497,13 +545,34 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
             </>}>
             <Who wish={wish} />
             {unblock ? (
-                <Notice tone="info">{wish.guest_name} will be able to view, post and like in Wed Wishes again. Wishes you hid stay hidden until you show them.</Notice>
+                <>
+                    {wish.author_block?.reason && (
+                        <DetailSection title="Why they were blocked">
+                            <DetailRow label="Reason">{REASON_LABEL[wish.author_block.reason]}</DetailRow>
+                            {wish.author_block.note && <DetailRow label="Internal Note">{wish.author_block.note}</DetailRow>}
+                        </DetailSection>
+                    )}
+                    <Notice tone="info">{wish.guest_name} will be able to view, post and like in Wed Wishes again. Wishes you hid stay hidden until you show them.</Notice>
+                </>
             ) : (
                 <>
                     <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-[12.5px] text-destructive">
                         <p className="flex items-center gap-1.5 font-semibold"><ShieldAlert className="size-3.5" /> Blocking access to Wed Wishes</p>
-                        <p className="mt-1">The participant will be unable to post or like in Wed Wishes.</p>
+                        <p className="mt-1">The participant will be unable to post, comment or like in Wed Wishes.</p>
                     </div>
+                    <p className="text-[13.5px] font-bold text-primary">Block Reason <span className="text-destructive">*</span></p>
+                    <div className="flex flex-col gap-2">
+                        {(Object.keys(REASON_LABEL) as BlockReason[]).map((r) => (
+                            <label key={r} className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] transition",
+                                reason === r ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
+                                <input type="radio" name="block-reason" checked={reason === r} onChange={() => setReason(r)} className="size-4 accent-[var(--primary)]" />
+                                {REASON_LABEL[r]}
+                            </label>
+                        ))}
+                    </div>
+                    <FormField label="Internal Note" hint=" (Optional)">
+                        <Textarea value={note} maxLength={500} rows={3} onChange={(e) => setNote(e.target.value)} placeholder="Only you see this note." />
+                    </FormField>
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
                         <span className="text-[13px]">Hide their existing wishes</span>
                         <Switch checked={hideAll} onCheckedChange={setHideAll} aria-label="Hide their existing wishes" />
@@ -511,6 +580,86 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
                     <Notice tone="info">The participant&apos;s profile and other event access are unchanged.</Notice>
                 </>
             )}
+        </ActionSheet>
+    );
+}
+
+/* ── Manage Comments ─────────────────────────────────────────────────────── */
+
+function ManageComments({ eventId, wish, settings, onClose }: { eventId: number; wish: Wish; settings: WishSettings; onClose: () => void }) {
+    const comments = useWishComments(eventId, wish.id);
+    const act = useWishCommentActions(eventId);
+    const saveSettings = useSaveWishSettings(eventId);
+    const filterQuery = useWishFilter(eventId);
+    const saveFilter = useSaveWishFilter(eventId);
+    const [allow, setAllow] = useState(settings.allow_comments ?? true);
+    const [filterOn, setFilterOn] = useState<boolean | null>(null);
+    const [text, setText] = useState("");
+    const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
+    const filterEnabled = filterOn ?? filterQuery.data?.enabled ?? false;
+    const busy = saveSettings.isPending || saveFilter.isPending;
+    const pill = (c: WishComment): { label: string; tone: Tone } => (c.is_flagged ? { label: "Flagged", tone: "warning" } : c.is_hidden ? { label: "Hidden", tone: "violet" } : { label: "Visible", tone: "success" });
+    const save = async () => {
+        try {
+            if (allow !== (settings.allow_comments ?? true)) await saveSettings.mutateAsync({ ...settings, allow_comments: allow });
+            if (filterOn !== null && filterQuery.data && filterOn !== filterQuery.data.enabled) await saveFilter.mutateAsync({ ...filterQuery.data, enabled: filterOn });
+            onClose();
+        } catch { /* the hooks showed the error */ }
+    };
+    const link = "text-[12px] font-medium text-primary hover:underline disabled:opacity-40";
+    return (
+        <ActionSheet open onClose={onClose} icon={MessageSquare} title="Manage Comments" subtitle="Review replies and moderate unwanted comments."
+            footer={<>
+                <Button variant="outline" onClick={onClose}>Close</Button>
+                <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Settings</Button>
+            </>}>
+            <Who wish={wish} />
+            <p className="text-[13.5px] font-bold text-primary">Comment Moderation</p>
+            {comments.isLoading ? <p className="text-[12.5px] text-muted-foreground">Loading…</p>
+                : (comments.data ?? []).length === 0 ? <p className="rounded-xl border border-border px-3 py-4 text-center text-[12.5px] text-muted-foreground">No comments on this wish yet.</p>
+                    : (
+                        <div className="divide-y divide-border rounded-xl border border-border bg-card">
+                            {(comments.data ?? []).map((c) => {
+                                const st = pill(c);
+                                return (
+                                    <div key={c.id} className="flex flex-col gap-1 px-3 py-2.5 text-[12.5px]">
+                                        <p className="flex flex-wrap items-center gap-1.5"><span className="font-semibold">{c.guest_name}</span><StatusPill tone={st.tone}>{st.label}</StatusPill>
+                                            {c.added_by_organizer && <StatusPill tone="primary">Organizer</StatusPill>}</p>
+                                        {editing?.id === c.id ? (
+                                            <div className="flex flex-col gap-1.5">
+                                                <Textarea value={editing.text} maxLength={500} rows={2} onChange={(e) => setEditing({ id: c.id, text: e.target.value })} />
+                                                <span className="flex justify-end gap-2">
+                                                    <Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+                                                    <Button size="sm" disabled={!editing.text.trim() || act.update.isPending}
+                                                        onClick={() => act.update.mutate({ id: c.id, data: { message: editing.text.trim() }, done: "Comment updated" }, { onSuccess: () => setEditing(null) })}>Save</Button>
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-start justify-between gap-3">
+                                                <p className="min-w-0 break-words">{c.message}</p>
+                                                <span className="flex shrink-0 gap-2.5">
+                                                    {c.can_edit && <button type="button" className={link} onClick={() => setEditing({ id: c.id, text: c.message })}>Edit</button>}
+                                                    {c.is_hidden || c.is_flagged
+                                                        ? <button type="button" className={link} disabled={act.update.isPending} onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: true }, done: "Comment visible" })}>Show</button>
+                                                        : <button type="button" className={link} disabled={act.update.isPending} onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: false }, done: "Comment hidden" })}>Hide</button>}
+                                                    <button type="button" className={cn(link, "text-destructive")} disabled={act.remove.isPending} onClick={() => act.remove.mutate(c.id)}>Delete</button>
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+            <div className="flex gap-2">
+                <Input value={text} maxLength={500} placeholder="Reply as the organizer…" onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) act.add.mutate({ wishId: wish.id, message: text.trim() }, { onSuccess: () => setText("") }); }} />
+                <Button disabled={!text.trim() || act.add.isPending} onClick={() => act.add.mutate({ wishId: wish.id, message: text.trim() }, { onSuccess: () => setText("") })}><Send className="size-3.5" /></Button>
+            </div>
+            <p className="text-[13.5px] font-bold text-primary">Comment Controls</p>
+            <ToggleRow label="Allow New Comments" checked={allow} onChange={setAllow} />
+            <ToggleRow label="Automatically Filter Unwanted Words" checked={filterEnabled} disabled={filterQuery.isLoading} onChange={setFilterOn} />
+            <Notice tone="info">You can edit your own comments, and hide or remove any comment without deleting the original wish.</Notice>
         </ActionSheet>
     );
 }
@@ -630,13 +779,14 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
     const [draft, setDraft] = useState<WishFilter | null>(null);
     const [word, setWord] = useState("");
     const [replace, setReplace] = useState("****");
+    const [action, setAction] = useState<WordAction>("replace");
     const f = draft ?? query.data ?? { enabled: false, words: [], auto_hide: true, notify: true };
     const setF = (patch: Partial<WishFilter>) => setDraft({ ...f, ...patch });
     const add = () => {
         const w = word.trim();
         if (!w) { toast.error("Please enter a word or phrase."); return; }
         if (f.words.some((x) => x.word.toLowerCase() === w.toLowerCase())) { toast.error("That word is already in the list."); return; }
-        setF({ words: [...f.words, { word: w, replace: replace.trim() || "****" }] });
+        setF({ words: [...f.words, { word: w, replace: replace.trim() || "****", action }] });
         setWord("");
     };
     return (
@@ -654,9 +804,21 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
                 <Input value={word} onChange={(e) => setWord(e.target.value)} placeholder="Enter an unwanted phrase"
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
             </FormField>
-            <FormField label="Replace With" required>
-                <Input value={replace} maxLength={40} onChange={(e) => setReplace(e.target.value)} placeholder="****" />
-            </FormField>
+            <div className="grid grid-cols-2 gap-2">
+                <FormField label="Action When Detected" required>
+                    <Select value={action} onValueChange={(v) => setAction(v as WordAction)}>
+                        <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="replace">Replace only</SelectItem>
+                            <SelectItem value="hold">Hold for Review</SelectItem>
+                            <SelectItem value="hide">Hide</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </FormField>
+                <FormField label="Replace With" required>
+                    <Input value={replace} maxLength={40} onChange={(e) => setReplace(e.target.value)} placeholder="****" />
+                </FormField>
+            </div>
             <Button onClick={add}><Plus className="size-3.5" /> Add Word</Button>
             <p className="text-[13.5px] font-bold text-primary">Blocked Words ({f.words.length})</p>
             <div className="rounded-xl border border-border bg-card">
@@ -665,7 +827,8 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
                         {f.words.map((w) => (
                             <li key={w.word} className="flex items-center gap-2 px-3 py-2 text-[12.5px]">
                                 <span className="min-w-0 flex-1 truncate">{w.word}</span>
-                                <StatusPill tone="success">Replace with {w.replace}</StatusPill>
+                                <span className="text-[11px] text-muted-foreground">→ {w.replace}</span>
+                                <StatusPill tone={w.action ? ACTION_META[w.action].tone : "warning"}>{w.action ? ACTION_META[w.action].label : (f.auto_hide ? "Hold for Review" : "Flag")}</StatusPill>
                                 <button type="button" aria-label={`Remove ${w.word}`} className="text-muted-foreground hover:text-destructive"
                                     onClick={() => setF({ words: f.words.filter((x) => x.word !== w.word) })}><X className="size-4" /></button>
                             </li>
@@ -673,11 +836,7 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
                     </ul>
                 )}
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                <span className="text-[13px]">Hold wishes with a blocked word for review</span>
-                <Switch checked={f.auto_hide} onCheckedChange={(v) => setF({ auto_hide: v })} aria-label="Hold for review" />
-            </div>
-            <Notice tone="info">Filtering applies to new wishes. A caught wish shows as Pending until you approve or hide it.</Notice>
+            <Notice tone="info">Filtering applies to new wishes and comments. “Hold for Review” shows a wish as Pending until you approve or hide it; “Hide” hides it straight away.</Notice>
         </ActionSheet>
     );
 }
@@ -725,6 +884,8 @@ function WishesSettingsPage({ eventId, settings, onDone, onWords }: { eventId: n
                     <ToggleRow label="Show Profile Photo" checked={s.profile_photo} onChange={set("profile_photo")} />
                     <ToggleRow label="Show Wish Photo / Video" checked={s.wish_photo} onChange={set("wish_photo")} />
                     <ToggleRow label="Show Time" checked={s.time} onChange={set("time")} />
+                    <ToggleRow label="Allow Comments" hint="Participants can comment on wishes" checked={s.allow_comments ?? true} onChange={set("allow_comments")} />
+                    <ToggleRow label="Show Likes" hint="Participants see like counts" checked={s.show_likes ?? true} onChange={set("show_likes")} />
                 </div>
                 <div className={card}>
                     <p className="text-[15px] font-bold">Moderation &amp; Privacy</p>
