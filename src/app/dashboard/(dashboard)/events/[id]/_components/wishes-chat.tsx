@@ -233,7 +233,7 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
             {/* ── Conversations ── */}
             <section className={cn("min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card", phoneThread ? "hidden lg:flex" : "flex")}>
                 <div className="flex flex-col gap-2.5 border-b border-border p-3">
-                    <p className="text-[16px] font-bold">Conversations ({threads.length})</p>
+                    <p className="text-[14px] font-bold">Conversations ({threads.length})</p>
                     <div className="flex items-center gap-2">
                         <SearchBox value={search} onChange={setSearch} placeholder="Search participant or message..." className="min-w-0" />
                         <DropdownMenu>
@@ -265,24 +265,24 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto">
                     {threads.length === 0 ? (
-                        <p className="p-6 text-center text-[12.5px] text-muted-foreground">No wishes yet. Wishes your guests post in the event app appear here.</p>
+                        <p className="p-6 text-center text-[12px] text-muted-foreground">No wishes yet. Wishes your guests post in the event app appear here.</p>
                     ) : shown.length === 0 ? (
-                        <p className="p-6 text-center text-[12.5px] text-muted-foreground">No conversations match.</p>
+                        <p className="p-6 text-center text-[12px] text-muted-foreground">No conversations match.</p>
                     ) : shown.map((t) => (
                         <button key={t.key} type="button" onClick={() => { setPicked(t.key); setPhoneThread(true); }}
                             className={cn("flex w-full items-center gap-3 border-b border-border/60 px-3 py-2.5 text-left transition",
                                 selected?.key === t.key ? "bg-primary/10" : "hover:bg-muted/50")}>
-                            <ChatAvatar name={t.name} photo={t.avatar} size={38} online={t.online} />
+                            <ChatAvatar name={t.name} photo={t.avatar} size={34} online={t.online} />
                             <span className="min-w-0 flex-1">
                                 <span className="flex items-center justify-between gap-2">
-                                    <span className="flex min-w-0 items-center gap-1 truncate text-[13.5px] font-bold">
+                                    <span className="flex min-w-0 items-center gap-1 truncate text-[12.5px] font-bold">
                                         {t.isOrg && <Crown className="size-3.5 shrink-0 text-amber-500" />}
                                         <span className="truncate">{t.name}</span>
                                     </span>
-                                    <span className={cn("shrink-0 text-[11px]", t.unread ? "font-semibold text-primary" : "text-muted-foreground")}>{listTime(t.lastAt)}</span>
+                                    <span className={cn("shrink-0 text-[10.5px]", t.unread ? "font-semibold text-primary" : "text-muted-foreground")}>{listTime(t.lastAt)}</span>
                                 </span>
                                 <span className="mt-0.5 flex items-center justify-between gap-2">
-                                    <span className={cn("truncate text-[12.5px]", t.unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.preview}</span>
+                                    <span className={cn("truncate text-[11.5px]", t.unread ? "font-medium text-foreground" : "text-muted-foreground")}>{t.preview}</span>
                                     <span className="flex shrink-0 items-center gap-1">
                                         {t.blocked && <UserX className="size-3.5 text-destructive" aria-label="Blocked" />}
                                         {t.hidden > 0 && <EyeOff className="size-3.5 text-muted-foreground" aria-label="Has hidden wishes" />}
@@ -378,12 +378,12 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
         <>
             <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
                 <Button size="icon" variant="ghost" className="size-8 lg:hidden" onClick={onBack} aria-label="Back to conversations"><ArrowLeft className="size-4" /></Button>
-                <ChatAvatar name={thread.name} photo={thread.avatar} size={42} online={thread.online} />
+                <ChatAvatar name={thread.name} photo={thread.avatar} size={36} online={thread.online} />
                 <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate text-[16px] font-bold">
+                    <p className="flex items-center gap-1.5 truncate text-[14px] font-bold">
                         {thread.isOrg && <Crown className="size-4 text-amber-500" />} {thread.name}
                     </p>
-                    <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
+                    <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
                         {thread.isOrg ? "Your posts as the organizer" : <>{[side, "Participant"].filter(Boolean).join(" • ")}</>}
                         {thread.online && <span className="flex items-center gap-1 font-semibold text-success"><span className="size-2 rounded-full bg-success" /> Online</span>}
                         {thread.blocked && <StatusPill tone="danger" icon={UserX}>Blocked</StatusPill>}
@@ -422,7 +422,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                 )}
             </header>
 
-            <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-primary/[0.03] px-4 py-4">
+            <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto bg-primary/[0.03] px-4 py-3">
                 {items.map((it) => {
                     const sep = it.day ? <DayPill at={it.at} /> : null;
                     if (it.kind === "wish") {
@@ -451,7 +451,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
 function DayPill({ at }: { at: number }) {
     return (
         <div className="flex justify-center py-1">
-            <span className="rounded-full border border-border bg-card px-3 py-1 text-[11.5px] font-semibold text-muted-foreground shadow-xs">{dayLabel(at)}</span>
+            <span className="rounded-full border border-border bg-card px-3 py-1 text-[10.5px] font-semibold text-muted-foreground shadow-xs">{dayLabel(at)}</span>
         </div>
     );
 }
@@ -495,12 +495,12 @@ function WishBubble({ wish, mine, actions, onReply, onOpen, onComments }: {
     return (
         <div className={cn("group flex items-start gap-2", mine && "flex-row-reverse")}>
             {mine
-                ? <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-[12px] font-bold text-primary"><Crown className="size-4 text-amber-500" /></span>
-                : <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />}
-            <div className={cn("flex max-w-[78%] min-w-0 flex-col gap-2 rounded-2xl border px-3.5 py-2.5 shadow-xs",
+                ? <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-bold text-primary"><Crown className="size-4 text-amber-500" /></span>
+                : <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={30} rounded="full" />}
+            <div className={cn("flex max-w-[78%] min-w-0 flex-col gap-1.5 rounded-2xl border px-3 py-2 shadow-xs",
                 mine ? "rounded-tr-sm border-primary/20 bg-primary/10" : "rounded-tl-sm border-border bg-card",
                 wish.status !== "visible" && "opacity-75")}>
-                {mine && <p className="flex items-center gap-1 text-[12px] font-bold text-primary"><Crown className="size-3.5 text-amber-500" /> {wish.guest_name}</p>}
+                {mine && <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><Crown className="size-3.5 text-amber-500" /> {wish.guest_name}</p>}
                 {(pill || reported || wish.audience !== "both") && (
                     <span className="flex flex-wrap gap-1">
                         {wish.audience !== "both" && <StatusPill tone="primary">To {wish.audience === "bride" ? "Bride" : "Groom"}</StatusPill>}
@@ -509,22 +509,22 @@ function WishBubble({ wish, mine, actions, onReply, onOpen, onComments }: {
                     </span>
                 )}
                 <WishMediaThumb wish={wish} onOpen={onOpen} />
-                {wish.message && <p className="whitespace-pre-line break-words text-[13.5px] leading-relaxed">{wish.message}</p>}
+                {wish.message && <p className="whitespace-pre-line break-words text-[12.5px] leading-relaxed">{wish.message}</p>}
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
                         {timeOf(wish.created_at)}
                         {wish.edited_by_organizer && <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"><Pencil className="size-3" /> Edited by organizer</span>}
                     </span>
                     <span className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-semibold text-primary">
+                        <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                             <Heart className="size-3 fill-current" /> {wish.like_count}
                         </span>
                         {(wish.comment_count ?? 0) > 0 && (
-                            <button type="button" onClick={onComments} className="flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-primary" title="Manage Comments">
+                            <button type="button" onClick={onComments} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary" title="Manage Comments">
                                 <MessageSquare className="size-3" /> {wish.comment_count}
                             </button>
                         )}
-                        <button type="button" onClick={onReply} className="flex items-center gap-1 text-[12px] font-semibold text-foreground/80 hover:text-primary">
+                        <button type="button" onClick={onReply} className="flex items-center gap-1 text-[11.5px] font-semibold text-foreground/80 hover:text-primary">
                             <Reply className="size-3.5" /> Reply
                         </button>
                     </span>
@@ -550,12 +550,12 @@ function ReplyBubble({ eventId, reply, quote, name, photo }: { eventId: number; 
     return (
         <div className={cn("group flex items-start gap-2", byOrganizer && "flex-row-reverse")}>
             {byOrganizer
-                ? <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">EV</span>
-                : <PersonAvatar name={name} photo={photo} size={36} rounded="full" />}
-            <div className={cn("flex max-w-[70%] min-w-0 flex-col gap-1.5 rounded-2xl border px-3.5 py-2.5 shadow-xs",
+                ? <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">EV</span>
+                : <PersonAvatar name={name} photo={photo} size={30} rounded="full" />}
+            <div className={cn("flex max-w-[70%] min-w-0 flex-col gap-1 rounded-2xl border px-3 py-2 shadow-xs",
                 byOrganizer ? "rounded-tr-sm border-primary/20 bg-primary/10" : "rounded-tl-sm border-border bg-card",
                 reply.is_hidden && "opacity-70")}>
-                {byOrganizer && <p className="flex items-center gap-1 text-[12px] font-bold text-primary"><Crown className="size-3.5 text-amber-500" /> Event Organizer</p>}
+                {byOrganizer && <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><Crown className="size-3.5 text-amber-500" /> Event Organizer</p>}
                 {quote && (
                     <p className="line-clamp-2 border-l-2 border-primary/40 pl-2 text-[11.5px] text-muted-foreground">
                         <Reply className="mr-1 inline size-3" />{previewOf(quote)}
@@ -566,8 +566,8 @@ function ReplyBubble({ eventId, reply, quote, name, photo }: { eventId: number; 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={mediaUrl(reply.photo)} alt="" className="max-h-[220px] w-auto max-w-full rounded-xl object-cover" />
                 )}
-                {reply.message && <p className="whitespace-pre-line break-words text-[13.5px]">{reply.message}</p>}
-                <span className="flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
+                {reply.message && <p className="whitespace-pre-line break-words text-[12.5px]">{reply.message}</p>}
+                <span className="flex items-center justify-end gap-1 text-[10.5px] text-muted-foreground">
                     {timeOf(reply.created_at)} {byOrganizer && <CheckCheck className="size-3.5 text-primary" />}
                 </span>
             </div>
@@ -667,7 +667,7 @@ function Composer({ eventId, thread, replyTo, onClearReply }: { eventId: number;
                     placeholder={thread.isOrg ? "Post a wish as the organizer..." : "Type a message..."}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-                    className="max-h-32 min-h-10 flex-1 resize-none rounded-xl py-2.5 !text-[13.5px]" />
+                    className="max-h-32 min-h-10 flex-1 resize-none rounded-xl py-2.5 !text-[12.5px]" />
                 <Button size="icon" className="size-10 shrink-0 rounded-full" disabled={busy || (!text.trim() && !file)} onClick={() => void send()} aria-label="Send">
                     {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </Button>
@@ -689,7 +689,7 @@ function HideChat({ eventId, thread, side, access, onClose }: {
     const run = () => hide.mutate({ thread: thread.key, hidden: !restoring, note: note.trim() || undefined }, { onSuccess: onClose });
     const pill = access ? ACCESS[access] : null;
     return (
-        <ActionSheet open onClose={onClose} large icon={restoring ? Eye : EyeOff} title={restoring ? "Move to Inbox" : "Hide Chat"} width={520}
+        <ActionSheet open onClose={onClose} icon={restoring ? Eye : EyeOff} title={restoring ? "Move to Inbox" : "Hide Chat"}
             subtitle={restoring
                 ? "The chat goes back to the active conversation list."
                 : "The chat will be hidden from the active list but can be restored later from Hidden conversations."}
@@ -834,7 +834,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
     const kindOf = (w: Wish) => (w.post_type === "video" ? "video" : w.post_type === "image" ? "photo" : "text");
 
     return (
-        <ActionSheet open onClose={onClose} large title="Participant Details" width={520}>
+        <ActionSheet open onClose={onClose} icon={UserRound} title="Participant Details" subtitle="Profile, wishes, media and comments." width={520}>
             {/* Header: photo, name, Active, side, Send Message · call · mail · ⋯ */}
             <div className="flex items-center gap-4">
                 <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={60} online={thread.online} />

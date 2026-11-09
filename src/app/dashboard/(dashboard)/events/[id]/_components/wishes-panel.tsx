@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowLeft, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus, Settings,
-    ShieldAlert, ShieldCheck, Trash2, Video, X,
+    ShieldAlert, ShieldCheck, Trash2, Video, X, Ban, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,7 +23,7 @@ import {
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
-import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider, useWishPanels } from "./wish-panels";
+import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider } from "./wish-panels";
 import { useEventParticipants } from "@/hooks/use-event-participants";
 
 /**
@@ -168,7 +168,6 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
     const [note, setNote] = useState("");
     const unblock = wish.author_blocked;
     const busy = block.isPending || update.isPending;
-    const { eyebrow } = useWishPanels();
     const run = async () => {
         try {
             await block.mutateAsync({ id: wish.id, blocked: !unblock, ...(unblock ? {} : { reason, note: note.trim() }) });
@@ -177,7 +176,7 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
         } catch { /* the hooks showed the error */ }
     };
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={520} title={unblock ? "Unblock Participant" : "Block Participant"}
+        <ActionSheet open onClose={onClose} icon={unblock ? UserCheck : Ban} tone={unblock ? "success" : "danger"} title={unblock ? "Unblock Participant" : "Block Participant"}
             subtitle={unblock ? "Let this participant use Wed Wishes again." : "Restrict access to the Wed Wishes menu only."}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
@@ -254,7 +253,6 @@ function DeleteWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; o
 /* ── Post a Wish (organizer) ─────────────────────────────────────────────── */
 
 function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName: string; onClose: () => void }) {
-    const { eyebrow } = useWishPanels();
     const create = useCreateWish(eventId);
     const update = useUpdateWish(eventId);
     const [name, setName] = useState("");
@@ -284,7 +282,7 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
     const box = "flex flex-col items-center gap-0.5 rounded-xl border border-dashed border-primary/40 bg-primary/[0.03] px-3 py-3 text-center transition hover:bg-primary/5";
 
     return (
-        <FormPanel sheet={{ open: true, onClose }} eyebrow={eyebrow} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
+        <FormPanel sheet={{ open: true, onClose }} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={submit}>{busy && <Loader2 className="size-3.5 animate-spin" />} {publish ? "Publish Wish" : "Save Hidden"}</Button>
@@ -336,7 +334,6 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
 /* ── Blocked Words & Auto Filter ─────────────────────────────────────────── */
 
 function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => void }) {
-    const { eyebrow } = useWishPanels();
     const query = useWishFilter(eventId);
     const save = useSaveWishFilter(eventId);
     const [draft, setDraft] = useState<WishFilter | null>(null);
@@ -353,7 +350,7 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
         setWord("");
     };
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={520} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
+        <ActionSheet open onClose={onClose} icon={Filter} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
             footer={<>
                 <Button variant="outline" disabled={save.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={save.isPending || !draft} onClick={() => draft && save.mutate(draft, { onSuccess: onClose })}>{save.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Rules</Button>

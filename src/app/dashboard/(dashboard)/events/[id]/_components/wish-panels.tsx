@@ -24,7 +24,7 @@ import {
 /**
  * The Wed Wishes action panels in Jamal's designs (2026-11-09): View Wish, Edit Wish, Approve &
  * Publish, Manage Comments and Send In-App Notification. All slide in from the right ("canvas")
- * with the "<EVENT> · WED WISHES" line above a large title.
+ * as the standard module slide-in (Jamal, 2026-11-09: "like the other modules' canvas").
  */
 
 /* ── Shared ──────────────────────────────────────────────────────────────── */
@@ -121,7 +121,6 @@ function WishMedia({ wish, className }: { wish: Wish; className?: string }) {
 /* ── View Wish ───────────────────────────────────────────────────────────── */
 
 export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { eventId: number; wish: Wish; onClose: () => void; onEdit: () => void; onComments: () => void }) {
-    const { eyebrow } = useWishPanels();
     const comments = useWishComments(eventId, wish.id);
     const reports = useWishReports(eventId, wish.id, reported(wish));
     const update = useUpdateWish(eventId);
@@ -129,7 +128,7 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
     const st = statusOf(wish);
     const media = wish.post_type !== "text";
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="View Wish" subtitle="Read the selected wedding wish and its moderation history." width={520}
+        <ActionSheet open onClose={onClose} icon={Eye} title="View Wish" subtitle="Read the wish, its media and reactions."
             footer={<>
                 <Button variant="outline" onClick={onClose}>Close</Button>
                 {wish.can_edit
@@ -203,7 +202,6 @@ type Kind = Wish["post_type"];
 const KIND_LABEL: Record<Kind, string> = { text: "Text", image: "Text with Image", video: "Text with Video" };
 
 export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const { eyebrow } = useWishPanels();
     const update = useUpdateWish(eventId);
     const replace = useReplaceWishMedia(eventId);
     const [kind, setKind] = useState<Kind>(wish.post_type);
@@ -236,7 +234,7 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
     };
 
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Edit Wish" subtitle={wish.added_by_organizer ? "Modify your post — participants see the change in the app straight away." : "Correct this participant's wish — the change shows in the app straight away."} width={520}
+        <ActionSheet open onClose={onClose} icon={Pencil} title="Edit Wish" subtitle={wish.added_by_organizer ? "Modify your post — participants see the change in the app straight away." : "Correct this participant's wish — the change shows in the app straight away."}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Changes</Button>
@@ -305,7 +303,6 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
 /* ── Approve & Publish ───────────────────────────────────────────────────── */
 
 export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const { eyebrow } = useWishPanels();
     const update = useUpdateWish(eventId);
     const who = useWhoLine(wish);
     const st = statusOf(wish);
@@ -314,7 +311,7 @@ export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish:
         { onSuccess: onClose },
     );
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Approve & Publish Wish" subtitle="Review a pending wish before it becomes visible to guests." width={520}
+        <ActionSheet open onClose={onClose} icon={Check} tone="success" title="Approve & Publish Wish" subtitle="Review a pending wish before it becomes visible to guests."
             footer={<>
                 <Button variant="outline" disabled={update.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={update.isPending} onClick={approve}>{update.isPending && <Loader2 className="size-3.5 animate-spin" />} Approve &amp; Publish</Button>
@@ -358,7 +355,6 @@ const commentState = (c: WishComment): { tab: CommentTab; label: string; tone: T
             : { tab: "published", label: "Published", tone: "success" };
 
 export function ManageComments({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const { eyebrow } = useWishPanels();
     const comments = useWishComments(eventId, wish.id);
     const act = useWishCommentActions(eventId);
     const update = useUpdateWish(eventId);
@@ -375,7 +371,7 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
     };
     const small = "h-7 px-2.5 text-[12px]";
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Manage Comments" subtitle="Review and moderate comments on this wedding wish." width={520}
+        <ActionSheet open onClose={onClose} icon={MessageSquare} title="Manage Comments" subtitle="Review and moderate comments on this wish."
             footer={<>
                 <Button variant="outline" onClick={onClose}>Close</Button>
                 <Button disabled={update.isPending} onClick={save}>{update.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Settings</Button>
@@ -463,7 +459,7 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
     const [message, setMessage] = useState(`Hi ${first},\n\nThank you so much for your lovely wishes! 💖\nYour message truly made our day more special.\n\n– Event Organizer`);
     const ready = !!subject.trim() && !!message.trim() && wish.participant_id !== null;
     return (
-        <ActionSheet open onClose={onClose} large icon={Bell} title="Send In-App Notification" subtitle="Send a private in-app message to a participant." width={520}
+        <ActionSheet open onClose={onClose} icon={Bell} title="Send In-App Notification" subtitle="Send a private in-app message to a participant."
             footer={<>
                 <Button variant="outline" disabled={send.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={send.isPending || !ready}
