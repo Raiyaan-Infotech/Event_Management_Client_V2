@@ -75,12 +75,12 @@ const extOf = (url?: string | null) => (url?.split("?")[0].split(".").pop() || "
 export function PersonCard({ wish, sub, right, children }: { wish: Wish; sub?: React.ReactNode; right?: React.ReactNode; children?: React.ReactNode }) {
     const who = useWhoLine(wish);
     return (
-        <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.09] p-4">
-            <div className="flex items-center gap-3">
-                <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={44} rounded="full" />
+        <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.09] p-3">
+            <div className="flex items-center gap-2.5">
+                <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-bold">{wish.guest_name}</p>
-                    <p className="text-[12px] text-muted-foreground">{sub ?? who}</p>
+                    <p className="truncate text-[13.5px] font-bold">{wish.guest_name}</p>
+                    <p className="text-[11.5px] text-muted-foreground">{sub ?? who}</p>
                 </div>
                 {right}
             </div>
@@ -92,8 +92,8 @@ export function PersonCard({ wish, sub, right, children }: { wish: Wish; sub?: R
 /** A white card with a small bold heading (Wish Details, Attached Media, Engagement & Status). */
 function Card({ title, icon: Icon, children, className }: { title?: string; icon?: typeof Heart; children: React.ReactNode; className?: string }) {
     return (
-        <div className={cn("rounded-xl border border-border bg-card p-4", className)}>
-            {title && <p className="mb-3 flex items-center gap-1.5 text-[14px] font-bold">{Icon && <Icon className="size-4 text-primary" />} {title}</p>}
+        <div className={cn("rounded-xl border border-border bg-card p-3", className)}>
+            {title && <p className="mb-2 flex items-center gap-1.5 text-[13px] font-bold">{Icon && <Icon className="size-3.5 text-primary" />} {title}</p>}
             {children}
         </div>
     );
@@ -101,7 +101,7 @@ function Card({ title, icon: Icon, children, className }: { title?: string; icon
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="flex items-center justify-between gap-4 py-1.5 text-[13px]">
+        <div className="flex items-center justify-between gap-4 py-1 text-[12.5px]">
             <span className="text-muted-foreground">{label}</span>
             <span className="text-right font-semibold">{children}</span>
         </div>
@@ -129,7 +129,7 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
     const st = statusOf(wish);
     const media = wish.post_type !== "text";
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="View Wish" subtitle="Read the selected wedding wish and its moderation history." width={600}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="View Wish" subtitle="Read the selected wedding wish and its moderation history." width={520}
             footer={<>
                 <Button variant="outline" onClick={onClose}>Close</Button>
                 {wish.can_edit
@@ -139,11 +139,11 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
             <PersonCard wish={wish} right={<StatusPill tone={st.tone}>{st.label}</StatusPill>} />
             <Card title="Wish Details" icon={Heart}>
                 {wish.message
-                    ? <p className="whitespace-pre-line break-words text-[15px] font-medium leading-relaxed">{wish.message}</p>
+                    ? <p className="whitespace-pre-line break-words text-[13.5px] font-medium leading-relaxed">{wish.message}</p>
                     : <p className="text-[13px] text-muted-foreground">No message — {wish.post_type} only.</p>}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <StatusPill tone="primary">{TYPE_WISH[wish.post_type]}</StatusPill>
-                    <span className="text-[12px] text-muted-foreground">Posted {dateTime(wish.created_at)}</span>
+                    <span className="text-[11.5px] text-muted-foreground">Posted {dateTime(wish.created_at)}</span>
                 </div>
             </Card>
             {media && (
@@ -181,7 +181,7 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
             )}
             <Card>
                 <div className="mb-1 flex items-center justify-between">
-                    <p className="text-[14px] font-bold">Latest Comments</p>
+                    <p className="text-[13px] font-bold">Latest Comments</p>
                     <button type="button" onClick={onComments} className="text-[12px] font-semibold text-primary hover:underline">Manage ({wish.comment_count ?? 0})</button>
                 </div>
                 {latest.length === 0
@@ -233,7 +233,7 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
     };
 
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Edit Wish" subtitle="Modify this post — participants see the change in the app straight away." width={600}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Edit Wish" subtitle="Modify this post — participants see the change in the app straight away." width={520}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Changes</Button>
@@ -242,13 +242,13 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
             <div className="grid gap-3 sm:grid-cols-2">
                 <FormField label="Wish Type">
                     <Select value={kind} onValueChange={(v) => { setKind(v as Kind); setFile(null); }}>
-                        <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                         <SelectContent>{(Object.keys(KIND_LABEL) as Kind[]).map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}</SelectContent>
                     </Select>
                 </FormField>
                 <FormField label="Wishes To">
                     <Select value={audience} onValueChange={(v) => setAudience(v as WishAudience)}>
-                        <SelectTrigger className="h-10 w-full"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                         <SelectContent>{(Object.keys(AUDIENCE_LONG) as WishAudience[]).map((a) => <SelectItem key={a} value={a}>{AUDIENCE_LONG[a]}</SelectItem>)}</SelectContent>
                     </Select>
                 </FormField>
@@ -308,12 +308,12 @@ export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish:
         { onSuccess: onClose },
     );
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Approve & Publish Wish" subtitle="Review a pending wish before it becomes visible to guests." width={600}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Approve & Publish Wish" subtitle="Review a pending wish before it becomes visible to guests." width={520}
             footer={<>
                 <Button variant="outline" disabled={update.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={update.isPending} onClick={approve}>{update.isPending && <Loader2 className="size-3.5 animate-spin" />} Approve &amp; Publish</Button>
             </>}>
-            <span className="grid size-16 place-items-center rounded-2xl bg-success/10 text-success"><Check className="size-8" /></span>
+            <span className="grid size-11 place-items-center rounded-xl bg-success/10 text-success"><Check className="size-6" /></span>
             <PersonCard wish={wish} sub={`${who} • Submitted ${dateOnly(wish.created_at)}`}>
                 <div className="mt-3 border-t border-primary/15 pt-3">
                     {wish.message && <p className="whitespace-pre-line break-words text-[14px]">{wish.message}</p>}
@@ -325,9 +325,9 @@ export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish:
                     </div>
                 </div>
             </PersonCard>
-            <div className="rounded-xl border border-success/30 bg-success/[0.06] p-4">
-                <p className="mb-2 text-[14px] font-bold text-success">What happens when you publish?</p>
-                <ul className="flex flex-col gap-1 text-[13px]">
+            <div className="rounded-xl border border-success/30 bg-success/[0.06] p-3">
+                <p className="mb-1.5 text-[13px] font-bold text-success">What happens when you publish?</p>
+                <ul className="flex flex-col gap-0.5 text-[12.5px]">
                     {["Visible to permitted event participants", "Appears in the Wed Wishes feed", "Participants can like and comment", "Organizer can hide the wish later",
                         ...(reported(wish) ? ["Its reports are cleared"] : [])].map((t) => (
                         <li key={t} className="flex items-center gap-2"><Check className="size-3.5 text-success" /> {t}</li>
@@ -369,16 +369,16 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
     };
     const small = "h-7 px-2.5 text-[12px]";
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Manage Comments" subtitle="Review and moderate comments on this wedding wish." width={600}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Manage Comments" subtitle="Review and moderate comments on this wedding wish." width={520}
             footer={<>
                 <Button variant="outline" onClick={onClose}>Close</Button>
                 <Button disabled={update.isPending} onClick={save}>{update.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Settings</Button>
             </>}>
-            <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.09] p-4">
-                <div className="flex items-center gap-3">
-                    <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={44} rounded="full" />
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.09] p-3">
+                <div className="flex items-center gap-2.5">
+                    <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />
                     <div className="min-w-0">
-                        <p className="truncate text-[15px] font-bold">{wish.guest_name}&apos;s Wish</p>
+                        <p className="truncate text-[13.5px] font-bold">{wish.guest_name}&apos;s Wish</p>
                         <p className="line-clamp-2 break-words text-[12.5px] text-muted-foreground">{wish.message || TYPE_WISH[wish.post_type]}</p>
                     </div>
                 </div>
@@ -435,7 +435,7 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
                             })}
                         </div>
                     )}
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-300/60 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-300/60 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/20">
                 <div>
                     <p className="text-[13px] font-semibold">Allow new comments on this wish</p>
                     <p className="mt-0.5 text-[12px] text-muted-foreground">Turn off to close comments while keeping published replies visible.</p>
@@ -457,7 +457,7 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
     const [message, setMessage] = useState(`Hi ${first},\n\nThank you so much for your lovely wishes! 💖\nYour message truly made our day more special.\n\n– Event Organizer`);
     const ready = !!subject.trim() && !!message.trim() && wish.participant_id !== null;
     return (
-        <ActionSheet open onClose={onClose} large icon={Bell} title="Send In-App Notification" subtitle="Send a private in-app message to a participant." width={560}
+        <ActionSheet open onClose={onClose} large icon={Bell} title="Send In-App Notification" subtitle="Send a private in-app message to a participant." width={520}
             footer={<>
                 <Button variant="outline" disabled={send.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={send.isPending || !ready}
@@ -466,41 +466,41 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
                 </Button>
             </>}>
             <FormField label="Recipient" required>
-                <div className="flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
-                    <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />
+                <div className="flex items-center gap-2.5 rounded-xl border border-border px-3 py-2">
+                    <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={30} rounded="full" />
                     <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14px] font-semibold">{wish.guest_name}</span>
+                        <span className="block truncate text-[13px] font-semibold">{wish.guest_name}</span>
                         <span className="block text-[12px] text-muted-foreground">{who.replace(" • Participant", "")}</span>
                     </span>
                     <ChevronDown className="size-4 text-muted-foreground" />
                 </div>
             </FormField>
             <FormField label="Channel">
-                <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5">
+                <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
                     <Smartphone className="size-4 text-primary" />
-                    <span className="flex-1 text-[13.5px] font-semibold">In-App</span>
+                    <span className="flex-1 text-[13px] font-semibold">In-App</span>
                     <StatusPill tone="success" icon={Check}>In-App Notification</StatusPill>
                     <span title="Shown in the participant's notifications in the event app."><Info className="size-4 text-muted-foreground" /></span>
                 </div>
             </FormField>
             <FormField label="Subject" required>
-                <Input value={subject} maxLength={MAX_SUBJECT} onChange={(e) => setSubject(e.target.value)} className="h-10" />
+                <Input value={subject} maxLength={MAX_SUBJECT} onChange={(e) => setSubject(e.target.value)} className="h-9" />
                 <CharCount value={subject} max={MAX_SUBJECT} />
             </FormField>
             <FormField label="Message" required>
-                <Textarea value={message} maxLength={MAX_MESSAGE} rows={6} onChange={(e) => setMessage(e.target.value)} />
+                <Textarea value={message} maxLength={MAX_MESSAGE} rows={5} onChange={(e) => setMessage(e.target.value)} />
                 <CharCount value={message} max={MAX_MESSAGE} />
             </FormField>
             <div>
-                <p className="mb-2 flex items-center gap-1.5 text-[13.5px] font-bold"><Eye className="size-4" /> Live Preview</p>
-                <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-4">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Bell className="size-5" /></span>
+                <p className="mb-1.5 flex items-center gap-1.5 text-[12.5px] font-bold"><Eye className="size-3.5" /> Live Preview</p>
+                <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Bell className="size-4" /></span>
                     <div className="min-w-0 flex-1">
                         <p className="flex items-start justify-between gap-2">
-                            <span className="break-words text-[14px] font-bold">{subject.trim() || "Subject"}</span>
+                            <span className="break-words text-[13px] font-bold">{subject.trim() || "Subject"}</span>
                             <span className="shrink-0 text-[11.5px] text-muted-foreground">now</span>
                         </p>
-                        <p className="mt-1 whitespace-pre-line break-words text-[12.5px] text-foreground/80">{message.trim() || "Your message…"}</p>
+                        <p className="mt-1 whitespace-pre-line break-words text-[12px] text-foreground/80">{message.trim() || "Your message…"}</p>
                     </div>
                 </div>
             </div>

@@ -694,10 +694,10 @@ function HideChat({ eventId, thread, side, access, onClose }: {
                 <Button variant="outline" disabled={hide.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={hide.isPending} onClick={run}>{hide.isPending && <Loader2 className="size-3.5 animate-spin" />} {restoring ? "Move to Inbox" : "Hide Chat"}</Button>
             </>}>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
-                <PersonAvatar name={thread.name} photo={thread.avatar} size={44} rounded="full" />
+            <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card p-3">
+                <PersonAvatar name={thread.name} photo={thread.avatar} size={36} rounded="full" />
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-bold">{thread.name}</p>
+                    <p className="truncate text-[13.5px] font-bold">{thread.name}</p>
                     <p className="text-[12px] text-muted-foreground">{thread.isOrg ? "Your posts as the organizer" : side ?? "Participant"}</p>
                 </div>
                 {pill && <StatusPill tone={pill.tone}>{pill.label}</StatusPill>}
@@ -708,17 +708,17 @@ function HideChat({ eventId, thread, side, access, onClose }: {
                     : null
             ) : (
                 <>
-                    <p className="text-[15px] font-bold">Choose Action</p>
-                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4">
+                    <p className="text-[13px] font-bold">Choose Action</p>
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border-2 border-primary bg-primary/5 p-3">
                         <input type="radio" checked readOnly className="mt-0.5 size-4 accent-[var(--primary)]" />
                         <span>
-                            <span className="block text-[14px] font-semibold">Hide from main inbox</span>
-                            <span className="block text-[12.5px] text-muted-foreground">Remove this chat from the active conversation list. The wishes stay as they are for everyone.</span>
+                            <span className="block text-[13px] font-semibold">Hide from main inbox</span>
+                            <span className="block text-[12px] text-muted-foreground">Remove this chat from the active conversation list. The wishes stay as they are for everyone.</span>
                         </span>
                     </label>
                     <div>
-                        <p className="mb-1.5 text-[13.5px] font-semibold">Note <span className="font-normal text-muted-foreground">(Optional)</span></p>
-                        <Textarea value={note} maxLength={MAX_HIDE_NOTE} rows={4} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (e.g., reason for hiding)..." />
+                        <p className="mb-1 text-[12.5px] font-semibold">Note <span className="font-normal text-muted-foreground">(Optional)</span></p>
+                        <Textarea value={note} maxLength={MAX_HIDE_NOTE} rows={3} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (e.g., reason for hiding)..." />
                         <p className="mt-1 text-right text-[11.5px] text-muted-foreground">{Array.from(note).length}/{MAX_HIDE_NOTE}</p>
                     </div>
                 </>
@@ -771,9 +771,9 @@ function Chips<T extends string>({ value, onChange, items }: { value: T; onChang
 /** A section card with an icon title and an optional button on the right. */
 function DCard({ title, icon: Icon, action, children }: { title: string; icon: typeof Heart; action?: React.ReactNode; children: React.ReactNode }) {
     return (
-        <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-[15px] font-bold"><Icon className="size-[18px] text-primary" /> {title}</p>
+        <div className="rounded-xl border border-border bg-card p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-[13px] font-bold"><Icon className="size-4 text-primary" /> {title}</p>
                 {action}
             </div>
             {children}
@@ -783,8 +783,8 @@ function DCard({ title, icon: Icon, action, children }: { title: string; icon: t
 
 function DRow({ icon: Icon, label, children }: { icon: typeof Heart; label: string; children: React.ReactNode }) {
     return (
-        <div className="grid grid-cols-[18px_minmax(110px,40%)_1fr] items-center gap-2 border-b border-border/70 py-2 text-[12.5px] last:border-0">
-            <Icon className="size-4 text-muted-foreground" />
+        <div className="grid grid-cols-[16px_minmax(100px,40%)_1fr] items-center gap-2 border-b border-border/70 py-1.5 text-[12px] last:border-0">
+            <Icon className="size-3.5 text-muted-foreground" />
             <span className="font-medium text-muted-foreground">{label}</span>
             <span className="min-w-0 break-words font-medium">{children || "—"}</span>
         </div>
@@ -831,25 +831,25 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
     const kindOf = (w: Wish) => (w.post_type === "video" ? "video" : w.post_type === "image" ? "photo" : "text");
 
     return (
-        <ActionSheet open onClose={onClose} large title="Participant Details" width={560}>
+        <ActionSheet open onClose={onClose} large title="Participant Details" width={520}>
             {/* Header: photo, name, Active, side, Send Message · call · mail · ⋯ */}
             <div className="flex items-center gap-4">
-                <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={84} online={thread.online} />
+                <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={60} online={thread.online} />
                 <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
-                        <span className="break-words text-[22px] leading-tight font-bold">{name}</span>
+                        <span className="break-words text-[17px] leading-tight font-bold">{name}</span>
                         {access && <StatusPill tone={access.tone}>{access.label}</StatusPill>}
                     </p>
-                    <p className="text-[13px] text-muted-foreground">{side ?? "Participant"}</p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <p className="text-[12px] text-muted-foreground">{side ?? "Participant"}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {thread.participantId && (
-                            <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={onMessage}><MessageSquare className="size-3.5" /> Send Message</Button>
+                            <Button size="sm" variant="outline" className="h-7 rounded-full px-2.5 text-[12px]" onClick={onMessage}><MessageSquare className="size-3.5" /> Send Message</Button>
                         )}
-                        {p?.mobile && <Button asChild size="icon" variant="outline" className="size-8 rounded-full"><a href={`tel:${p.mobile}`} aria-label="Call"><Phone className="size-3.5" /></a></Button>}
-                        {p?.email && <Button asChild size="icon" variant="outline" className="size-8 rounded-full"><a href={`mailto:${p.email}`} aria-label="Email"><Mail className="size-3.5" /></a></Button>}
+                        {p?.mobile && <Button asChild size="icon" variant="outline" className="size-7 rounded-full"><a href={`tel:${p.mobile}`} aria-label="Call"><Phone className="size-3.5" /></a></Button>}
+                        {p?.email && <Button asChild size="icon" variant="outline" className="size-7 rounded-full"><a href={`mailto:${p.email}`} aria-label="Email"><Mail className="size-3.5" /></a></Button>}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button size="icon" variant="outline" className="size-8 rounded-full" aria-label="More"><MoreHorizontal className="size-4" /></Button>
+                                <Button size="icon" variant="outline" className="size-7 rounded-full" aria-label="More"><MoreHorizontal className="size-3.5" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => { onClose(); onHide(); }}>
@@ -873,10 +873,10 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
             </div>
 
             {/* Tabs (underlined) */}
-            <div className="-mx-6 flex border-b border-border px-6">
+            <div className="-mx-5 flex border-b border-border px-5">
                 {([["profile", "Profile"], ["wishes", `Wishes (${thread.wishes.length})`], ["media", `Media (${media.length})`], ["comments", `Comments (${commentCount})`]] as [DetailTab, string][]).map(([v, label]) => (
                     <button key={v} type="button" onClick={() => setTab(v)}
-                        className={cn("-mb-px flex-1 border-b-2 px-2 py-2.5 text-[13px] font-semibold whitespace-nowrap transition",
+                        className={cn("-mb-px flex-1 border-b-2 px-1.5 py-2 text-[12px] font-semibold whitespace-nowrap transition",
                             tab === v ? "border-primary text-primary" : "border-transparent text-foreground/80 hover:text-primary")}>
                         {label}
                     </button>
@@ -915,10 +915,10 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                                 { icon: Heart, value: thread.likes, label: "Likes" },
                                 { icon: Heart, value: thread.wishes.length, label: "Wishes" },
                             ].map((s) => (
-                                <div key={s.label} className="flex flex-col items-center gap-0.5 rounded-xl bg-primary/[0.06] px-2 py-3 text-center">
-                                    <s.icon className="size-5 text-primary" />
-                                    <span className="text-[22px] leading-7 font-bold">{s.value}</span>
-                                    <span className="text-[11.5px] text-muted-foreground">{s.label}</span>
+                                <div key={s.label} className="flex flex-col items-center gap-0.5 rounded-xl bg-primary/[0.06] px-2 py-2 text-center">
+                                    <s.icon className="size-4 text-primary" />
+                                    <span className="text-[17px] leading-6 font-bold">{s.value}</span>
+                                    <span className="text-[11px] text-muted-foreground">{s.label}</span>
                                 </div>
                             ))}
                         </div>
@@ -954,7 +954,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                                 const st = wishStatus(w);
                                 const thumb = w.thumbnail_url ?? w.photo;
                                 return (
-                                    <div key={w.id} className="rounded-xl border border-border p-3">
+                                    <div key={w.id} className="rounded-xl border border-border p-2.5">
                                         <div className="mb-2 flex items-center justify-between gap-2">
                                             <span className="flex items-center gap-1.5 text-[12.5px] font-bold text-primary"><meta.icon className="size-3.5" /> {meta.label}</span>
                                             <span className="flex items-center gap-1.5">
@@ -973,7 +973,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                                             </>
                                         ) : (
                                             <div className="flex gap-3">
-                                                <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                                <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     {thumb && <img src={mediaUrl(thumb)} alt="" className="size-full object-cover" />}
                                                     {w.post_type === "video" && <span className="absolute inset-0 grid place-items-center"><PlayCircle className="size-8 text-white drop-shadow" /></span>}
@@ -1065,7 +1065,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                         : shownComments.length === 0 ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">No comments here.</p> : (
                             <div className="flex flex-col gap-2.5">
                                 {shownComments.map(({ c, w }) => (
-                                    <div key={c.id} className="flex gap-3 rounded-xl border border-border p-3">
+                                    <div key={c.id} className="flex gap-2.5 rounded-xl border border-border p-2.5">
                                         <PersonAvatar name={c.added_by_organizer ? "Event Organizer" : c.guest_name} size={34} rounded="full" />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-2">

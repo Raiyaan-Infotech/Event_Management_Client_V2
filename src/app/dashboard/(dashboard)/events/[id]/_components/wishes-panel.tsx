@@ -177,7 +177,7 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
         } catch { /* the hooks showed the error */ }
     };
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={560} title={unblock ? "Unblock Participant" : "Block Participant"}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={520} title={unblock ? "Unblock Participant" : "Block Participant"}
             subtitle={unblock ? "Let this participant use Wed Wishes again." : "Restrict access to the Wed Wishes menu only."}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
@@ -353,7 +353,7 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
         setWord("");
     };
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={560} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={520} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
             footer={<>
                 <Button variant="outline" disabled={save.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={save.isPending || !draft} onClick={() => draft && save.mutate(draft, { onSuccess: onClose })}>{save.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Rules</Button>

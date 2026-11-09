@@ -47,21 +47,21 @@ export function ActionSheet({
                 <SheetContent side="right" showCloseButton={false}
                     className="w-full gap-0 overflow-hidden p-0 sm:my-3 sm:mr-3 sm:h-[calc(100%-1.5rem)] sm:max-w-none sm:rounded-2xl sm:border"
                     style={{ maxWidth: width }}>
-                    <div className="flex items-start gap-3 border-b border-border bg-gradient-to-b from-primary/[0.06] to-transparent px-6 pt-5 pb-4">
+                    <div className="flex items-start gap-3 border-b border-border bg-gradient-to-b from-primary/[0.06] to-transparent px-5 pt-4 pb-3">
                         {Icon && !eyebrow && (
-                            <span className={cn("grid size-12 shrink-0 place-items-center rounded-full bg-primary/10", TONE_TEXT[tone])}>
-                                <Icon className="size-6" />
+                            <span className={cn("grid size-10 shrink-0 place-items-center rounded-full bg-primary/10", TONE_TEXT[tone])}>
+                                <Icon className="size-5" />
                             </span>
                         )}
                         <div className="min-w-0 flex-1">
-                            {eyebrow && <p className="mb-1 text-[11.5px] font-bold tracking-[0.08em] text-primary uppercase">{eyebrow}</p>}
-                            <SheetTitle className="text-[22px] leading-tight font-bold">{title}</SheetTitle>
-                            <SheetDescription className={cn("mt-1 text-[13px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>
+                            {eyebrow && <p className="mb-0.5 text-[10.5px] font-bold tracking-[0.08em] text-primary uppercase">{eyebrow}</p>}
+                            <SheetTitle className="text-[18px] leading-tight font-bold">{title}</SheetTitle>
+                            <SheetDescription className={cn("mt-0.5 text-[12px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>
                         </div>
-                        <Button size="icon" variant="outline" className="size-9 shrink-0 rounded-lg" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
+                        <Button size="icon" variant="outline" className="size-8 shrink-0 rounded-lg" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
                     </div>
-                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">{children}</div>
-                    {footer && <div className="grid grid-cols-2 gap-3 border-t border-border px-6 py-4 [&>*]:h-11">{footer}</div>}
+                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 text-[12.5px]">{children}</div>
+                    {footer && <div className="grid grid-cols-2 gap-2.5 border-t border-border px-5 py-3 [&>*]:h-9 [&>*]:text-[13px]">{footer}</div>}
                 </SheetContent>
             </Sheet>
         );
