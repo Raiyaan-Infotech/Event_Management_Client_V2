@@ -117,16 +117,18 @@ export function ListCard({
  * Session, Create Folder): pink header with an icon, body, a footer row.
  */
 export function FormPanel({
-    title, icon: Icon, subtitle, children, footer, className, panelRef, sheet,
+    title, icon: Icon, subtitle, children, footer, className, panelRef, sheet, eyebrow,
 }: {
     title: string; icon?: LucideIcon; subtitle?: string; children: React.ReactNode; footer?: React.ReactNode;
     className?: string; panelRef?: React.Ref<HTMLDivElement>;
     /** Open as a slide-in panel from the right ("canvas", Jamal 2026-11-04) instead of a card in the page. */
     sheet?: { open: boolean; onClose: () => void };
+    /** The Wed Wishes panel header (small pink line above a large title), slide-in only. */
+    eyebrow?: string;
 }) {
     if (sheet) {
         return (
-            <ActionSheet open={sheet.open} onClose={sheet.onClose} icon={Icon} title={title} subtitle={subtitle} footer={footer} width={520}>
+            <ActionSheet open={sheet.open} onClose={sheet.onClose} icon={Icon} title={title} subtitle={subtitle} footer={footer} width={520} eyebrow={eyebrow}>
                 <div className={cn("flex flex-col gap-2.5", COMPACT_FIELDS)}>{children}</div>
             </ActionSheet>
         );

@@ -23,7 +23,7 @@ import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import { useEventParticipants, useRemoveParticipant, type ParticipantRow } from "@/hooks/use-event-participants";
 import {
-    useCreateWish, useMarkWishThreadRead, useWishCommentActions, type Wish, type WishComment, type WishesPage,
+    useCreateWish, useHideWishThread, useMarkWishThreadRead, useWishCommentActions, type Wish, type WishComment, type WishesPage,
 } from "@/hooks/use-event-engagement";
 
 /**
@@ -36,7 +36,7 @@ import {
  */
 
 export type ChatTab = "all" | "unread" | "hidden";
-export type ChatStatus = "all" | "pending" | "reported" | "blocked";
+export type ChatStatus = "all" | "pending" | "reported" | "blocked" | "hidden_wishes";
 export type ChatView = { tab: ChatTab; status: ChatStatus };
 export type ChatPanel = "view" | "block" | "message" | "comments";
 
@@ -61,6 +61,9 @@ type Thread = {
     reported: number;
     blocked: boolean;
     likes: number;
+    /** Hide Chat: out of the main inbox, listed under Hidden. */
+    chatHidden: boolean;
+    hideNote: string | null;
 };
 
 const timeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "");
@@ -126,6 +129,8 @@ function buildThreads(wishes: Wish[], info: WishesPage["threads"]): Thread[] {
             reported: asc.filter((w) => (w.report_count ?? 0) > 0).length,
             blocked: asc.some((w) => w.author_blocked),
             likes: asc.reduce((n, w) => n + w.like_count, 0),
+            chatHidden: info?.[key]?.hidden ?? false,
+            hideNote: info?.[key]?.hide_note ?? null,
         };
     }).sort((a, b) => b.lastAt - a.lastAt);
 }
@@ -183,6 +188,7 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
     const [phoneThread, setPhoneThread] = useState(false);
     const [details, setDetails] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const [hiding, setHiding] = useState(false);
     const [boxRef, boxHeight] = useFitHeight();
     const participants = useEventParticipants(event.id);
     const byId = useMemo(() => new Map((participants.data ?? []).map((p) => [p.id, p])), [participants.data]);
@@ -194,11 +200,14 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
             (view.status === "all"
                 || (view.status === "pending" && t.pending > 0)
                 || (view.status === "reported" && t.reported > 0)
-                || (view.status === "blocked" && t.blocked))
+                || (view.status === "blocked" && t.blocked)
+                || (view.status === "hidden_wishes" && t.hidden > 0))
             && (!q || t.name.toLowerCase().includes(q) || t.wishes.some((w) => w.message.toLowerCase().includes(q))));
     }, [threads, search, view.status]);
-    const counts = { all: filtered.length, unread: filtered.filter((t) => t.unread > 0).length, hidden: filtered.filter((t) => t.hidden > 0).length };
-    const shown = view.tab === "unread" ? filtered.filter((t) => t.unread > 0) : view.tab === "hidden" ? filtered.filter((t) => t.hidden > 0) : filtered;
+    // All = the main inbox; Hidden = chats moved out with Hide Chat.
+    const inbox = filtered.filter((t) => !t.chatHidden);
+    const counts = { all: inbox.length, unread: inbox.filter((t) => t.unread > 0).length, hidden: filtered.filter((t) => t.chatHidden).length };
+    const shown = view.tab === "unread" ? inbox.filter((t) => t.unread > 0) : view.tab === "hidden" ? filtered.filter((t) => t.chatHidden) : inbox;
     const selected = threads.find((t) => t.key === picked) ?? shown[0] ?? null;
     const participant = selected?.participantId ? byId.get(selected.participantId) : undefined;
     const latestOf = (t: Thread) => t.wishes[t.wishes.length - 1];
@@ -211,7 +220,9 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
         if (selectedKey && unreadOpen > 0 && (selectedKey === ORG || selectedKey.startsWith("c:"))) markRead(selectedKey);
     }, [selectedKey, unreadOpen, markRead]);
 
-    const statusLabel: Record<ChatStatus, string> = { all: "All conversations", pending: "Pending review", reported: "Reported", blocked: "Blocked participants" };
+    const statusLabel: Record<ChatStatus, string> = {
+        all: "All conversations", pending: "Pending review", reported: "Reported", blocked: "Blocked participants", hidden_wishes: "Has hidden wishes",
+    };
 
     return (
         <div ref={boxRef} style={{ height: boxHeight }}
@@ -294,6 +305,7 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
                         onBack={() => setPhoneThread(false)}
                         onDetails={() => setDetails(true)}
                         onRemove={() => setRemoving(true)}
+                        onHide={() => setHiding(true)}
                     />
                 ) : (
                     <div className="grid flex-1 place-items-center p-6 text-center text-[13px] text-muted-foreground">
@@ -307,6 +319,9 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
                     onClose={() => setDetails(false)}
                     onMessage={() => { setDetails(false); onPanel("message", latestOf(selected)); }} />
             )}
+            {hiding && selected && (
+                <HideChat eventId={event.id} thread={selected} side={sideOf(participant)} access={participant?.access ?? null} onClose={() => setHiding(false)} />
+            )}
             {removing && selected?.participantId && (
                 <RemoveParticipant eventId={event.id} participantId={selected.participantId} name={selected.name} onClose={() => setRemoving(false)} />
             )}
@@ -319,10 +334,10 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
 /** `day` = draw the date pill above it; `quote` = the reply is not right after its wish. */
 type Item = ({ kind: "wish"; wish: Wish } | { kind: "reply"; reply: WishComment; wish: Wish; quote: Wish | null }) & { at: number; day: boolean };
 
-function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBack, onDetails, onRemove }: {
+function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBack, onDetails, onRemove, onHide }: {
     eventId: number; thread: Thread; participant?: ParticipantRow;
     bubbleActions: (w: Wish) => RowAction[]; onPanel: (kind: ChatPanel, w: Wish) => void;
-    onBack: () => void; onDetails: () => void; onRemove: () => void;
+    onBack: () => void; onDetails: () => void; onRemove: () => void; onHide: () => void;
 }) {
     const [replyTo, setReplyTo] = useState<Wish | null>(null);
     const scroller = useRef<HTMLDivElement>(null);
@@ -364,6 +379,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                         {thread.isOrg ? "Your posts as the organizer" : <>{[side, "Participant"].filter(Boolean).join(" • ")}</>}
                         {thread.online && <span className="flex items-center gap-1 font-semibold text-success"><span className="size-2 rounded-full bg-success" /> Online</span>}
                         {thread.blocked && <StatusPill tone="danger" icon={UserX}>Blocked</StatusPill>}
+                        {thread.chatHidden && <StatusPill tone="violet" icon={EyeOff}>Hidden chat</StatusPill>}
                     </p>
                 </div>
                 {!thread.isOrg && (
@@ -381,6 +397,9 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={onDetails}><UserRound className="size-4 text-muted-foreground" /> Participant Details</DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={onHide}>
+                                    {thread.chatHidden ? <><Eye className="size-4 text-muted-foreground" /> Move to Inbox</> : <><EyeOff className="size-4 text-muted-foreground" /> Hide Chat</>}
+                                </DropdownMenuItem>
                                 {thread.participantId && (
                                     <>
                                         <DropdownMenuSeparator />
@@ -647,6 +666,59 @@ function Composer({ eventId, thread, replyTo, onClearReply }: { eventId: number;
     );
 }
 
+/* ── Hide Chat (Jamal's design, 2026-11-09) ──────────────────────────────── */
+
+const MAX_HIDE_NOTE = 250;
+function HideChat({ eventId, thread, side, access, onClose }: {
+    eventId: number; thread: Thread; side: string | null; access: string | null; onClose: () => void;
+}) {
+    const hide = useHideWishThread(eventId);
+    const [note, setNote] = useState("");
+    const restoring = thread.chatHidden;
+    const run = () => hide.mutate({ thread: thread.key, hidden: !restoring, note: note.trim() || undefined }, { onSuccess: onClose });
+    const pill = access ? ACCESS[access] : null;
+    return (
+        <ActionSheet open onClose={onClose} large icon={restoring ? Eye : EyeOff} title={restoring ? "Move to Inbox" : "Hide Chat"} width={520}
+            subtitle={restoring
+                ? "The chat goes back to the active conversation list."
+                : "The chat will be hidden from the active list but can be restored later from Hidden conversations."}
+            footer={<>
+                <Button variant="outline" disabled={hide.isPending} onClick={onClose}>Cancel</Button>
+                <Button disabled={hide.isPending} onClick={run}>{hide.isPending && <Loader2 className="size-3.5 animate-spin" />} {restoring ? "Move to Inbox" : "Hide Chat"}</Button>
+            </>}>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+                <PersonAvatar name={thread.name} photo={thread.avatar} size={44} rounded="full" />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-bold">{thread.name}</p>
+                    <p className="text-[12px] text-muted-foreground">{thread.isOrg ? "Your posts as the organizer" : side ?? "Participant"}</p>
+                </div>
+                {pill && <StatusPill tone={pill.tone}>{pill.label}</StatusPill>}
+            </div>
+            {restoring ? (
+                thread.hideNote
+                    ? <DetailSection title="Why it was hidden"><DetailRow label="Note">{thread.hideNote}</DetailRow></DetailSection>
+                    : null
+            ) : (
+                <>
+                    <p className="text-[15px] font-bold">Choose Action</p>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4">
+                        <input type="radio" checked readOnly className="mt-0.5 size-4 accent-[var(--primary)]" />
+                        <span>
+                            <span className="block text-[14px] font-semibold">Hide from main inbox</span>
+                            <span className="block text-[12.5px] text-muted-foreground">Remove this chat from the active conversation list. The wishes stay as they are for everyone.</span>
+                        </span>
+                    </label>
+                    <div>
+                        <p className="mb-1.5 text-[13.5px] font-semibold">Note <span className="font-normal text-muted-foreground">(Optional)</span></p>
+                        <Textarea value={note} maxLength={MAX_HIDE_NOTE} rows={4} onChange={(e) => setNote(e.target.value)} placeholder="Add a note (e.g., reason for hiding)..." />
+                        <p className="mt-1 text-right text-[11.5px] text-muted-foreground">{Array.from(note).length}/{MAX_HIDE_NOTE}</p>
+                    </div>
+                </>
+            )}
+        </ActionSheet>
+    );
+}
+
 /* ── Participant Details ─────────────────────────────────────────────────── */
 
 const RSVP: Record<string, { label: string; tone: Tone }> = {
@@ -672,7 +744,7 @@ function ParticipantDetails({ thread, participant: p, loading, onClose, onMessag
     const name = p?.full_name || p?.name || thread.name;
 
     return (
-        <ActionSheet open onClose={onClose} icon={UserRound} title="Participant Details" subtitle="Who wrote these wishes, and how they take part." width={540}>
+        <ActionSheet open onClose={onClose} large icon={UserRound} title="Participant Details" subtitle="Who wrote these wishes, and how they take part." width={540}>
             <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
                 <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={72} online={thread.online} />
                 <div className="min-w-0 flex-1">

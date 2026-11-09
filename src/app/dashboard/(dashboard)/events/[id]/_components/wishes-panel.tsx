@@ -3,8 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowLeft, Ban, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Flag, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus,
-    Send, Settings, ShieldAlert, ShieldCheck, Trash2, Upload, Video, X,
+    ArrowLeft, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus, Settings,
+    ShieldAlert, ShieldCheck, Trash2, Video, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,23 +13,24 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, PersonAvatar, PersonSummary, StatTile, StatusPill, type RowAction,
+    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, StatTile, StatusPill, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
 import { cn } from "@/lib/utils";
-import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
-    useBlockWishWriter, useCreateWish, useDeleteWish, useEventWishes, useMessageWishWriter, useReplaceWishMedia, useSaveWishFilter,
-    useSaveWishSettings, useUpdateWish, useWishCommentActions, useWishComments, useWishFilter, useWishReports,
-    type BlockReason, type Wish, type WishAudience, type WishComment, type WishFilter, type WishSettings, type WordAction,
+    useBlockWishWriter, useCreateWish, useDeleteWish, useEventWishes, useSaveWishFilter, useSaveWishSettings, useUpdateWish, useWishFilter, type BlockReason, type Wish, type WishAudience, type WishFilter, type WishSettings, type WordAction,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
+import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider, useWishPanels } from "./wish-panels";
+import { useEventParticipants } from "@/hooks/use-event-participants";
 
 /**
  * Since 2026-11-09 the page is Jamal's CHAT design (wishes-chat.tsx): conversations per participant
- * instead of the Wishes List table. The panels below (View, Edit, Moderate, …) are unchanged.
+ * instead of the Wishes List table. View / Edit / Approve & Publish / Manage Comments / Send In-App
+ * Notification are in wish-panels.tsx (Jamal's panel designs); Block, Blocked Words, Post Wish and
+ * Delete are below.
  *
  * Wed Wishes Monitor — Jamal's web design (Wishes_Monitor_Action_Flows, 2026-11-07):
  * header (Wishes Settings · Post Wish), tiles (Total · Published · Pending Review ·
@@ -43,9 +44,7 @@ import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
  * and a per-word action in Blocked Words (replace / hold for review / hide) — all on the server.
  */
 
-const AUDIENCE: Record<WishAudience, string> = { both: "Both", bride: "Bride", groom: "Groom" };
 const AUDIENCE_LONG: Record<WishAudience, string> = { both: "Both (Bride & Groom)", bride: "Bride", groom: "Groom" };
-const TYPE_LABEL = { text: "Text", image: "Image", video: "Video" } as const;
 const MAX_MESSAGE = 500;
 
 type Tab = "all" | "published" | "pending" | "hidden" | "blocked" | "reported";
@@ -56,23 +55,15 @@ const ACTION_META: Record<WordAction, { label: string; tone: Tone }> = {
     replace: { label: "Replace", tone: "success" }, hold: { label: "Hold for Review", tone: "warning" }, hide: { label: "Hide", tone: "danger" },
 };
 const reported = (w: Wish) => (w.report_count ?? 0) > 0;
-type Status = { label: string; tone: Tone };
-const statusOf = (w: Wish): Status =>
-    w.status === "blocked" ? { label: "Blocked", tone: "danger" }
-        : w.is_flagged ? { label: "Pending", tone: "warning" }
-            : w.status === "hidden" ? { label: "Hidden", tone: "violet" }
-                : { label: "Published", tone: "success" };
 const tabOf = (w: Wish): Tab => (w.status === "blocked" ? "blocked" : w.is_flagged ? "pending" : w.status === "hidden" ? "hidden" : "published");
 const fromParticipant = (w: Wish) => !w.added_by_organizer && w.participant_id !== null;
-const whoOf = (w: Wish) => (w.added_by_organizer ? "Organizer" : "Participant");
-const dateTimeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
-
 type Panel =
     | { kind: "view" | "edit" | "moderate" | "message" | "block" | "delete" | "comments"; wish: Wish }
     | { kind: "words" };
 
 export function WishesPanel({ event }: { event: ClientEvent }) {
     const query = useEventWishes(event.id);
+    const participants = useEventParticipants(event.id);
     const update = useUpdateWish(event.id);
     const [view, setView] = useState<ChatView>({ tab: "all", status: "all" });
     const [panel, setPanel] = useState<Panel | null>(null);
@@ -129,18 +120,19 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             )}
         />
     );
-    // Tiles narrow the conversations (Pending → the filter, Hidden → the Hidden tab).
+    // Tiles narrow the conversations (Pending / Hidden Wishes → the filter).
     const tiles = (
         <OverviewCard>
             <StatTile icon={Heart} value={all.total} label="Total Wishes" active={!settingsPage && view.tab === "all" && view.status === "all"} onClick={() => showChat({ tab: "all", status: "all" })} />
             <StatTile icon={CheckCircle2} value={all.published} label="Published" tone="success" />
             <StatTile icon={Clock} value={all.pending} label="Pending Review" tone="warning" active={!settingsPage && view.status === "pending"} onClick={() => showChat({ tab: "all", status: "pending" })} />
-            <StatTile icon={EyeOff} value={all.hidden} label="Hidden Wishes" tone="danger" active={!settingsPage && view.tab === "hidden"} onClick={() => showChat({ tab: "hidden", status: "all" })} />
+            <StatTile icon={EyeOff} value={all.hidden} label="Hidden Wishes" tone="danger" active={!settingsPage && view.status === "hidden_wishes"} onClick={() => showChat({ tab: "all", status: "hidden_wishes" })} />
             <StatTile icon={Heart} value={all.likes} label="Total Likes" tone="violet" />
         </OverviewCard>
     );
 
     return (
+        <WishPanelsProvider eventName={event.name} participants={participants.data}>
         <div className="flex flex-col gap-4">
             {header}
             {tiles}
@@ -151,10 +143,10 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             {panel && (
                 <>
                     {panel.kind === "view" && <ViewWish eventId={event.id} wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} onComments={() => open({ kind: "comments", wish: panel.wish })} />}
-                    {panel.kind === "comments" && <ManageComments key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} settings={data.settings} onClose={close} />}
+                    {panel.kind === "comments" && <ManageComments key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                     {panel.kind === "edit" && <EditWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                    {panel.kind === "moderate" && <ModerateWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                    {panel.kind === "message" && <MessageWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "moderate" && <ApproveWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "message" && <SendNotification key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                     {panel.kind === "block" && <BlockWriter key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                     {panel.kind === "delete" && <DeleteWish eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                     {panel.kind === "words" && <BlockedWords eventId={event.id} onClose={close} />}
@@ -162,241 +154,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             )}
             {posting && <PostWish eventId={event.id} eventName={event.name} onClose={() => setPosting(false)} />}
         </div>
-    );
-}
-
-/* ── Pieces ──────────────────────────────────────────────────────────────── */
-
-function WishMedia({ wish }: { wish: Wish }) {
-    if (wish.post_type === "video" && wish.video_url) {
-        return <video src={mediaUrl(wish.video_url)} poster={mediaUrl(wish.thumbnail_url) ?? undefined} controls preload="none" className="aspect-video w-full rounded-xl bg-black object-contain" />;
-    }
-    const src = wish.photo ?? wish.thumbnail_url;
-    // eslint-disable-next-line @next/next/no-img-element
-    if (wish.post_type === "image" && src) return <img src={mediaUrl(src)} alt="" className="max-h-[320px] w-full rounded-xl object-contain" />;
-    return null;
-}
-
-/** The pink card with the message — what a text wish looks like. */
-function MessageCard({ text }: { text: string }) {
-    return (
-        <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/15 px-5 py-6 text-center font-serif text-[16px] leading-relaxed whitespace-pre-line break-words text-primary/90">
-            {text}
-        </div>
-    );
-}
-
-function Who({ wish }: { wish: Wish }) {
-    const st = statusOf(wish);
-    return (
-        <PersonSummary name={wish.guest_name} photo={wish.avatar}
-            pills={<><StatusPill tone="primary">{whoOf(wish)}</StatusPill><StatusPill tone={st.tone}>{st.label}</StatusPill></>} />
-    );
-}
-
-/* ── View ────────────────────────────────────────────────────────────────── */
-
-function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { eventId: number; wish: Wish; onClose: () => void; onEdit: () => void; onComments: () => void }) {
-    const comments = useWishComments(eventId, wish.id);
-    const reports = useWishReports(eventId, wish.id, reported(wish));
-    const update = useUpdateWish(eventId);
-    const latest = (comments.data ?? []).filter((c) => !c.is_hidden).slice(-3).reverse();
-    return (
-        <ActionSheet open onClose={onClose} icon={Eye} title="View Wish" subtitle="Review the wish, media and reactions."
-            footer={<>
-                <Button variant="outline" onClick={onClose}>Close</Button>
-                {wish.can_edit ? <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit Wish</Button> : <span />}
-            </>}>
-            <Who wish={wish} />
-            {wish.post_type === "text" ? <MessageCard text={wish.message} /> : <><WishMedia wish={wish} />{wish.message && <p className="whitespace-pre-line break-words text-[13px]">{wish.message}</p>}</>}
-            <p className="text-[13.5px] font-bold text-primary">Wish Details</p>
-            <DetailSection>
-                <DetailRow label="Wish Type">{TYPE_LABEL[wish.post_type]}</DetailRow>
-                <DetailRow label="Wishes To">{AUDIENCE_LONG[wish.audience]}</DetailRow>
-                <DetailRow label="Status">{statusOf(wish).label}</DetailRow>
-                <DetailRow label="Likes">{String(wish.like_count)}</DetailRow>
-                {wish.mobile && <DetailRow label="Mobile">{wish.mobile}</DetailRow>}
-                <DetailRow label="Posted On">{dateTimeOf(wish.created_at)}</DetailRow>
-            </DetailSection>
-            {wish.is_flagged && <Notice tone="warning">A blocked word was found in this wish. Approve it to publish, or hide it.</Notice>}
-            {reported(wish) && (
-                <>
-                    <p className="flex items-center gap-1.5 text-[13.5px] font-bold text-destructive"><Flag className="size-4" /> Reports ({wish.report_count})</p>
-                    <div className="divide-y divide-border rounded-xl border border-destructive/30 bg-destructive/5">
-                        {(reports.data ?? []).map((r) => (
-                            <div key={r.id} className="px-3 py-2 text-[12.5px]">
-                                <p className="font-semibold">{r.reporter_name} <span className="font-normal text-muted-foreground">· {REASON_LABEL[r.reason] ?? r.reason}</span></p>
-                                {r.note && <p className="text-muted-foreground">{r.note}</p>}
-                            </div>
-                        ))}
-                    </div>
-                    <Button variant="outline" size="sm" disabled={update.isPending}
-                        onClick={() => update.mutate({ id: wish.id, data: { dismiss_reports: true }, done: "Reports dismissed" })}>
-                        <Check className="size-3.5" /> Dismiss Reports
-                    </Button>
-                </>
-            )}
-            <div className="flex items-center justify-between">
-                <p className="text-[13.5px] font-bold text-primary">Latest Comments</p>
-                <button type="button" onClick={onComments} className="text-[12px] font-semibold text-primary hover:underline">Manage ({wish.comment_count ?? 0})</button>
-            </div>
-            {latest.length === 0
-                ? <p className="text-[12.5px] text-muted-foreground">No comments yet.</p>
-                : <div className="divide-y divide-border">{latest.map((c) => (
-                    <div key={c.id} className="py-2 text-[12.5px]"><p className="font-semibold">{c.guest_name}</p><p className="break-words">{c.message}</p></div>
-                ))}</div>}
-        </ActionSheet>
-    );
-}
-
-/* ── Edit (organizer's own post) ─────────────────────────────────────────── */
-
-function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const update = useUpdateWish(eventId);
-    const replace = useReplaceWishMedia(eventId);
-    const [audience, setAudience] = useState<WishAudience>(wish.audience);
-    const [message, setMessage] = useState(wish.message);
-    const [file, setFile] = useState<File | null>(null);
-    const [removeMedia, setRemoveMedia] = useState(false);
-    const fileRef = useRef<HTMLInputElement>(null);
-    const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-    const busy = update.isPending || replace.isPending;
-    const hasMedia = wish.post_type !== "text" && !removeMedia;
-
-    const save = async () => {
-        if (!message.trim() && !file && !hasMedia) { toast.error("Please write a message or keep a photo / video."); return; }
-        try {
-            await update.mutateAsync({ id: wish.id, data: { message: message.trim(), audience, ...(removeMedia && !file ? { post_type: "text" } : {}) } });
-            if (file) await replace.mutateAsync({ id: wish.id, file });
-            toast.success("Wish updated");
-            onClose();
-        } catch { /* the hooks showed the error */ }
-    };
-
-    return (
-        <ActionSheet open onClose={onClose} icon={Pencil} title="Edit Wish" subtitle="Modify the message or the attached photo / video."
-            footer={<>
-                <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-                <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Update Wish</Button>
-            </>}>
-            <Who wish={wish} />
-            <FormField label="Wishes To" required>
-                <Select value={audience} onValueChange={(v) => setAudience(v as WishAudience)}>
-                    <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>{(Object.keys(AUDIENCE_LONG) as WishAudience[]).map((a) => <SelectItem key={a} value={a}>{AUDIENCE_LONG[a]}</SelectItem>)}</SelectContent>
-                </Select>
-            </FormField>
-            <FormField label="Wish Message" required>
-                <Textarea value={message} maxLength={MAX_MESSAGE} rows={4} onChange={(e) => setMessage(e.target.value)} />
-                <CharCount value={message} max={MAX_MESSAGE} />
-            </FormField>
-            <FormField label="Attached Media" hint=" (Optional)">
-                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" hidden
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { setFile(f); setRemoveMedia(false); } }} />
-                {file && preview ? (
-                    file.type.startsWith("video/")
-                        ? <video src={preview} controls className="aspect-video w-full rounded-xl bg-black" />
-                        // eslint-disable-next-line @next/next/no-img-element
-                        : <img src={preview} alt="" className="max-h-[260px] w-full rounded-xl object-contain" />
-                ) : hasMedia ? <WishMedia wish={wish} /> : null}
-                <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}><Upload className="size-3.5" /> {hasMedia || file ? "Replace" : "Add Photo / Video"}</Button>
-                    {(hasMedia || file) && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setFile(null); setRemoveMedia(wish.post_type !== "text"); }}><Trash2 className="size-3.5" /> Remove</Button>}
-                </div>
-            </FormField>
-            <Notice tone="info">Participants see the change in the app straight away.</Notice>
-        </ActionSheet>
-    );
-}
-
-/* ── Moderate ────────────────────────────────────────────────────────────── */
-
-type Decision = "approve" | "keep" | "hide" | "reject";
-function ModerateWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const update = useUpdateWish(eventId);
-    const remove = useDeleteWish(eventId);
-    const [decision, setDecision] = useState<Decision>("approve");
-    const busy = update.isPending || remove.isPending;
-    const options: { value: Decision; label: string; hint?: string }[] = [
-        { value: "approve", label: "Approve and Publish" },
-        { value: "keep", label: "Keep Pending" },
-        { value: "hide", label: "Hide This Wish" },
-        { value: "reject", label: "Reject Wish", hint: "Deletes it for everyone" },
-    ];
-    const save = () => {
-        if (decision === "keep") { onClose(); return; }
-        if (decision === "reject") { remove.mutate(wish.id, { onSuccess: onClose }); return; }
-        update.mutate(
-            { id: wish.id, data: decision === "approve" ? { show_in_app: true, reviewed: true, dismiss_reports: true } : { show_in_app: false, reviewed: true }, done: decision === "approve" ? "Wish published" : "Wish hidden" },
-            { onSuccess: onClose },
-        );
-    };
-    return (
-        <ActionSheet open onClose={onClose} icon={ShieldCheck} title="Moderate Wish" subtitle="Approve, hide or reject the selected wish."
-            footer={<>
-                <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-                <Button disabled={busy} variant={decision === "reject" ? "destructive" : "default"} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Update Status</Button>
-            </>}>
-            <Who wish={wish} />
-            <p className="text-[13.5px] font-bold text-primary">Review Wish</p>
-            <div className="rounded-xl border border-border bg-card p-3">
-                <p className="text-[14px] break-words">“{wish.message || `${TYPE_LABEL[wish.post_type]} wish`}”</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">{TYPE_LABEL[wish.post_type]} Wish · To: {AUDIENCE[wish.audience]} · {wish.like_count} Likes</p>
-            </div>
-            {wish.post_type !== "text" && <WishMedia wish={wish} />}
-            <p className="text-[13.5px] font-bold text-primary">Moderation Decision <span className="text-destructive">*</span></p>
-            <div className="flex flex-col gap-2">
-                {options.map((o) => (
-                    <label key={o.value} className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] transition",
-                        decision === o.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
-                        <input type="radio" name="decision" checked={decision === o.value} onChange={() => setDecision(o.value)} className="size-4 accent-[var(--primary)]" />
-                        <span className="flex-1">{o.label}</span>
-                        {o.hint && <span className="text-[11px] text-muted-foreground">{o.hint}</span>}
-                    </label>
-                ))}
-            </div>
-            <Notice tone="info">Published wishes are visible in the participant app; hidden wishes stay in your records.</Notice>
-        </ActionSheet>
-    );
-}
-
-/* ── Send In-App Message ─────────────────────────────────────────────────── */
-
-const TEMPLATES = [
-    "Thank you for your lovely wishes and support. 😊",
-    "Thank you for your kind words — they mean a lot to us! 🙏",
-    "Please keep your wishes kind and respectful for everyone.",
-];
-function MessageWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
-    const send = useMessageWishWriter(eventId);
-    const [message, setMessage] = useState("");
-    return (
-        <ActionSheet open onClose={onClose} icon={Send} title="Send In-App Message" subtitle="Send a private message to this participant."
-            footer={<>
-                <Button variant="outline" onClick={onClose}>Cancel</Button>
-                <Button disabled={send.isPending || !message.trim() || wish.participant_id === null}
-                    onClick={() => wish.participant_id !== null && send.mutate({ participantId: wish.participant_id, message: message.trim() }, { onSuccess: onClose })}>
-                    <Send className="size-3.5" /> Send Message
-                </Button>
-            </>}>
-            <FormField label="To Participant">
-                <div className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2">
-                    <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={26} rounded="full" />
-                    <span className="text-[13px] font-semibold">{wish.guest_name}</span>
-                </div>
-            </FormField>
-            <FormField label="Quick Templates">
-                <Select value="" onValueChange={(v) => setMessage(v)}>
-                    <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Select a template" /></SelectTrigger>
-                    <SelectContent>{TEMPLATES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-            </FormField>
-            <FormField label="Message" required>
-                <Textarea value={message} maxLength={MAX_MESSAGE} rows={5} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message…" />
-                <CharCount value={message} max={MAX_MESSAGE} />
-            </FormField>
-            <Notice tone="info">This message is sent only to {wish.guest_name}, as an in-app notification.</Notice>
-        </ActionSheet>
+        </WishPanelsProvider>
     );
 }
 
@@ -410,6 +168,7 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
     const [note, setNote] = useState("");
     const unblock = wish.author_blocked;
     const busy = block.isPending || update.isPending;
+    const { eyebrow } = useWishPanels();
     const run = async () => {
         try {
             await block.mutateAsync({ id: wish.id, blocked: !unblock, ...(unblock ? {} : { reason, note: note.trim() }) });
@@ -418,7 +177,7 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
         } catch { /* the hooks showed the error */ }
     };
     return (
-        <ActionSheet open onClose={onClose} icon={Ban} tone="danger" title={unblock ? "Unblock Participant" : "Block Participant"}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={560} title={unblock ? "Unblock Participant" : "Block Participant"}
             subtitle={unblock ? "Let this participant use Wed Wishes again." : "Restrict access to the Wed Wishes menu only."}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
@@ -426,7 +185,7 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
                     {busy && <Loader2 className="size-3.5 animate-spin" />} {unblock ? "Unblock Participant" : "Block Participant"}
                 </Button>
             </>}>
-            <Who wish={wish} />
+            <PersonCard wish={wish} />
             {unblock ? (
                 <>
                     {wish.author_block?.reason && (
@@ -467,86 +226,6 @@ function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; 
     );
 }
 
-/* ── Manage Comments ─────────────────────────────────────────────────────── */
-
-function ManageComments({ eventId, wish, settings, onClose }: { eventId: number; wish: Wish; settings: WishSettings; onClose: () => void }) {
-    const comments = useWishComments(eventId, wish.id);
-    const act = useWishCommentActions(eventId);
-    const saveSettings = useSaveWishSettings(eventId);
-    const filterQuery = useWishFilter(eventId);
-    const saveFilter = useSaveWishFilter(eventId);
-    const [allow, setAllow] = useState(settings.allow_comments ?? true);
-    const [filterOn, setFilterOn] = useState<boolean | null>(null);
-    const [text, setText] = useState("");
-    const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
-    const filterEnabled = filterOn ?? filterQuery.data?.enabled ?? false;
-    const busy = saveSettings.isPending || saveFilter.isPending;
-    const pill = (c: WishComment): { label: string; tone: Tone } => (c.is_flagged ? { label: "Flagged", tone: "warning" } : c.is_hidden ? { label: "Hidden", tone: "violet" } : { label: "Visible", tone: "success" });
-    const save = async () => {
-        try {
-            if (allow !== (settings.allow_comments ?? true)) await saveSettings.mutateAsync({ ...settings, allow_comments: allow });
-            if (filterOn !== null && filterQuery.data && filterOn !== filterQuery.data.enabled) await saveFilter.mutateAsync({ ...filterQuery.data, enabled: filterOn });
-            onClose();
-        } catch { /* the hooks showed the error */ }
-    };
-    const link = "text-[12px] font-medium text-primary hover:underline disabled:opacity-40";
-    return (
-        <ActionSheet open onClose={onClose} icon={MessageSquare} title="Manage Comments" subtitle="Review replies and moderate unwanted comments."
-            footer={<>
-                <Button variant="outline" onClick={onClose}>Close</Button>
-                <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Settings</Button>
-            </>}>
-            <Who wish={wish} />
-            <p className="text-[13.5px] font-bold text-primary">Comment Moderation</p>
-            {comments.isLoading ? <p className="text-[12.5px] text-muted-foreground">Loading…</p>
-                : (comments.data ?? []).length === 0 ? <p className="rounded-xl border border-border px-3 py-4 text-center text-[12.5px] text-muted-foreground">No comments on this wish yet.</p>
-                    : (
-                        <div className="divide-y divide-border rounded-xl border border-border bg-card">
-                            {(comments.data ?? []).map((c) => {
-                                const st = pill(c);
-                                return (
-                                    <div key={c.id} className="flex flex-col gap-1 px-3 py-2.5 text-[12.5px]">
-                                        <p className="flex flex-wrap items-center gap-1.5"><span className="font-semibold">{c.guest_name}</span><StatusPill tone={st.tone}>{st.label}</StatusPill>
-                                            {c.added_by_organizer && <StatusPill tone="primary">Organizer</StatusPill>}</p>
-                                        {editing?.id === c.id ? (
-                                            <div className="flex flex-col gap-1.5">
-                                                <Textarea value={editing.text} maxLength={500} rows={2} onChange={(e) => setEditing({ id: c.id, text: e.target.value })} />
-                                                <span className="flex justify-end gap-2">
-                                                    <Button size="sm" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
-                                                    <Button size="sm" disabled={!editing.text.trim() || act.update.isPending}
-                                                        onClick={() => act.update.mutate({ id: c.id, data: { message: editing.text.trim() }, done: "Comment updated" }, { onSuccess: () => setEditing(null) })}>Save</Button>
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-start justify-between gap-3">
-                                                <p className="min-w-0 break-words">{c.message}</p>
-                                                <span className="flex shrink-0 gap-2.5">
-                                                    {c.can_edit && <button type="button" className={link} onClick={() => setEditing({ id: c.id, text: c.message })}>Edit</button>}
-                                                    {c.is_hidden || c.is_flagged
-                                                        ? <button type="button" className={link} disabled={act.update.isPending} onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: true }, done: "Comment visible" })}>Show</button>
-                                                        : <button type="button" className={link} disabled={act.update.isPending} onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: false }, done: "Comment hidden" })}>Hide</button>}
-                                                    <button type="button" className={cn(link, "text-destructive")} disabled={act.remove.isPending} onClick={() => act.remove.mutate(c.id)}>Delete</button>
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-            <div className="flex gap-2">
-                <Input value={text} maxLength={500} placeholder="Reply as the organizer…" onChange={(e) => setText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) act.add.mutate({ wishId: wish.id, message: text.trim() }, { onSuccess: () => setText("") }); }} />
-                <Button disabled={!text.trim() || act.add.isPending} onClick={() => act.add.mutate({ wishId: wish.id, message: text.trim() }, { onSuccess: () => setText("") })}><Send className="size-3.5" /></Button>
-            </div>
-            <p className="text-[13.5px] font-bold text-primary">Comment Controls</p>
-            <ToggleRow label="Allow New Comments" checked={allow} onChange={setAllow} />
-            <ToggleRow label="Automatically Filter Unwanted Words" checked={filterEnabled} disabled={filterQuery.isLoading} onChange={setFilterOn} />
-            <Notice tone="info">You can edit your own comments, and hide or remove any comment without deleting the original wish.</Notice>
-        </ActionSheet>
-    );
-}
-
 /* ── Delete ──────────────────────────────────────────────────────────────── */
 
 function DeleteWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
@@ -575,6 +254,7 @@ function DeleteWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; o
 /* ── Post a Wish (organizer) ─────────────────────────────────────────────── */
 
 function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName: string; onClose: () => void }) {
+    const { eyebrow } = useWishPanels();
     const create = useCreateWish(eventId);
     const update = useUpdateWish(eventId);
     const [name, setName] = useState("");
@@ -604,7 +284,7 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
     const box = "flex flex-col items-center gap-0.5 rounded-xl border border-dashed border-primary/40 bg-primary/[0.03] px-3 py-3 text-center transition hover:bg-primary/5";
 
     return (
-        <FormPanel sheet={{ open: true, onClose }} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
+        <FormPanel sheet={{ open: true, onClose }} eyebrow={eyebrow} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={submit}>{busy && <Loader2 className="size-3.5 animate-spin" />} {publish ? "Publish Wish" : "Save Hidden"}</Button>
@@ -656,6 +336,7 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
 /* ── Blocked Words & Auto Filter ─────────────────────────────────────────── */
 
 function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => void }) {
+    const { eyebrow } = useWishPanels();
     const query = useWishFilter(eventId);
     const save = useSaveWishFilter(eventId);
     const [draft, setDraft] = useState<WishFilter | null>(null);
@@ -672,7 +353,7 @@ function BlockedWords({ eventId, onClose }: { eventId: number; onClose: () => vo
         setWord("");
     };
     return (
-        <ActionSheet open onClose={onClose} icon={Filter} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} width={560} title="Blocked Words & Auto Filter" subtitle="Automatically detect and replace unwanted content."
             footer={<>
                 <Button variant="outline" disabled={save.isPending} onClick={onClose}>Cancel</Button>
                 <Button disabled={save.isPending || !draft} onClick={() => draft && save.mutate(draft, { onSuccess: onClose })}>{save.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Rules</Button>

@@ -52,11 +52,15 @@ export interface Wish {
     video_url: string | null;
     thumbnail_url: string | null;
     duration_seconds: number | null;
+    /** The media's stored size (organizer / writer). */
+    size_bytes?: number | null;
     avatar: string | null;
     like_count: number;
     liked_by_me: boolean;
     is_hidden: boolean;
     is_flagged: boolean;
+    /** New comments allowed on this wish (2026-11-09). */
+    allow_comments?: boolean;
     status: WishStatus;
     added_by_organizer: boolean;
     author_blocked: boolean;
@@ -78,7 +82,11 @@ export interface Wish {
 }
 
 /** Organizer only: one conversation's Unread count and Online dot. */
-export interface WishThreadInfo { unread: number; online: boolean; last_read_at: string | null }
+export interface WishThreadInfo {
+    unread: number; online: boolean; last_read_at: string | null;
+    /** Hide Chat: out of the main inbox (the Hidden tab). */
+    hidden?: boolean; hide_note?: string | null;
+}
 
 export interface WishSettings {
     allow_new: boolean;
@@ -215,16 +223,16 @@ export function useBlockWishWriter(eventId: number) {
 /** One in-app message to a post's writer (no chat) — the app's "Message". */
 export function useMessageWishWriter(eventId: number) {
     return useMutation({
-        mutationFn: ({ participantId, message }: { participantId: number; message: string }) =>
+        mutationFn: ({ participantId, message, title }: { participantId: number; message: string; title?: string }) =>
             api.post(`/client/events/${eventId}/notifications`, {
                 action: 'send',
-                title: 'Message from the organizer',
+                title: title?.trim() || 'Message from the organizer',
                 message,
                 audience: 'specific',
                 participant_ids: [participantId],
                 channels: ['in_app'],
             }),
-        onSuccess: () => toast.success('Message sent'),
+        onSuccess: () => toast.success('Notification sent'),
         onError: (e) => report(e, 'Could not send the message'),
     });
 }
@@ -309,6 +317,17 @@ export function useMarkWishThreadRead(eventId: number) {
                 ? { ...old, threads: { ...old.threads, [thread]: { ...old.threads[thread], unread: 0 } } }
                 : old));
         },
+    });
+}
+
+/** Hide Chat / Show Chat — the organizer's inbox only (2026-11-09). */
+export function useHideWishThread(eventId: number) {
+    const refresh = useRefresh(eventId, 'wishes');
+    return useMutation({
+        mutationFn: ({ thread, hidden, note }: { thread: string; hidden: boolean; note?: string }) =>
+            api.post(`/client/events/${eventId}/wish-threads/hide`, { thread, hidden, note }),
+        onSuccess: (_r, v) => { toast.success(v.hidden ? 'Chat hidden' : 'Chat moved back to the inbox'); refresh(); },
+        onError: (e) => report(e, 'Could not change the chat'),
     });
 }
 
