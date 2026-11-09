@@ -71,7 +71,14 @@ export interface Wish {
     can_edit: boolean;
     can_delete: boolean;
     created_at: string | null;
+    /** Organizer only (2026-11-09): the conversation — `c:<writer's client id>` or `org` (organizer posts). */
+    thread_key?: string | null;
+    /** Organizer only: the conversation replies under it (organizer + the writer), oldest first. */
+    replies?: WishComment[];
 }
+
+/** Organizer only: one conversation's Unread count and Online dot. */
+export interface WishThreadInfo { unread: number; online: boolean; last_read_at: string | null }
 
 export interface WishSettings {
     allow_new: boolean;
@@ -95,6 +102,9 @@ export interface WishComment {
     wish_id: number;
     guest_name: string;
     message: string;
+    /** An attached image — the organizer's photo reply (2026-11-09). */
+    photo?: string | null;
+    author_client_id?: number | null;
     is_hidden: boolean;
     status: 'visible' | 'hidden';
     is_flagged: boolean;
@@ -113,6 +123,8 @@ export interface WishesPage {
     can_manage: boolean;
     can_write: boolean;
     counts?: { all: number; visible: number; hidden: number; blocked: number; blocked_users: number; flagged: number; reported?: number };
+    /** Organizer only (2026-11-09): per conversation key. */
+    threads?: Record<string, WishThreadInfo>;
 }
 
 export interface WishFilter {
@@ -263,8 +275,14 @@ export function useWishCommentActions(eventId: number) {
     const done = (msg?: string) => () => { if (msg) toast.success(msg); refresh(); };
     return {
         add: useMutation({
-            mutationFn: ({ wishId, message }: { wishId: number; message: string }) => api.post(`/client/wishes/${wishId}/comments`, { message }),
-            onSuccess: done('Comment added'),
+            mutationFn: ({ wishId, message, file }: { wishId: number; message: string; file?: File | null; quiet?: boolean }) => {
+                if (!file) return api.post(`/client/wishes/${wishId}/comments`, { message });
+                const form = new FormData();
+                form.append('file', file);
+                form.append('message', message);
+                return api.post(`/client/wishes/${wishId}/comments`, form);
+            },
+            onSuccess: (_r, v) => { if (!v.quiet) toast.success('Comment added'); refresh(); },
             onError: (e) => report(e, 'Could not add the comment'),
         }),
         update: useMutation({
@@ -278,6 +296,20 @@ export function useWishCommentActions(eventId: number) {
             onError: (e) => report(e, 'Could not delete the comment'),
         }),
     };
+}
+
+/** The organizer opened a conversation — its Unread count goes to 0 (2026-11-09). */
+export function useMarkWishThreadRead(eventId: number) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (thread: string) => api.post(`/client/events/${eventId}/wish-threads/read`, { thread }),
+        onSuccess: (_r, thread) => {
+            // Clear it in the cached list straight away; no refetch needed.
+            qc.setQueryData<WishesPage>(key(eventId, 'wishes'), (old) => (old?.threads?.[thread]
+                ? { ...old, threads: { ...old.threads, [thread]: { ...old.threads[thread], unread: 0 } } }
+                : old));
+        },
+    });
 }
 
 export function useWishReports(eventId: number, wishId: number | null, enabled = true) {

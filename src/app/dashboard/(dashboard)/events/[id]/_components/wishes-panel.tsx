@@ -13,8 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, CountTabs, DetailRow, DetailSection, FormField, FormPanel, ListCard, ModuleHeader, Notice, OverviewCard,
-    Pager, PersonAvatar, PersonSummary, RowActions, SearchBox, SortSelect, StatTile, StatusPill, Toolbar, type RowAction,
+    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, PersonAvatar, PersonSummary, StatTile, StatusPill, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
 import { cn } from "@/lib/utils";
@@ -26,8 +25,12 @@ import {
     type BlockReason, type Wish, type WishAudience, type WishComment, type WishFilter, type WishSettings, type WordAction,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
+import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
 
 /**
+ * Since 2026-11-09 the page is Jamal's CHAT design (wishes-chat.tsx): conversations per participant
+ * instead of the Wishes List table. The panels below (View, Edit, Moderate, …) are unchanged.
+ *
  * Wed Wishes Monitor — Jamal's web design (Wishes_Monitor_Action_Flows, 2026-11-07):
  * header (Wishes Settings · Post Wish), tiles (Total · Published · Pending Review ·
  * Hidden · Total Likes), search + Wish Type / Recipient / Date, tabs, the Wishes
@@ -44,7 +47,6 @@ const AUDIENCE: Record<WishAudience, string> = { both: "Both", bride: "Bride", g
 const AUDIENCE_LONG: Record<WishAudience, string> = { both: "Both (Bride & Groom)", bride: "Bride", groom: "Groom" };
 const TYPE_LABEL = { text: "Text", image: "Image", video: "Video" } as const;
 const MAX_MESSAGE = 500;
-const PAGE_SIZE = 10;
 
 type Tab = "all" | "published" | "pending" | "hidden" | "blocked" | "reported";
 const REASON_LABEL: Record<BlockReason, string> = {
@@ -63,15 +65,7 @@ const statusOf = (w: Wish): Status =>
 const tabOf = (w: Wish): Tab => (w.status === "blocked" ? "blocked" : w.is_flagged ? "pending" : w.status === "hidden" ? "hidden" : "published");
 const fromParticipant = (w: Wish) => !w.added_by_organizer && w.participant_id !== null;
 const whoOf = (w: Wish) => (w.added_by_organizer ? "Organizer" : "Participant");
-const dateOf = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "—");
 const dateTimeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
-
-/** Start of a Date filter choice, in ms ("all" = 0). */
-function startOf(v: "all" | "today" | "7" | "30") {
-    if (v === "all") return 0;
-    const now = new Date();
-    return v === "today" ? new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() : now.getTime() - Number(v) * 86400000;
-}
 
 type Panel =
     | { kind: "view" | "edit" | "moderate" | "message" | "block" | "delete" | "comments"; wish: Wish }
@@ -80,19 +74,7 @@ type Panel =
 export function WishesPanel({ event }: { event: ClientEvent }) {
     const query = useEventWishes(event.id);
     const update = useUpdateWish(event.id);
-    const [tab, setTab] = useState<Tab>("all");
-    const [search, setSearch] = useState("");
-    const [type, setType] = useState<"all" | Wish["post_type"]>("all");
-    const [recipient, setRecipient] = useState<"all" | WishAudience>("all");
-    const [when, setWhen] = useState<"all" | "today" | "7" | "30">("all");
-    // The Date filter's start, worked out when it is picked (not during render).
-    const [since, setSince] = useState(0);
-    const pickWhen = (v: typeof when) => {
-        setWhen(v);
-        setSince(startOf(v));
-        setPage(1);
-    };
-    const [page, setPage] = useState(1);
+    const [view, setView] = useState<ChatView>({ tab: "all", status: "all" });
     const [panel, setPanel] = useState<Panel | null>(null);
     const [settingsPage, setSettingsPage] = useState(false);
     const [posting, setPosting] = useState(false);
@@ -100,22 +82,6 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     const wishes = useMemo(() => query.data?.wishes ?? [], [query.data]);
     // The open panel always shows the latest copy of its wish (the list refetches after a change).
     const live = (w: Wish) => wishes.find((x) => x.id === w.id) ?? w;
-
-    const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        return wishes.filter((w) =>
-            (type === "all" || w.post_type === type)
-            && (recipient === "all" || w.audience === recipient)
-            && (!since || (w.created_at && new Date(w.created_at).getTime() >= since))
-            && (!q || w.guest_name.toLowerCase().includes(q) || w.message.toLowerCase().includes(q)));
-    }, [wishes, search, type, recipient, since]);
-    const counts = useMemo(() => {
-        const c: Record<Tab, number> = { all: filtered.length, published: 0, pending: 0, hidden: 0, blocked: 0, reported: 0 };
-        filtered.forEach((w) => { c[tabOf(w)] += 1; if (reported(w)) c.reported += 1; });
-        return c;
-    }, [filtered]);
-    const shown = tab === "all" ? filtered : tab === "reported" ? filtered.filter(reported) : filtered.filter((w) => tabOf(w) === tab);
-    const rows = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     if (query.isLoading) return <PanelLoading />;
     if (query.isError || !query.data) {
@@ -133,6 +99,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
 
     const open = (p: Panel) => setPanel(p);
     const close = () => setPanel(null);
+    /** The ⋯ on a wish bubble (the design's list; Block is in the conversation header). */
     const actionsFor = (w: Wish): RowAction[] => [
         { label: "View Wish", icon: Eye, onClick: () => open({ kind: "view", wish: w }) },
         { label: "Edit Wish", icon: Pencil, onClick: () => open({ kind: "edit", wish: w }), hidden: !w.can_edit },
@@ -141,130 +108,46 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             ? { label: "Show Wish", icon: Eye, onClick: () => update.mutate({ id: w.id, data: { show_in_app: true }, done: "Wish is visible again" }), hidden: !data.can_manage || w.status === "blocked" }
             : { label: "Hide Wish", icon: EyeOff, onClick: () => update.mutate({ id: w.id, data: { show_in_app: false }, done: "Wish hidden" }), hidden: !data.can_manage },
         { label: "Send In-App Message", icon: Mail, onClick: () => open({ kind: "message", wish: w }), hidden: !data.can_manage || !fromParticipant(w) },
-        { label: w.author_blocked ? "Unblock Participant" : "Block Participant", icon: Ban, onClick: () => open({ kind: "block", wish: w }), hidden: !data.can_manage || !fromParticipant(w) },
         { label: `Manage Comments${w.comment_count ? ` (${w.comment_count})` : ""}`, icon: MessageSquare, onClick: () => open({ kind: "comments", wish: w }), hidden: !data.can_manage },
         { label: "Delete Wish", icon: Trash2, onClick: () => open({ kind: "delete", wish: w }), danger: true, divider: true, hidden: !w.can_delete },
     ];
+    const fromChat = (kind: ChatPanel, w: Wish) => open({ kind, wish: w });
+    const showChat = (v: ChatView) => { setSettingsPage(false); setView(v); };
 
     const header = (
         <ModuleHeader
-            title={settingsPage ? "Wishes Settings" : "Wed Wishes Monitor"}
-            subtitle={settingsPage ? "What participants can do in Wed Wishes, and how wishes are moderated." : "Monitor, organize, and moderate wedding wishes from event participants."}
+            title={settingsPage ? "Wishes Settings" : "Wed Wishes"}
+            subtitle={settingsPage ? "What participants can do in Wed Wishes, and how wishes are moderated." : "View, manage and moderate participant wishes, images and videos."}
             actions={data.can_manage && (
                 <>
                     {settingsPage
                         ? <Button variant="outline" size="sm" onClick={() => setSettingsPage(false)}><ArrowLeft className="size-3.5" /> Back to Wishes</Button>
                         : <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => { close(); setSettingsPage(true); }}><Settings className="size-3.5" /> Wishes Settings</Button>}
+                    <Button variant="outline" size="sm" onClick={() => { setSettingsPage(false); open({ kind: "words" }); }}><Filter className="size-3.5" /> Blocked Words</Button>
                     <Button size="sm" onClick={() => { setSettingsPage(false); close(); setPosting(true); }}><Plus className="size-3.5" /> Post Wish</Button>
                 </>
             )}
         />
     );
+    // Tiles narrow the conversations (Pending → the filter, Hidden → the Hidden tab).
     const tiles = (
         <OverviewCard>
-            <StatTile icon={Heart} value={all.total} label="Total Wishes" active={tab === "all"} onClick={() => { setSettingsPage(false); setTab("all"); setPage(1); }} />
-            <StatTile icon={CheckCircle2} value={all.published} label="Published" tone="success" active={tab === "published"} onClick={() => { setSettingsPage(false); setTab("published"); setPage(1); }} />
-            <StatTile icon={Clock} value={all.pending} label="Pending Review" tone="warning" active={tab === "pending"} onClick={() => { setSettingsPage(false); setTab("pending"); setPage(1); }} />
-            <StatTile icon={EyeOff} value={all.hidden} label="Hidden Wishes" tone="danger" active={tab === "hidden"} onClick={() => { setSettingsPage(false); setTab("hidden"); setPage(1); }} />
+            <StatTile icon={Heart} value={all.total} label="Total Wishes" active={!settingsPage && view.tab === "all" && view.status === "all"} onClick={() => showChat({ tab: "all", status: "all" })} />
+            <StatTile icon={CheckCircle2} value={all.published} label="Published" tone="success" />
+            <StatTile icon={Clock} value={all.pending} label="Pending Review" tone="warning" active={!settingsPage && view.status === "pending"} onClick={() => showChat({ tab: "all", status: "pending" })} />
+            <StatTile icon={EyeOff} value={all.hidden} label="Hidden Wishes" tone="danger" active={!settingsPage && view.tab === "hidden"} onClick={() => showChat({ tab: "hidden", status: "all" })} />
             <StatTile icon={Heart} value={all.likes} label="Total Likes" tone="violet" />
         </OverviewCard>
-    );
-
-    if (settingsPage) {
-        return (
-            <div className="flex flex-col gap-4">
-                {header}
-                {tiles}
-                <WishesSettingsPage eventId={event.id} settings={data.settings} onDone={() => setSettingsPage(false)} onWords={() => { setSettingsPage(false); open({ kind: "words" }); }} />
-            </div>
-        );
-    }
-
-    const list = (
-        <>
-            <Toolbar>
-                <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search by participant or message..." />
-                <SortSelect className="w-[150px]" value={type} onChange={(v) => { setType(v); setPage(1); }}
-                    options={[{ value: "all", label: "Wish Type: All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }]} />
-                <SortSelect className="w-[150px]" value={recipient} onChange={(v) => { setRecipient(v); setPage(1); }}
-                    options={[{ value: "all", label: "Recipient: All" }, { value: "both", label: "To Both" }, { value: "bride", label: "To Bride" }, { value: "groom", label: "To Groom" }]} />
-                <SortSelect className="w-[140px]" value={when} onChange={pickWhen}
-                    options={[{ value: "all", label: "Date: All" }, { value: "today", label: "Today" }, { value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }]} />
-            </Toolbar>
-            <CountTabs stretch={false} value={tab} onChange={(v) => { setTab(v); setPage(1); }} tabs={[
-                { value: "all", label: "All Wishes", count: counts.all },
-                { value: "published", label: "Published", count: counts.published },
-                { value: "pending", label: "Pending", count: counts.pending },
-                { value: "hidden", label: "Hidden", count: counts.hidden },
-                { value: "blocked", label: "Blocked", count: counts.blocked },
-                { value: "reported", label: "Reported", count: counts.reported },
-            ]} />
-            <ListCard title="Wishes List" icon={Heart} note="Participants can post text and images; the organizer can also post videos.">
-                {wishes.length === 0 ? (
-                    <Empty title="No wishes yet">Wishes your guests post in the event app appear here. You can also post a wish as the organizer.</Empty>
-                ) : rows.length === 0 ? (
-                    <Empty title="No wishes match" />
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[760px] text-[12.5px]">
-                            <thead>
-                                <tr className="border-b border-border text-left text-[11.5px] text-muted-foreground">
-                                    <th className="px-3 py-2 font-semibold">Participant</th>
-                                    <th className="px-3 py-2 font-semibold">Wish / Message</th>
-                                    <th className="px-3 py-2 font-semibold">Type</th>
-                                    <th className="px-3 py-2 font-semibold">Status</th>
-                                    <th className="px-3 py-2 font-semibold">Likes</th>
-                                    <th className="px-3 py-2 font-semibold">Posted On</th>
-                                    <th className="px-3 py-2 text-right font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {rows.map((w) => {
-                                    const st = statusOf(w);
-                                    const picked = panel && "wish" in panel && panel.wish.id === w.id;
-                                    return (
-                                        <tr key={w.id} className={cn("align-middle transition", picked ? "bg-primary/5" : "hover:bg-muted/40")}>
-                                            <td className="px-3 py-2.5">
-                                                <button type="button" onClick={() => open({ kind: "view", wish: w })} className="flex min-w-[140px] items-center gap-2 text-left">
-                                                    <PersonAvatar name={w.guest_name} photo={w.avatar} size={34} rounded="full" />
-                                                    <span className="min-w-0">
-                                                        <span className="block truncate font-semibold" title={w.guest_name}>{w.guest_name}</span>
-                                                        <span className="block text-[11px] text-muted-foreground">{whoOf(w)}</span>
-                                                    </span>
-                                                </button>
-                                            </td>
-                                            <td className="max-w-[280px] px-3 py-2.5">
-                                                <p className="line-clamp-2 break-words">{w.message || <span className="text-muted-foreground">({TYPE_LABEL[w.post_type]} only)</span>}</p>
-                                                <p className="text-[11px] text-muted-foreground">To: {AUDIENCE[w.audience]}</p>
-                                            </td>
-                                            <td className="px-3 py-2.5"><StatusPill tone="primary">{TYPE_LABEL[w.post_type]}</StatusPill></td>
-                                            <td className="px-3 py-2.5">
-                                                <span className="flex flex-wrap gap-1">
-                                                    <StatusPill tone={st.tone}>{st.label}</StatusPill>
-                                                    {reported(w) && <StatusPill tone="danger" icon={Flag}>Reported ({w.report_count})</StatusPill>}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2.5 whitespace-nowrap"><Heart className="mr-1 inline size-3 fill-current text-primary" />{w.like_count}</td>
-                                            <td className="px-3 py-2.5 whitespace-nowrap">{dateOf(w.created_at)}</td>
-                                            <td className="px-3 py-2.5 text-right"><RowActions items={actionsFor(w)} compact /></td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-                {shown.length > 0 && <div className="border-t border-border px-3 py-2.5"><Pager page={page} pageSize={PAGE_SIZE} total={shown.length} onPage={setPage} noun="wishes" /></div>}
-            </ListCard>
-        </>
     );
 
     return (
         <div className="flex flex-col gap-4">
             {header}
             {tiles}
-            <div className="flex min-w-0 flex-col gap-3">{list}</div>
-            {/* Every action panel slides in from the right ("canvas"), uniform with Guests / Family (Jamal, 2026-11-09). */}
+            {settingsPage
+                ? <WishesSettingsPage eventId={event.id} settings={data.settings} onDone={() => setSettingsPage(false)} onWords={() => { setSettingsPage(false); open({ kind: "words" }); }} />
+                : <WishesChat event={event} data={data} wishes={wishes} view={view} onView={setView} bubbleActions={actionsFor} onPanel={fromChat} />}
+            {/* Every action panel slides in from the right ("canvas"); Delete is a centred pop-up. */}
             {panel && (
                 <>
                     {panel.kind === "view" && <ViewWish eventId={event.id} wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} onComments={() => open({ kind: "comments", wish: panel.wish })} />}
