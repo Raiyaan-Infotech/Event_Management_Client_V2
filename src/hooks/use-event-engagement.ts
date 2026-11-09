@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/api-client';
 
@@ -274,6 +274,21 @@ export function useWishComments(eventId: number, wishId: number | null) {
         queryFn: async () => (await api.get<{ comments: WishComment[] }>(`/client/wishes/${wishId}/comments`)).comments,
         enabled: !!wishId,
         retry: false,
+    });
+}
+
+/** Every comment on several wishes (Participant Details → Comments); same cache as useWishComments. */
+export function useWishCommentsMany(eventId: number, wishIds: number[]) {
+    return useQueries({
+        queries: wishIds.map((wishId) => ({
+            queryKey: [...key(eventId, 'wishes'), 'comments', wishId],
+            queryFn: async () => (await api.get<{ comments: WishComment[] }>(`/client/wishes/${wishId}/comments`)).comments,
+            retry: false,
+        })),
+        combine: (results) => ({
+            byWish: new Map(wishIds.map((id, i) => [id, results[i]?.data ?? []] as const)),
+            isLoading: results.some((r) => r.isLoading),
+        }),
     });
 }
 

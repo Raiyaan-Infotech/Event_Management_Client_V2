@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowLeft, BarChart3, CalendarDays, CheckCheck, Copy, Crown, Eye, EyeOff, Filter, Heart, ImagePlus, Info, Loader2, Mail,
-    MessageSquare, MoreHorizontal, Phone, Reply, Send, Smile, Trash2, UserCheck, UserRound, UserX, X,
+    Activity, ArrowLeft, CalendarDays, Check, CheckCheck, CheckSquare, Copy, Crown, ExternalLink, Eye, EyeOff, Filter,
+    Heart, Image as ImageIcon, ImagePlus, Info, LayoutGrid, List, Loader2, Mail, MapPin, MessageSquare, MoreHorizontal, Pencil,
+    Phone, Play, PlayCircle, Reply, Send, Smile, Trash2, UserCheck, UserRound, Users, UserX, Video, X,
 } from "lucide-react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEventHref } from "@/lib/event-workspace";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -23,7 +26,7 @@ import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import { useEventParticipants, useRemoveParticipant, type ParticipantRow } from "@/hooks/use-event-participants";
 import {
-    useCreateWish, useHideWishThread, useMarkWishThreadRead, useWishCommentActions, type Wish, type WishComment, type WishesPage,
+    useCreateWish, useHideWishThread, useMarkWishThreadRead, useWishCommentActions, useWishCommentsMany, type Wish, type WishComment, type WishesPage,
 } from "@/hooks/use-event-engagement";
 
 /**
@@ -315,9 +318,14 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
             </section>
 
             {details && selected && !selected.isOrg && (
-                <ParticipantDetails thread={selected} participant={participant} loading={participants.isLoading}
+                <ParticipantDetails eventId={event.id} thread={selected} participant={participant} loading={participants.isLoading}
+                    bubbleActions={bubbleActions}
                     onClose={() => setDetails(false)}
-                    onMessage={() => { setDetails(false); onPanel("message", latestOf(selected)); }} />
+                    onMessage={() => { setDetails(false); onPanel("message", latestOf(selected)); }}
+                    onOpen={onPanel}
+                    onHide={() => setHiding(true)}
+                    onBlock={() => onPanel("block", latestOf(selected))}
+                    onRemove={() => setRemoving(true)} />
             )}
             {hiding && selected && (
                 <HideChat eventId={event.id} thread={selected} side={sideOf(participant)} access={participant?.access ?? null} onClose={() => setHiding(false)} />
@@ -730,136 +738,384 @@ const ACCESS: Record<string, { label: string; tone: Tone }> = {
 };
 
 type DetailTab = "profile" | "wishes" | "media" | "comments";
+type KindFilter = "all" | Wish["post_type"];
+type MediaFilter = "all" | "image" | "video";
+type CommentFilter = "all" | "visible" | "hidden";
+const KIND_META: Record<Wish["post_type"], { label: string; icon: typeof Heart }> = {
+    text: { label: "Text Wish", icon: MessageSquare }, image: { label: "Image Wish", icon: ImageIcon }, video: { label: "Video Wish", icon: Video },
+};
+const wishStatus = (w: Wish): { label: string; tone: Tone } =>
+    w.status === "blocked" ? { label: "Blocked", tone: "danger" }
+        : w.is_flagged ? { label: "Pending", tone: "warning" }
+            : w.status === "hidden" ? { label: "Hidden", tone: "violet" }
+                : { label: "Published", tone: "success" };
+const AUDIENCE_SHORT = { both: "Both", bride: "Bride", groom: "Groom" } as const;
+const shortDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
+const mmss = (s: number | null) => (s ? `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : null);
 
-function ParticipantDetails({ thread, participant: p, loading, onClose, onMessage }: {
-    thread: Thread; participant?: ParticipantRow; loading: boolean; onClose: () => void; onMessage: () => void;
+/** Small rounded chips: "All (2)  Images (1)  Videos (1)". */
+function Chips<T extends string>({ value, onChange, items }: { value: T; onChange: (v: T) => void; items: { value: T; label: string }[] }) {
+    return (
+        <div className="flex flex-wrap gap-2">
+            {items.map((i) => (
+                <button key={i.value} type="button" onClick={() => onChange(i.value)}
+                    className={cn("rounded-full border px-3 py-1 text-[12px] font-semibold transition",
+                        value === i.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted")}>
+                    {i.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/** A section card with an icon title and an optional button on the right. */
+function DCard({ title, icon: Icon, action, children }: { title: string; icon: typeof Heart; action?: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <div className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-[15px] font-bold"><Icon className="size-[18px] text-primary" /> {title}</p>
+                {action}
+            </div>
+            {children}
+        </div>
+    );
+}
+
+function DRow({ icon: Icon, label, children }: { icon: typeof Heart; label: string; children: React.ReactNode }) {
+    return (
+        <div className="grid grid-cols-[18px_minmax(110px,40%)_1fr] items-center gap-2 border-b border-border/70 py-2 text-[12.5px] last:border-0">
+            <Icon className="size-4 text-muted-foreground" />
+            <span className="font-medium text-muted-foreground">{label}</span>
+            <span className="min-w-0 break-words font-medium">{children || "—"}</span>
+        </div>
+    );
+}
+
+const pinkOutline = "h-7 border-primary/40 px-2.5 text-[12px] text-primary hover:bg-primary/5 hover:text-primary";
+
+function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleActions, onClose, onMessage, onOpen, onHide, onBlock, onRemove }: {
+    eventId: number; thread: Thread; participant?: ParticipantRow; loading: boolean;
+    bubbleActions: (w: Wish) => RowAction[];
+    onClose: () => void; onMessage: () => void; onOpen: (kind: ChatPanel, w: Wish) => void;
+    onHide: () => void; onBlock: () => void; onRemove: () => void;
 }) {
+    const wsHref = useEventHref();
     const [tab, setTab] = useState<DetailTab>("profile");
-    const media = thread.wishes.filter((w) => w.post_type !== "text");
-    const theirReplies = thread.wishes.flatMap((w) => (w.replies ?? []).filter((r) => !r.added_by_organizer).map((r) => ({ r, w })));
+    const [kind, setKind] = useState<KindFilter>("all");
+    const [mediaKind, setMediaKind] = useState<MediaFilter>("all");
+    const [grid, setGrid] = useState(false);
+    const [commentKind, setCommentKind] = useState<CommentFilter>("all");
+    const wishesNew = useMemo(() => [...thread.wishes].reverse(), [thread.wishes]);
+    const media = wishesNew.filter((w) => w.post_type !== "text");
+    const wishIds = useMemo(() => thread.wishes.map((w) => w.id), [thread.wishes]);
+    const all = useWishCommentsMany(eventId, wishIds);
+    const act = useWishCommentActions(eventId);
+    const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
+    const comments = useMemo(() => thread.wishes
+        .flatMap((w) => (all.byWish.get(w.id) ?? []).map((c) => ({ c, w })))
+        .sort((a, b) => ms(b.c.created_at) - ms(a.c.created_at)), [thread.wishes, all.byWish]);
+    const commentCount = all.isLoading ? thread.wishes.reduce((n, w) => n + (w.comment_count ?? 0), 0) : comments.length;
+    const theirComments = comments.filter(({ c }) => !c.added_by_organizer && c.author_client_id != null && `c:${c.author_client_id}` === thread.key).length;
+
     const access = p ? ACCESS[p.access ?? (p.has_joined ? "active" : "pending")] : null;
     const rsvp = p ? RSVP[p.response_type ?? "none"] ?? RSVP.none : null;
+    const invited = !!p && (p.invite_status === "invited" || !!p.invited_at);
     const copy = (v: string) => { void navigator.clipboard?.writeText(v).then(() => toast.success("Copied")); };
-    const joined = p?.created_at ? new Date(p.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : null;
     const name = p?.full_name || p?.name || thread.name;
+    const side = sideOf(p);
+    const open = (w: Wish) => { onClose(); onOpen("view", w); };
+    const published = thread.wishes.filter((w) => wishStatus(w).label === "Published").length;
+    const shownWishes = kind === "all" ? wishesNew : wishesNew.filter((w) => w.post_type === kind);
+    const shownMedia = mediaKind === "all" ? media : media.filter((w) => w.post_type === mediaKind);
+    const shownComments = commentKind === "all" ? comments : comments.filter(({ c }) => (commentKind === "hidden" ? c.is_hidden : !c.is_hidden));
+    const kindOf = (w: Wish) => (w.post_type === "video" ? "video" : w.post_type === "image" ? "photo" : "text");
 
     return (
-        <ActionSheet open onClose={onClose} large icon={UserRound} title="Participant Details" subtitle="Who wrote these wishes, and how they take part." width={540}>
-            <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
-                <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={72} online={thread.online} />
+        <ActionSheet open onClose={onClose} large title="Participant Details" width={560}>
+            {/* Header: photo, name, Active, side, Send Message · call · mail · ⋯ */}
+            <div className="flex items-center gap-4">
+                <ChatAvatar name={name} photo={p?.photo ?? thread.avatar} size={84} online={thread.online} />
                 <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-[19px] font-bold">
-                        <span className="break-words">{name}</span>
+                    <p className="flex flex-wrap items-center gap-2">
+                        <span className="break-words text-[22px] leading-tight font-bold">{name}</span>
                         {access && <StatusPill tone={access.tone}>{access.label}</StatusPill>}
                     </p>
-                    <p className="text-[12.5px] text-muted-foreground">{sideOf(p) ?? "Participant"}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {thread.participantId && <Button size="sm" variant="outline" onClick={onMessage}><MessageSquare className="size-3.5" /> Send Message</Button>}
-                        {p?.mobile && <Button asChild size="icon" variant="outline" className="size-8"><a href={`tel:${p.mobile}`} aria-label="Call"><Phone className="size-3.5" /></a></Button>}
-                        {p?.email && <Button asChild size="icon" variant="outline" className="size-8"><a href={`mailto:${p.email}`} aria-label="Email"><Mail className="size-3.5" /></a></Button>}
+                    <p className="text-[13px] text-muted-foreground">{side ?? "Participant"}</p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        {thread.participantId && (
+                            <Button size="sm" variant="outline" className="h-8 rounded-full" onClick={onMessage}><MessageSquare className="size-3.5" /> Send Message</Button>
+                        )}
+                        {p?.mobile && <Button asChild size="icon" variant="outline" className="size-8 rounded-full"><a href={`tel:${p.mobile}`} aria-label="Call"><Phone className="size-3.5" /></a></Button>}
+                        {p?.email && <Button asChild size="icon" variant="outline" className="size-8 rounded-full"><a href={`mailto:${p.email}`} aria-label="Email"><Mail className="size-3.5" /></a></Button>}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="outline" className="size-8 rounded-full" aria-label="More"><MoreHorizontal className="size-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => { onClose(); onHide(); }}>
+                                    {thread.chatHidden ? <><Eye className="size-4 text-muted-foreground" /> Move to Inbox</> : <><EyeOff className="size-4 text-muted-foreground" /> Hide Chat</>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => { onClose(); onBlock(); }}>
+                                    {thread.blocked ? <><UserCheck className="size-4 text-muted-foreground" /> Unblock Participant</> : <><UserX className="size-4 text-muted-foreground" /> Block Participant</>}
+                                </DropdownMenuItem>
+                                {thread.participantId && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="gap-2.5 text-[13px] text-destructive focus:text-destructive" onClick={() => { onClose(); onRemove(); }}>
+                                            <Trash2 className="size-4 text-destructive" /> Remove Participant
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </div>
 
-            <CountTabs stretch value={tab} onChange={setTab} tabs={[
-                { value: "profile", label: "Profile" },
-                { value: "wishes", label: "Wishes", count: thread.wishes.length },
-                { value: "media", label: "Media", count: media.length },
-                { value: "comments", label: "Comments", count: theirReplies.length },
-            ]} />
+            {/* Tabs (underlined) */}
+            <div className="-mx-6 flex border-b border-border px-6">
+                {([["profile", "Profile"], ["wishes", `Wishes (${thread.wishes.length})`], ["media", `Media (${media.length})`], ["comments", `Comments (${commentCount})`]] as [DetailTab, string][]).map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => setTab(v)}
+                        className={cn("-mb-px flex-1 border-b-2 px-2 py-2.5 text-[13px] font-semibold whitespace-nowrap transition",
+                            tab === v ? "border-primary text-primary" : "border-transparent text-foreground/80 hover:text-primary")}>
+                        {label}
+                    </button>
+                ))}
+            </div>
 
+            {/* ── Profile ── */}
             {tab === "profile" && (
                 <>
                     {!p && !loading && <Notice tone="warning">This person is no longer a participant of this event. Their wishes stay until you hide or delete them.</Notice>}
                     {p && (
                         <>
-                            <DetailSection title="Basic Details" icon={UserRound}>
-                                <DetailRow label="Full Name">{name}</DetailRow>
-                                <DetailRow label="Mobile Number">
-                                    {p.mobile ? <span className="inline-flex items-center gap-1.5">{p.mobile}<button type="button" onClick={() => copy(p.mobile!)} aria-label="Copy mobile"><Copy className="size-3.5 text-muted-foreground" /></button></span> : null}
-                                </DetailRow>
-                                <DetailRow label="Email Address">
+                            <DCard title="Basic Details" icon={Users}
+                                action={<Button asChild size="sm" variant="outline" className={pinkOutline}><Link href={wsHref(`/dashboard/participants/${p.id}/edit`)}><Pencil className="size-3" /> Edit</Link></Button>}>
+                                <DRow icon={UserRound} label="Full Name">{name}</DRow>
+                                <DRow icon={Phone} label="Mobile Number">
+                                    {p.mobile ? <span className="inline-flex items-center gap-1.5">{[p.dial_code, p.mobile].filter(Boolean).join(" ")}<button type="button" onClick={() => copy(p.mobile!)} aria-label="Copy mobile"><Copy className="size-3.5 text-muted-foreground" /></button></span> : null}
+                                </DRow>
+                                <DRow icon={Mail} label="Email Address">
                                     {p.email ? <span className="inline-flex items-center gap-1.5 break-all">{p.email}<button type="button" onClick={() => copy(p.email!)} aria-label="Copy email"><Copy className="size-3.5 text-muted-foreground" /></button></span> : null}
-                                </DetailRow>
-                                <DetailRow label="Relationship">{p.relationship || sideOf(p)}</DetailRow>
-                                <DetailRow label="City">{[p.city, p.state].filter(Boolean).join(", ")}</DetailRow>
-                            </DetailSection>
-                            <DetailSection title="Event Participation" icon={CalendarDays}>
-                                <DetailRow label="Invitation Status">
-                                    <StatusPill tone={p.invite_status === "invited" || p.invited_at ? "success" : "warning"}>{p.invite_status === "invited" || p.invited_at ? "Invited" : "Pending"}</StatusPill>
-                                </DetailRow>
-                                <DetailRow label="RSVP Status">{rsvp && <StatusPill tone={rsvp.tone}>{rsvp.label}</StatusPill>}</DetailRow>
-                                <DetailRow label="Joined Date">{joined}</DetailRow>
-                            </DetailSection>
+                                </DRow>
+                                <DRow icon={Users} label="Relationship">{p.relationship || side}</DRow>
+                                <DRow icon={MapPin} label="City">{[p.city, p.state].filter(Boolean).join(", ")}</DRow>
+                            </DCard>
+                            <DCard title="Event Participation" icon={CalendarDays}>
+                                <DRow icon={Mail} label="Invitation Status"><StatusPill tone={invited ? "success" : "warning"} icon={invited ? Check : undefined}>{invited ? "Invited" : "Pending"}</StatusPill></DRow>
+                                <DRow icon={CheckSquare} label="RSVP Status">{rsvp && <StatusPill tone={rsvp.tone} icon={rsvp.tone === "success" ? Check : undefined}>{rsvp.label}</StatusPill>}</DRow>
+                                <DRow icon={CalendarDays} label="Joined Date">{p.created_at ? shortDate(p.created_at) : null}</DRow>
+                            </DCard>
                         </>
                     )}
-                    <div className="rounded-xl border border-border bg-card p-4">
-                        <p className="mb-3 flex items-center gap-2 text-[14px] font-bold"><BarChart3 className="size-4 text-primary" /> Activity Summary</p>
+                    <DCard title="Activity Summary" icon={Activity}>
                         <div className="grid grid-cols-3 gap-2.5">
                             {[
-                                { icon: MessageSquare, value: theirReplies.length, label: "Messages" },
-                                { icon: Heart, value: thread.likes, label: "Likes Received" },
+                                { icon: MessageSquare, value: theirComments, label: "Messages" },
+                                { icon: Heart, value: thread.likes, label: "Likes" },
                                 { icon: Heart, value: thread.wishes.length, label: "Wishes" },
                             ].map((s) => (
-                                <div key={s.label} className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5">
-                                    <s.icon className="size-5 shrink-0 text-primary" />
-                                    <span><span className="block text-[17px] leading-5 font-bold">{s.value}</span><span className="text-[11px] text-muted-foreground">{s.label}</span></span>
+                                <div key={s.label} className="flex flex-col items-center gap-0.5 rounded-xl bg-primary/[0.06] px-2 py-3 text-center">
+                                    <s.icon className="size-5 text-primary" />
+                                    <span className="text-[22px] leading-7 font-bold">{s.value}</span>
+                                    <span className="text-[11.5px] text-muted-foreground">{s.label}</span>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </DCard>
                 </>
             )}
 
+            {/* ── Wishes ── */}
             {tab === "wishes" && (
-                <div className="flex flex-col gap-2">
-                    {[...thread.wishes].reverse().map((w) => {
-                        const pill = STATUS_PILL(w);
-                        return (
-                            <div key={w.id} className="rounded-xl border border-border bg-card p-3 text-[12.5px]">
-                                <p className="line-clamp-3 break-words">{previewOf(w)}</p>
-                                <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted-foreground">
-                                    {new Date(ms(w.created_at)).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}
-                                    <span className="flex items-center gap-1"><Heart className="size-3 fill-current text-primary" />{w.like_count}</span>
-                                    <StatusPill tone={pill?.tone ?? "success"}>{pill?.label ?? "Published"}</StatusPill>
-                                </p>
-                            </div>
-                        );
-                    })}
-                </div>
+                <DCard title={`Wishes (${thread.wishes.length})`} icon={Heart}
+                    action={(
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" className={pinkOutline}><Filter className="size-3" /> {kind === "all" ? "Filter" : KIND_META[kind].label}</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                                {(["all", "text", "image", "video"] as KindFilter[]).map((k) => (
+                                    <DropdownMenuItem key={k} className={cn("text-[13px]", kind === k && "font-semibold text-primary")} onClick={() => setKind(k)}>
+                                        {k === "all" ? "All wishes" : KIND_META[k].label}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}>
+                    <div className="-mt-1 mb-3 flex items-center justify-between gap-2">
+                        <StatusPill tone="success" icon={Check}>{published} Published</StatusPill>
+                        <span className="text-[11.5px] text-muted-foreground">Text · Image · Video</span>
+                    </div>
+                    {shownWishes.length === 0 ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">No wishes of this type.</p> : (
+                        <div className="flex flex-col gap-3">
+                            {shownWishes.map((w) => {
+                                const meta = KIND_META[w.post_type];
+                                const st = wishStatus(w);
+                                const thumb = w.thumbnail_url ?? w.photo;
+                                return (
+                                    <div key={w.id} className="rounded-xl border border-border p-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <span className="flex items-center gap-1.5 text-[12.5px] font-bold text-primary"><meta.icon className="size-3.5" /> {meta.label}</span>
+                                            <span className="flex items-center gap-1.5">
+                                                <StatusPill tone={st.tone}>{st.label}</StatusPill>
+                                                <RowActions items={bubbleActions(w).map((a) => ({ ...a, onClick: () => { onClose(); a.onClick(); } }))} compact label="Wish actions" />
+                                            </span>
+                                        </div>
+                                        {w.post_type === "text" ? (
+                                            <>
+                                                <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-[13px] break-words">{w.message}</p>
+                                                <div className="mt-2 flex items-center justify-between gap-2 text-[11.5px] text-muted-foreground">
+                                                    <span className="flex items-center gap-1"><CalendarDays className="size-3.5" /> {shortDate(w.created_at)}</span>
+                                                    <span className="flex items-center gap-1"><Heart className="size-3 fill-current text-primary" /> {w.like_count} Likes</span>
+                                                    <Button size="sm" variant="outline" className={pinkOutline} onClick={() => open(w)}>View</Button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex gap-3">
+                                                <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    {thumb && <img src={mediaUrl(thumb)} alt="" className="size-full object-cover" />}
+                                                    {w.post_type === "video" && <span className="absolute inset-0 grid place-items-center"><PlayCircle className="size-8 text-white drop-shadow" /></span>}
+                                                    {mmss(w.duration_seconds) && <span className="absolute right-1 bottom-1 rounded bg-black/60 px-1 text-[10px] text-white">{mmss(w.duration_seconds)}</span>}
+                                                </div>
+                                                <div className="flex min-w-0 flex-1 flex-col">
+                                                    <p className="line-clamp-2 text-[13px] font-semibold break-words">{w.message || (w.post_type === "video" ? "Video" : "Photo")}</p>
+                                                    <p className="text-[11px] text-muted-foreground">{shortDate(w.created_at)}</p>
+                                                    <p className="mt-0.5 flex items-center gap-2 text-[11.5px]">
+                                                        {mmss(w.duration_seconds) && <span className="flex items-center gap-0.5 text-primary"><Play className="size-3 fill-current" /> {mmss(w.duration_seconds)}</span>}
+                                                        <span className="flex items-center gap-1 text-primary"><Heart className="size-3 fill-current" /> {w.like_count} Likes</span>
+                                                    </p>
+                                                    <div className="mt-auto flex items-center justify-between pt-1.5">
+                                                        <span className="text-[11.5px] text-muted-foreground">To: {AUDIENCE_SHORT[w.audience]}</span>
+                                                        <Button size="sm" variant="outline" className={pinkOutline} onClick={() => open(w)}>View</Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </DCard>
             )}
 
-            {tab === "media" && (media.length === 0
-                ? <p className="text-[12.5px] text-muted-foreground">No photos or videos.</p>
-                : (
-                    <div className="grid grid-cols-3 gap-2">
-                        {media.map((w) => {
-                            const src = w.thumbnail_url ?? w.photo;
-                            return (
-                                <div key={w.id} className="relative aspect-square overflow-hidden rounded-lg bg-muted">
-                                    {src
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        ? <img src={mediaUrl(src)} alt="" className="size-full object-cover" />
-                                        : null}
-                                    {w.post_type === "video" && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-[10px] font-semibold text-white">Video</span>}
-                                </div>
-                            );
-                        })}
+            {/* ── Media ── */}
+            {tab === "media" && (
+                <DCard title={`Media (${media.length})`} icon={ImageIcon}
+                    action={<Button size="sm" variant="outline" className={pinkOutline} onClick={() => setGrid((g) => !g)}>{grid ? <><List className="size-3" /> List View</> : <><LayoutGrid className="size-3" /> Grid View</>}</Button>}>
+                    <div className="mb-3">
+                        <Chips value={mediaKind} onChange={setMediaKind} items={[
+                            { value: "all", label: `All (${media.length})` },
+                            { value: "image", label: `Images (${media.filter((w) => w.post_type === "image").length})` },
+                            { value: "video", label: `Videos (${media.filter((w) => w.post_type === "video").length})` },
+                        ]} />
                     </div>
-                ))}
+                    {shownMedia.length === 0 ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">No photos or videos.</p> : (
+                        <div className={cn("gap-3", grid ? "grid grid-cols-2" : "flex flex-col")}>
+                            {shownMedia.map((w) => {
+                                const st = wishStatus(w);
+                                const thumb = w.thumbnail_url ?? w.photo;
+                                const video = w.post_type === "video";
+                                return (
+                                    <div key={w.id} className="overflow-hidden rounded-xl border border-border p-2.5">
+                                        <button type="button" onClick={() => open(w)} className={cn("relative block w-full overflow-hidden rounded-lg bg-muted", grid ? "aspect-square" : "aspect-[16/7]")}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            {thumb && <img src={mediaUrl(thumb)} alt="" className="size-full object-cover" />}
+                                            {video && <span className="absolute inset-0 grid place-items-center"><PlayCircle className="size-12 text-white drop-shadow" /></span>}
+                                            {mmss(w.duration_seconds) && <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 text-[11px] text-white">{mmss(w.duration_seconds)}</span>}
+                                        </button>
+                                        <div className="px-1 pt-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold">
+                                                    {video ? <Video className="size-3.5 shrink-0" /> : <ImageIcon className="size-3.5 shrink-0" />}
+                                                    <span className="truncate">{w.message || (video ? "Video" : "Photo")}</span>
+                                                </p>
+                                                {!grid && <StatusPill tone={st.tone}>{st.label}</StatusPill>}
+                                            </div>
+                                            <p className="text-[11.5px] text-muted-foreground">Uploaded {shortDate(w.created_at)}</p>
+                                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                                                <span className="flex items-center gap-1 text-[12px]"><Heart className="size-3 fill-current text-primary" /> {w.like_count} Likes</span>
+                                                <Button size="sm" variant="outline" className={pinkOutline} onClick={() => open(w)}>
+                                                    <ExternalLink className="size-3" /> {video ? "Watch Video" : "View Media"}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <p className="mt-3 text-[11.5px] text-muted-foreground">Media displayed here was shared in Wed Wishes by this participant.</p>
+                </DCard>
+            )}
 
-            {tab === "comments" && (theirReplies.length === 0
-                ? <p className="text-[12.5px] text-muted-foreground">No replies from them yet.</p>
-                : (
-                    <div className="divide-y divide-border rounded-xl border border-border bg-card">
-                        {theirReplies.map(({ r, w }) => (
-                            <div key={r.id} className="px-3 py-2 text-[12.5px]">
-                                <p className="break-words">{r.message || "📷 Photo"}</p>
-                                <p className="text-[11px] text-muted-foreground">On: {previewOf(w).slice(0, 60)} · {timeOf(r.created_at)}</p>
-                            </div>
-                        ))}
+            {/* ── Comments (everyone's comments on this participant's wishes) ── */}
+            {tab === "comments" && (
+                <DCard title={`Comments (${commentCount})`} icon={MessageSquare}>
+                    <div className="mb-3">
+                        <Chips value={commentKind} onChange={setCommentKind} items={[
+                            { value: "all", label: `All (${comments.length})` },
+                            { value: "visible", label: `Visible (${comments.filter(({ c }) => !c.is_hidden).length})` },
+                            { value: "hidden", label: `Hidden (${comments.filter(({ c }) => c.is_hidden).length})` },
+                        ]} />
                     </div>
-                ))}
+                    {all.isLoading ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">Loading…</p>
+                        : shownComments.length === 0 ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">No comments here.</p> : (
+                            <div className="flex flex-col gap-2.5">
+                                {shownComments.map(({ c, w }) => (
+                                    <div key={c.id} className="flex gap-3 rounded-xl border border-border p-3">
+                                        <PersonAvatar name={c.added_by_organizer ? "Event Organizer" : c.guest_name} size={34} rounded="full" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="text-[13px] font-bold">{c.added_by_organizer ? "Event Organizer" : c.guest_name}</p>
+                                                <span className="shrink-0 text-[11px] text-muted-foreground">{c.created_at ? new Date(c.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" }) : ""}</span>
+                                            </div>
+                                            {editing?.id === c.id ? (
+                                                <div className="mt-1 flex flex-col gap-1.5">
+                                                    <Textarea value={editing.text} maxLength={500} rows={2} onChange={(e) => setEditing({ id: c.id, text: e.target.value })} />
+                                                    <span className="flex justify-end gap-2">
+                                                        <Button size="sm" variant="outline" className="h-7" onClick={() => setEditing(null)}>Cancel</Button>
+                                                        <Button size="sm" className="h-7" disabled={!editing.text.trim() || act.update.isPending}
+                                                            onClick={() => act.update.mutate({ id: c.id, data: { message: editing.text.trim() }, done: "Comment updated" }, { onSuccess: () => setEditing(null) })}>Save</Button>
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[12.5px] break-words">{c.message || "📷 Photo"}</p>
+                                            )}
+                                            <div className="mt-1.5 flex items-end justify-between gap-2">
+                                                <span className="flex min-w-0 items-center gap-1 text-[11.5px] text-muted-foreground">
+                                                    {w.post_type === "video" ? <Video className="size-3 shrink-0" /> : w.post_type === "image" ? <ImageIcon className="size-3 shrink-0" /> : <MessageSquare className="size-3 shrink-0" />}
+                                                    <span className="truncate">On {thread.name.split(" ")[0]}&apos;s {kindOf(w)} wish</span>
+                                                </span>
+                                                <span className="flex shrink-0 flex-col items-end gap-1.5">
+                                                    <StatusPill tone={c.is_hidden ? "amber" : "success"}>{c.is_hidden ? "Hidden" : "Visible"}</StatusPill>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-[12px]"><MoreHorizontal className="size-3.5" /> Actions</Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-44">
+                                                            {c.can_edit && (
+                                                                <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => setEditing({ id: c.id, text: c.message })}><Pencil className="size-4 text-muted-foreground" /> Edit Message</DropdownMenuItem>
+                                                            )}
+                                                            {c.is_hidden
+                                                                ? <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: true }, done: "Comment visible" })}><Eye className="size-4 text-muted-foreground" /> Show Message</DropdownMenuItem>
+                                                                : <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: false, reviewed: true }, done: "Comment hidden" })}><EyeOff className="size-4 text-muted-foreground" /> Hide Message</DropdownMenuItem>}
+                                                            {c.can_delete && (
+                                                                <DropdownMenuItem className="gap-2.5 text-[13px] text-destructive focus:text-destructive" onClick={() => act.remove.mutate(c.id)}><Trash2 className="size-4 text-destructive" /> Delete Message</DropdownMenuItem>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                </DCard>
+            )}
         </ActionSheet>
     );
 }
