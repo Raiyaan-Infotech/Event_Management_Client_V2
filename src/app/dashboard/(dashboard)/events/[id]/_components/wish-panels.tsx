@@ -142,7 +142,10 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
                     ? <p className="whitespace-pre-line break-words text-[13.5px] font-medium leading-relaxed">{wish.message}</p>
                     : <p className="text-[13px] text-muted-foreground">No message — {wish.post_type} only.</p>}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <StatusPill tone="primary">{TYPE_WISH[wish.post_type]}</StatusPill>
+                    <span className="flex flex-wrap gap-1.5">
+                        <StatusPill tone="primary">{TYPE_WISH[wish.post_type]}</StatusPill>
+                        {wish.edited_by_organizer && <StatusPill tone="amber" icon={Pencil}>Edited by organizer</StatusPill>}
+                    </span>
                     <span className="text-[11.5px] text-muted-foreground">Posted {dateTime(wish.created_at)}</span>
                 </div>
             </Card>
@@ -233,7 +236,7 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
     };
 
     return (
-        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Edit Wish" subtitle="Modify this post — participants see the change in the app straight away." width={520}
+        <ActionSheet open onClose={onClose} eyebrow={eyebrow} title="Edit Wish" subtitle={wish.added_by_organizer ? "Modify your post — participants see the change in the app straight away." : "Correct this participant's wish — the change shows in the app straight away."} width={520}
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Changes</Button>
@@ -292,6 +295,9 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
                 </FormField>
             )}
             {kind === "text" && wish.post_type !== "text" && <Notice tone="warning">Saving as Text removes the attached {wish.post_type}.</Notice>}
+            {!wish.added_by_organizer && (
+                <Notice tone="info">This is {wish.guest_name}&apos;s wish. It keeps their name, and everyone sees an &quot;Edited by organizer&quot; label on it.</Notice>
+            )}
         </ActionSheet>
     );
 }

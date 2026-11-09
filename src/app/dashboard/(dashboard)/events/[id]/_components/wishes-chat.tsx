@@ -511,7 +511,10 @@ function WishBubble({ wish, mine, actions, onReply, onOpen, onComments }: {
                 <WishMediaThumb wish={wish} onOpen={onOpen} />
                 {wish.message && <p className="whitespace-pre-line break-words text-[13.5px] leading-relaxed">{wish.message}</p>}
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <span className="text-[11px] text-muted-foreground">{timeOf(wish.created_at)}</span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {timeOf(wish.created_at)}
+                        {wish.edited_by_organizer && <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"><Pencil className="size-3" /> Edited by organizer</span>}
+                    </span>
                     <span className="flex items-center gap-2">
                         <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-semibold text-primary">
                             <Heart className="size-3 fill-current" /> {wish.like_count}

@@ -61,6 +61,8 @@ export interface Wish {
     is_flagged: boolean;
     /** New comments allowed on this wish (2026-11-09). */
     allow_comments?: boolean;
+    /** A participant's wish the organizer changed — shown as "Edited by organizer" (2026-11-09). */
+    edited_by_organizer?: boolean;
     status: WishStatus;
     added_by_organizer: boolean;
     author_blocked: boolean;
