@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, CountTabs, DetailRow, DetailSection, FormField, InlineSheets, ListCard, ModuleHeader, Notice, OverviewCard,
+    ActionSheet, CharCount, CountTabs, DetailRow, DetailSection, FormField, FormPanel, InlineSheets, ListCard, ModuleHeader, Notice, OverviewCard,
     Pager, PersonAvatar, PersonSummary, RowActions, SearchBox, SortSelect, SplitLayout, StatTile, StatusPill, Toolbar, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
@@ -74,7 +74,7 @@ function startOf(v: "all" | "today" | "7" | "30") {
 
 type Panel =
     | { kind: "view" | "edit" | "moderate" | "message" | "block" | "delete" | "comments"; wish: Wish }
-    | { kind: "post" | "words" };
+    | { kind: "words" };
 
 export function WishesPanel({ event }: { event: ClientEvent }) {
     const query = useEventWishes(event.id);
@@ -94,6 +94,8 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     const [page, setPage] = useState(1);
     const [panel, setPanel] = useState<Panel | null>(null);
     const [settingsPage, setSettingsPage] = useState(false);
+    // Post Wish opens as the slide-in panel ("canvas", Jamal 2026-11-09), not beside the table.
+    const [posting, setPosting] = useState(false);
 
     const wishes = useMemo(() => query.data?.wishes ?? [], [query.data]);
     // The open panel always shows the latest copy of its wish (the list refetches after a change).
@@ -153,7 +155,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
                     {settingsPage
                         ? <Button variant="outline" size="sm" onClick={() => setSettingsPage(false)}><ArrowLeft className="size-3.5" /> Back to Wishes</Button>
                         : <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => { close(); setSettingsPage(true); }}><Settings className="size-3.5" /> Wishes Settings</Button>}
-                    <Button size="sm" onClick={() => { setSettingsPage(false); open({ kind: "post" }); }}><Plus className="size-3.5" /> Post Wish</Button>
+                    <Button size="sm" onClick={() => { setSettingsPage(false); close(); setPosting(true); }}><Plus className="size-3.5" /> Post Wish</Button>
                 </>
             )}
         />
@@ -271,13 +273,13 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
                         {panel.kind === "message" && <MessageWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                         {panel.kind === "block" && <BlockWriter key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
                         {panel.kind === "delete" && <DeleteWish eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "post" && <PostWish eventId={event.id} eventName={event.name} onClose={close} />}
                         {panel.kind === "words" && <BlockedWords eventId={event.id} onClose={close} />}
                     </InlineSheets>
                 )}>
                     {list}
                 </SplitLayout>
             ) : <div className="flex min-w-0 flex-col gap-3">{list}</div>}
+            {posting && <PostWish eventId={event.id} eventName={event.name} onClose={() => setPosting(false)} />}
         </div>
     );
 }
@@ -722,7 +724,7 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
     const box = "flex flex-col items-center gap-0.5 rounded-xl border border-dashed border-primary/40 bg-primary/[0.03] px-3 py-3 text-center transition hover:bg-primary/5";
 
     return (
-        <ActionSheet open onClose={onClose} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
+        <FormPanel sheet={{ open: true, onClose }} icon={Heart} title="Post a Wish" subtitle="Publish a greeting as the event organizer."
             footer={<>
                 <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
                 <Button disabled={busy} onClick={submit}>{busy && <Loader2 className="size-3.5 animate-spin" />} {publish ? "Publish Wish" : "Save Hidden"}</Button>
@@ -767,7 +769,7 @@ function PostWish({ eventId, eventName, onClose }: { eventId: number; eventName:
                 <span className="text-[13px]">Publish Immediately</span>
                 <Switch checked={publish} onCheckedChange={setPublish} aria-label="Publish immediately" />
             </div>
-        </ActionSheet>
+        </FormPanel>
     );
 }
 
