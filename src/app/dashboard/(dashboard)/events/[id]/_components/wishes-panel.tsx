@@ -12,8 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, CountTabs, DetailRow, DetailSection, FormField, FormPanel, InlineSheets, ListCard, ModuleHeader, Notice, OverviewCard,
-    Pager, PersonAvatar, PersonSummary, RowActions, SearchBox, SortSelect, SplitLayout, StatTile, StatusPill, Toolbar, type RowAction,
+    ActionSheet, CharCount, CountTabs, DetailRow, DetailSection, FormField, FormPanel, ListCard, ModuleHeader, Notice, OverviewCard,
+    Pager, PersonAvatar, PersonSummary, RowActions, SearchBox, SortSelect, StatTile, StatusPill, Toolbar, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
 import { cn } from "@/lib/utils";
@@ -94,7 +94,6 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     const [page, setPage] = useState(1);
     const [panel, setPanel] = useState<Panel | null>(null);
     const [settingsPage, setSettingsPage] = useState(false);
-    // Post Wish opens as the slide-in panel ("canvas", Jamal 2026-11-09), not beside the table.
     const [posting, setPosting] = useState(false);
 
     const wishes = useMemo(() => query.data?.wishes ?? [], [query.data]);
@@ -263,22 +262,20 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
         <div className="flex flex-col gap-4">
             {header}
             {tiles}
-            {panel ? (
-                <SplitLayout asideWidth={420} aside={(
-                    <InlineSheets>
-                        {panel.kind === "view" && <ViewWish eventId={event.id} wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} onComments={() => open({ kind: "comments", wish: panel.wish })} />}
-                        {panel.kind === "comments" && <ManageComments key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} settings={data.settings} onClose={close} />}
-                        {panel.kind === "edit" && <EditWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "moderate" && <ModerateWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "message" && <MessageWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "block" && <BlockWriter key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "delete" && <DeleteWish eventId={event.id} wish={live(panel.wish)} onClose={close} />}
-                        {panel.kind === "words" && <BlockedWords eventId={event.id} onClose={close} />}
-                    </InlineSheets>
-                )}>
-                    {list}
-                </SplitLayout>
-            ) : <div className="flex min-w-0 flex-col gap-3">{list}</div>}
+            <div className="flex min-w-0 flex-col gap-3">{list}</div>
+            {/* Every action panel slides in from the right ("canvas"), uniform with Guests / Family (Jamal, 2026-11-09). */}
+            {panel && (
+                <>
+                    {panel.kind === "view" && <ViewWish eventId={event.id} wish={live(panel.wish)} onClose={close} onEdit={() => open({ kind: "edit", wish: panel.wish })} onComments={() => open({ kind: "comments", wish: panel.wish })} />}
+                    {panel.kind === "comments" && <ManageComments key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} settings={data.settings} onClose={close} />}
+                    {panel.kind === "edit" && <EditWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "moderate" && <ModerateWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "message" && <MessageWish key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "block" && <BlockWriter key={panel.wish.id} eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "delete" && <DeleteWish eventId={event.id} wish={live(panel.wish)} onClose={close} />}
+                    {panel.kind === "words" && <BlockedWords eventId={event.id} onClose={close} />}
+                </>
+            )}
             {posting && <PostWish eventId={event.id} eventName={event.name} onClose={() => setPosting(false)} />}
         </div>
     );
