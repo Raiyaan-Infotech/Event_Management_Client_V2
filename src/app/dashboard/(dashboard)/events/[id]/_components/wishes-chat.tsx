@@ -382,9 +382,6 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                             <DropdownMenuContent align="end" className="w-52">
                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={onDetails}><UserRound className="size-4 text-muted-foreground" /> Participant Details</DropdownMenuItem>
                                 {thread.participantId && (
-                                    <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={() => onPanel("message", latest)}><Mail className="size-4 text-muted-foreground" /> Send In-App Message</DropdownMenuItem>
-                                )}
-                                {thread.participantId && (
                                     <>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="gap-2.5 py-2 text-[13px] text-destructive focus:text-destructive" onClick={onRemove}>
