@@ -7,6 +7,7 @@ import {
     Send, Settings, ShieldAlert, ShieldCheck, Trash2, Upload, Video, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -667,25 +668,24 @@ function ManageComments({ eventId, wish, settings, onClose }: { eventId: number;
 
 function DeleteWish({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
     const remove = useDeleteWish(eventId);
+    // A centred confirm pop-up, the same as Delete in Family / Agenda / Media (Jamal, 2026-11-09).
     return (
-        <ActionSheet open onClose={onClose} icon={Trash2} tone="danger" title="Remove Wish" subtitle="Delete this wish from the event."
-            footer={<>
-                <Button variant="outline" disabled={remove.isPending} onClick={onClose}>Cancel</Button>
-                <Button variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate(wish.id, { onSuccess: onClose })}><Trash2 className="size-3.5" /> Remove Wish</Button>
-            </>}>
-            <div className="flex flex-col items-center gap-2 py-2 text-center">
-                <span className="grid size-14 place-items-center rounded-full bg-destructive/10 text-destructive"><Trash2 className="size-6" /></span>
-                <p className="text-[16px] font-bold">Are you sure you want to remove this wish?</p>
-                <p className="text-[12.5px] text-muted-foreground">It is deleted for everyone, with its likes, and can&apos;t be brought back.</p>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
-                <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={40} rounded="full" />
-                <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold">{wish.guest_name}</p>
-                    <p className="text-[11.5px] text-muted-foreground">Wish Type: {TYPE_LABEL[wish.post_type]} · Posted: {dateTimeOf(wish.created_at)}</p>
-                </div>
-            </div>
-        </ActionSheet>
+        <Dialog open onOpenChange={(o) => !o && onClose()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Delete Wish?</DialogTitle>
+                    <DialogDescription>
+                        The wish from {wish.guest_name} will be deleted for everyone, with its likes and comments. This can&apos;t be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" disabled={remove.isPending} onClick={onClose}>Cancel</Button>
+                    <Button variant="destructive" disabled={remove.isPending} onClick={() => remove.mutate(wish.id, { onSuccess: onClose })}>
+                        {remove.isPending && <Loader2 className="size-3.5 animate-spin" />} Delete
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
