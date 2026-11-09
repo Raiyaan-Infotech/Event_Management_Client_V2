@@ -143,6 +143,30 @@ function ChatAvatar({ name, photo, size, online }: { name: string; photo: string
     );
 }
 
+/**
+ * The chat's height = what is left of the screen below its top (Jamal: "fit that view" — no page
+ * scroll to reach the message box). Worked out on load and on resize; 420 px at the least.
+ */
+function useFitHeight() {
+    const ref = useRef<HTMLDivElement>(null);
+    const [value, setValue] = useState<number | undefined>(undefined);
+    useEffect(() => {
+        const fit = () => {
+            const el = ref.current;
+            if (!el) return;
+            // Top of the box as if the page were scrolled to the top (the window or the dashboard's own scroller).
+            let scrolled = window.scrollY;
+            for (let p = el.parentElement; p; p = p.parentElement) scrolled += p.scrollTop;
+            const top = el.getBoundingClientRect().top + scrolled;
+            setValue(Math.max(420, Math.floor(window.innerHeight - top - 16)));
+        };
+        fit();
+        window.addEventListener("resize", fit);
+        return () => window.removeEventListener("resize", fit);
+    }, []);
+    return [ref, value] as const;
+}
+
 export function WishesChat({ event, data, wishes, view, onView, bubbleActions, onPanel }: {
     event: ClientEvent;
     data: WishesPage;
@@ -159,6 +183,7 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
     const [phoneThread, setPhoneThread] = useState(false);
     const [details, setDetails] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const [boxRef, boxHeight] = useFitHeight();
     const participants = useEventParticipants(event.id);
     const byId = useMemo(() => new Map((participants.data ?? []).map((p) => [p.id, p])), [participants.data]);
 
@@ -189,7 +214,8 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
     const statusLabel: Record<ChatStatus, string> = { all: "All conversations", pending: "Pending review", reported: "Reported", blocked: "Blocked participants" };
 
     return (
-        <div className="grid h-[calc(100vh-200px)] min-h-[560px] min-w-0 gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
+        <div ref={boxRef} style={{ height: boxHeight }}
+            className="grid min-h-[420px] min-w-0 gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]">
             {/* ── Conversations ── */}
             <section className={cn("min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card", phoneThread ? "hidden lg:flex" : "flex")}>
                 <div className="flex flex-col gap-2.5 border-b border-border p-3">
@@ -230,9 +256,9 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
                         <p className="p-6 text-center text-[12.5px] text-muted-foreground">No conversations match.</p>
                     ) : shown.map((t) => (
                         <button key={t.key} type="button" onClick={() => { setPicked(t.key); setPhoneThread(true); }}
-                            className={cn("flex w-full items-center gap-3 border-b border-border/60 px-3 py-3 text-left transition",
+                            className={cn("flex w-full items-center gap-3 border-b border-border/60 px-3 py-2.5 text-left transition",
                                 selected?.key === t.key ? "bg-primary/10" : "hover:bg-muted/50")}>
-                            <ChatAvatar name={t.name} photo={t.avatar} size={42} online={t.online} />
+                            <ChatAvatar name={t.name} photo={t.avatar} size={38} online={t.online} />
                             <span className="min-w-0 flex-1">
                                 <span className="flex items-center justify-between gap-2">
                                     <span className="flex min-w-0 items-center gap-1 truncate text-[13.5px] font-bold">
@@ -327,7 +353,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
 
     return (
         <>
-            <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
                 <Button size="icon" variant="ghost" className="size-8 lg:hidden" onClick={onBack} aria-label="Back to conversations"><ArrowLeft className="size-4" /></Button>
                 <ChatAvatar name={thread.name} photo={thread.avatar} size={42} online={thread.online} />
                 <div className="min-w-0 flex-1">
