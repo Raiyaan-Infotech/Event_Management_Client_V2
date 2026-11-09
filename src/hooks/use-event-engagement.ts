@@ -88,6 +88,8 @@ export interface WishThreadInfo {
     unread: number; online: boolean; last_read_at: string | null;
     /** Hide Chat: out of the main inbox (the Hidden tab). */
     hidden?: boolean; hide_note?: string | null;
+    /** When the participant last used the app (null = never) — "last seen" in the chat header. */
+    last_seen_at?: string | null;
 }
 
 export interface WishSettings {
@@ -150,6 +152,8 @@ export function useEventWishes(eventId: number) {
         queryKey: key(eventId, 'wishes'),
         queryFn: () => api.get<WishesPage>(`/client/events/${eventId}/wishes`),
         retry: false,
+        // The chat keeps itself fresh: new wishes, unread counts and Online / last seen (only while the tab is open).
+        refetchInterval: 30_000,
     });
 }
 

@@ -66,6 +66,8 @@ type Thread = {
     likes: number;
     /** Hide Chat: out of the main inbox, listed under Hidden. */
     chatHidden: boolean;
+    /** When they last used the app (null = never). */
+    lastSeen: string | null;
     hideNote: string | null;
 };
 
@@ -133,6 +135,7 @@ function buildThreads(wishes: Wish[], info: WishesPage["threads"]): Thread[] {
             blocked: asc.some((w) => w.author_blocked),
             likes: asc.reduce((n, w) => n + w.like_count, 0),
             chatHidden: info?.[key]?.hidden ?? false,
+            lastSeen: info?.[key]?.last_seen_at ?? null,
             hideNote: info?.[key]?.hide_note ?? null,
         };
     }).sort((a, b) => b.lastAt - a.lastAt);
@@ -140,6 +143,33 @@ function buildThreads(wishes: Wish[], info: WishesPage["threads"]): Thread[] {
 
 const SIDE_LABEL = { bride: "Bride Side", groom: "Groom Side" } as const;
 const sideOf = (p?: ParticipantRow) => (p?.side ? SIDE_LABEL[p.side] : p?.rsvp_side ? SIDE_LABEL[p.rsvp_side] : null);
+
+/** "last seen 5 min ago" / "today at 10:24 AM" / "yesterday at …" / "02 Nov". */
+function seenAgo(iso: string) {
+    const t = new Date(iso).getTime();
+    const mins = Math.floor((Date.now() - t) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const time = new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const today = dayStart(Date.now());
+    if (t >= today) return `today at ${time}`;
+    if (t >= today - 86400000) return `yesterday at ${time}`;
+    return new Date(t).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+}
+
+/**
+ * Online / Offline from the backend (2026-11-10): green "Online" when they used the app in the last
+ * 3 minutes, else grey "Offline · last seen …", or "Not on the app yet". Refreshed every 30 s.
+ */
+function Presence({ online, lastSeen }: { online: boolean; lastSeen: string | null }) {
+    if (online) return <span className="flex items-center gap-1 font-semibold text-success"><span className="size-2 rounded-full bg-success" /> Online</span>;
+    return (
+        <span className="flex items-center gap-1 text-muted-foreground" title={lastSeen ? new Date(lastSeen).toLocaleString() : undefined}>
+            <span className="size-2 rounded-full bg-muted-foreground/40" />
+            {lastSeen ? `Offline · last seen ${seenAgo(lastSeen)}` : "Not on the app yet"}
+        </span>
+    );
+}
 
 /** Avatar with the green Online dot. */
 function ChatAvatar({ name, photo, size, online }: { name: string; photo: string | null; size: number; online?: boolean }) {
@@ -385,7 +415,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                     </p>
                     <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
                         {thread.isOrg ? "Your posts as the organizer" : <>{[side, "Participant"].filter(Boolean).join(" • ")}</>}
-                        {thread.online && <span className="flex items-center gap-1 font-semibold text-success"><span className="size-2 rounded-full bg-success" /> Online</span>}
+                        {!thread.isOrg && <Presence online={thread.online} lastSeen={thread.lastSeen} />}
                         {thread.blocked && <StatusPill tone="danger" icon={UserX}>Blocked</StatusPill>}
                         {thread.chatHidden && <StatusPill tone="violet" icon={EyeOff}>Hidden chat</StatusPill>}
                     </p>
@@ -843,7 +873,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                         <span className="break-words text-[17px] leading-tight font-bold">{name}</span>
                         {access && <StatusPill tone={access.tone}>{access.label}</StatusPill>}
                     </p>
-                    <p className="text-[12px] text-muted-foreground">{side ?? "Participant"}</p>
+                    <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">{side ?? "Participant"} <Presence online={thread.online} lastSeen={thread.lastSeen} /></p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {thread.participantId && (
                             <Button size="sm" variant="outline" className="h-7 rounded-full px-2.5 text-[12px]" onClick={onMessage}><MessageSquare className="size-3.5" /> Send Message</Button>

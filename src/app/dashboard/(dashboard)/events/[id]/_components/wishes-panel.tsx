@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowLeft, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus, Settings,
-    ShieldAlert, ShieldCheck, Trash2, Video, X, Ban, UserCheck,
+    ShieldCheck, Trash2, TriangleAlert, Video, X, Ban, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,14 +16,13 @@ import {
     ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, StatTile, StatusPill, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
-import { cn } from "@/lib/utils";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
     useBlockWishWriter, useCreateWish, useDeleteWish, useEventWishes, useSaveWishFilter, useSaveWishSettings, useUpdateWish, useWishFilter, type BlockReason, type Wish, type WishAudience, type WishFilter, type WishSettings, type WordAction,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
-import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider } from "./wish-panels";
+import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider, useWishPanels } from "./wish-panels";
 import { useEventParticipants } from "@/hooks/use-event-participants";
 
 /**
@@ -158,67 +157,65 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     );
 }
 
-/* ── Block / Unblock ─────────────────────────────────────────────────────── */
+/* ── Block / Unblock (Jamal's design, 2026-11-10) ────────────────────────── */
 
+const BLOCK_NOTE_MAX = 300;
+const ACCESS_PILL: Record<string, { label: string; tone: Tone }> = {
+    active: { label: "Active", tone: "success" }, pending: { label: "Pending", tone: "warning" }, blocked: { label: "Blocked", tone: "danger" },
+};
+
+/**
+ * Block Participant: who, a warning, Reason for Block * (dropdown), Note (optional, 300) → Block.
+ * Unblock: who, why they were blocked, → Unblock. Nothing else (Jamal: "remove the unwanted things").
+ */
 function BlockWriter({ eventId, wish, onClose }: { eventId: number; wish: Wish; onClose: () => void }) {
     const block = useBlockWishWriter(eventId);
-    const update = useUpdateWish(eventId);
-    const [hideAll, setHideAll] = useState(true);
-    const [reason, setReason] = useState<BlockReason>("inappropriate");
+    const { people } = useWishPanels();
+    const [reason, setReason] = useState<BlockReason | "">("");
     const [note, setNote] = useState("");
     const unblock = wish.author_blocked;
-    const busy = block.isPending || update.isPending;
-    const run = async () => {
-        try {
-            await block.mutateAsync({ id: wish.id, blocked: !unblock, ...(unblock ? {} : { reason, note: note.trim() }) });
-            if (!unblock && hideAll) await update.mutateAsync({ id: wish.id, data: { show_in_app: false, all_from_writer: true } });
-            onClose();
-        } catch { /* the hooks showed the error */ }
+    const p = wish.participant_id ? people.get(wish.participant_id) : undefined;
+    const access = unblock ? ACCESS_PILL.blocked : p ? ACCESS_PILL[p.access ?? (p.has_joined ? "active" : "pending")] : null;
+    const run = () => {
+        if (!unblock && !reason) { toast.error("Please choose a reason for the block."); return; }
+        block.mutate({ id: wish.id, blocked: !unblock, ...(unblock ? {} : { reason: reason as BlockReason, note: note.trim() }) }, { onSuccess: onClose });
     };
     return (
         <ActionSheet open onClose={onClose} icon={unblock ? UserCheck : Ban} tone={unblock ? "success" : "danger"} title={unblock ? "Unblock Participant" : "Block Participant"}
-            subtitle={unblock ? "Let this participant use Wed Wishes again." : "Restrict access to the Wed Wishes menu only."}
             footer={<>
-                <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
-                <Button variant={unblock ? "default" : "destructive"} disabled={busy} onClick={run}>
-                    {busy && <Loader2 className="size-3.5 animate-spin" />} {unblock ? "Unblock Participant" : "Block Participant"}
+                <Button variant="outline" disabled={block.isPending} onClick={onClose}>Cancel</Button>
+                <Button disabled={block.isPending || (!unblock && !reason)} onClick={run}>
+                    {block.isPending ? <Loader2 className="size-3.5 animate-spin" /> : unblock ? <UserCheck className="size-3.5" /> : <Ban className="size-3.5" />}
+                    {unblock ? "Unblock Participant" : "Block Participant"}
                 </Button>
             </>}>
-            <PersonCard wish={wish} />
+            <PersonCard wish={wish} right={access ? <StatusPill tone={access.tone}>{access.label}</StatusPill> : undefined} />
             {unblock ? (
                 <>
                     {wish.author_block?.reason && (
                         <DetailSection title="Why they were blocked">
                             <DetailRow label="Reason">{REASON_LABEL[wish.author_block.reason]}</DetailRow>
-                            {wish.author_block.note && <DetailRow label="Internal Note">{wish.author_block.note}</DetailRow>}
+                            {wish.author_block.note && <DetailRow label="Note">{wish.author_block.note}</DetailRow>}
                         </DetailSection>
                     )}
-                    <Notice tone="info">{wish.guest_name} will be able to view, post and like in Wed Wishes again. Wishes you hid stay hidden until you show them.</Notice>
+                    <p className="text-[12.5px] text-muted-foreground">{wish.guest_name} will be able to post wishes and interact in this event again.</p>
                 </>
             ) : (
                 <>
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-[12.5px] text-destructive">
-                        <p className="flex items-center gap-1.5 font-semibold"><ShieldAlert className="size-3.5" /> Blocking access to Wed Wishes</p>
-                        <p className="mt-1">The participant will be unable to post, comment or like in Wed Wishes.</p>
+                    <div className="flex items-start gap-2.5 rounded-xl border border-destructive/20 bg-destructive/[0.06] p-3 text-[12.5px]">
+                        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+                        <span>This participant will no longer be able to post wishes or interact in this event.</span>
                     </div>
-                    <p className="text-[13.5px] font-bold text-primary">Block Reason <span className="text-destructive">*</span></p>
-                    <div className="flex flex-col gap-2">
-                        {(Object.keys(REASON_LABEL) as BlockReason[]).map((r) => (
-                            <label key={r} className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] transition",
-                                reason === r ? "border-primary bg-primary/5" : "border-border hover:bg-muted")}>
-                                <input type="radio" name="block-reason" checked={reason === r} onChange={() => setReason(r)} className="size-4 accent-[var(--primary)]" />
-                                {REASON_LABEL[r]}
-                            </label>
-                        ))}
-                    </div>
-                    <FormField label="Internal Note" hint=" (Optional)">
-                        <Textarea value={note} maxLength={500} rows={3} onChange={(e) => setNote(e.target.value)} placeholder="Only you see this note." />
+                    <FormField label="Reason for Block" required>
+                        <Select value={reason} onValueChange={(v) => setReason(v as BlockReason)}>
+                            <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Select a reason" /></SelectTrigger>
+                            <SelectContent>{(Object.keys(REASON_LABEL) as BlockReason[]).map((r) => <SelectItem key={r} value={r}>{REASON_LABEL[r]}</SelectItem>)}</SelectContent>
+                        </Select>
                     </FormField>
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                        <span className="text-[13px]">Hide their existing wishes</span>
-                        <Switch checked={hideAll} onCheckedChange={setHideAll} aria-label="Hide their existing wishes" />
-                    </div>
-                    <Notice tone="info">The participant&apos;s profile and other event access are unchanged.</Notice>
+                    <FormField label="Note" hint=" (Optional)">
+                        <Textarea value={note} maxLength={BLOCK_NOTE_MAX} rows={4} onChange={(e) => setNote(e.target.value)} placeholder="Add a note for your records..." />
+                        <p className="text-right text-[11.5px] text-muted-foreground">{Array.from(note).length} / {BLOCK_NOTE_MAX}</p>
+                    </FormField>
                 </>
             )}
         </ActionSheet>
