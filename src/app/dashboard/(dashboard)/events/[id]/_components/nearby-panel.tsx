@@ -155,12 +155,8 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
                 <StatTile icon={EyeOff} value={counts.hidden} label={counts.hidden === 1 ? "Hidden Place" : "Hidden Places"} tone="warning" active={status === "hidden"} onClick={() => setStatus("hidden")} />
             </OverviewCard>
 
-            {page.venue.has_location ? (
-                <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-                    Places are found around the event location: <VenueLocation venue={page.venue} />
-                    {page.venue.source === "address" && <span>· found from the venue address — set the map pin in Venue for an exact spot.</span>}
-                </p>
-            ) : (
+            {/* The event location is not written on the page (Jamal, 2026-11-11) — only a warning when it cannot be found. */}
+            {!page.venue.has_location && (
                 <Notice tone="warning" title="Event location not found">Set the venue pin on the map (Venue) so Google Maps can suggest places near it.</Notice>
             )}
 
