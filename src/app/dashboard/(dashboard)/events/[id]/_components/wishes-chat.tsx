@@ -71,12 +71,12 @@ type Thread = {
     hideNote: string | null;
 };
 
-const timeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "");
+export const timeOf = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "");
 const ms = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : 0);
-const dayStart = (t: number) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
+export const dayStart = (t: number) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 
 /** "10:24 AM" today, "Yesterday", else "02 Nov". */
-function listTime(t: number) {
+export function listTime(t: number) {
     if (!t) return "";
     const today = dayStart(Date.now());
     if (t >= today) return new Date(t).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -161,7 +161,7 @@ function seenAgo(iso: string) {
  * Online / Offline from the backend (2026-11-10): green "Online" when they used the app in the last
  * 3 minutes, else grey "Offline · last seen …", or "Not on the app yet". Refreshed every 30 s.
  */
-function Presence({ online, lastSeen }: { online: boolean; lastSeen: string | null }) {
+export function Presence({ online, lastSeen }: { online: boolean; lastSeen: string | null }) {
     if (online) return <span className="flex items-center gap-1 font-semibold text-success"><span className="size-2 rounded-full bg-success" /> Online</span>;
     return (
         <span className="flex items-center gap-1 text-muted-foreground" title={lastSeen ? new Date(lastSeen).toLocaleString() : undefined}>
@@ -172,7 +172,7 @@ function Presence({ online, lastSeen }: { online: boolean; lastSeen: string | nu
 }
 
 /** Avatar with the green Online dot. */
-function ChatAvatar({ name, photo, size, online }: { name: string; photo: string | null; size: number; online?: boolean }) {
+export function ChatAvatar({ name, photo, size, online }: { name: string; photo: string | null; size: number; online?: boolean }) {
     return (
         <span className="relative shrink-0">
             <PersonAvatar name={name} photo={photo} size={size} rounded="full" />
@@ -185,7 +185,7 @@ function ChatAvatar({ name, photo, size, online }: { name: string; photo: string
  * The chat's height = what is left of the screen below its top (Jamal: "fit that view" — no page
  * scroll to reach the message box). Worked out on load and on resize; 420 px at the least.
  */
-function useFitHeight() {
+export function useFitHeight() {
     const ref = useRef<HTMLDivElement>(null);
     const [value, setValue] = useState<number | undefined>(undefined);
     useEffect(() => {
@@ -477,7 +477,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
     );
 }
 
-function DayPill({ at }: { at: number }) {
+export function DayPill({ at }: { at: number }) {
     return (
         <div className="flex justify-center py-1">
             <span className="rounded-full border border-border bg-card px-3 py-1 text-[10.5px] font-semibold text-muted-foreground shadow-xs">{dayLabel(at)}</span>

@@ -32,6 +32,7 @@ import { FamilyPanel } from "./family-panel";
 import { GalleryBoard } from "./gallery-board";
 import { SettingsPanel } from "./settings-panel";
 import { WishesPanel } from "./wishes-panel";
+import { ContactPanel } from "./contact-chat";
 import { LivePanel } from "./live-panel";
 import { SocialLinksPanel } from "./social-links-panel";
 import { GuestsView } from "../../../guests/_components/guests-view";
@@ -317,6 +318,8 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
 
             {/* Wed Wishes, Live Streaming, Social Links — as the app (2026-11-03). */}
             {tab === "wishes" && <WishesPanel event={event} />}
+            {/* Contact — chat like Wed Wishes; frontend only with sample data for now (2026-11-10). */}
+            {tab === "contact" && <ContactPanel event={event} />}
             {tab === "live" && <LivePanel event={event} />}
             {tab === "social" && <SocialLinksPanel event={event} />}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MapPin, Radio, Settings, Share2, SquareCheck,
+    FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MapPin, MessagesSquare, Radio, Settings, Share2, SquareCheck,
     UserRound, Users, UsersRound, type LucideIcon,
 } from "lucide-react";
 import { useEventOptions } from "@/hooks/use-client-portal";
@@ -17,6 +17,8 @@ export const EVENT_TABS = [
     { value: "overview", label: "Dashboard" },
     // "Event Information" -> "Event Info" (Jamal, 2026-11-06).
     { value: "information", label: "Event Info" },
+    // Participants' messages to the contact person, chat like Wed Wishes (Jamal, 2026-11-10; sample data until the backend).
+    { value: "contact", label: "Contact" },
     { value: "agenda", label: "Agenda" },
     { value: "venue", label: "Venue" },
     { value: "gallery", label: "Media" },
@@ -42,7 +44,7 @@ export const TAB_MENU_SLUG: Partial<Record<EventTab, string>> = {
     agenda: "agenda", venue: "venue", gallery: "gallery", family: "family", wishes: "wishes", live: "live-streaming",
     social: "social-links", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
 };
-export const TOP_TABS: EventTab[] = ["overview", "information"];
+export const TOP_TABS: EventTab[] = ["overview", "information", "contact"];
 /** Sidebar bottom (Jamal, 2026-11-06): SETTING = App Menu; REPORT = Activity Log. */
 export const SETTING_TABS: EventTab[] = ["settings"];
 export const REPORT_TABS: EventTab[] = ["activity"];
@@ -50,7 +52,7 @@ export const REPORT_TABS: EventTab[] = ["activity"];
 export type EventTab = (typeof EVENT_TABS)[number]["value"];
 
 export const EVENT_TAB_ICONS: Record<EventTab, LucideIcon> = {
-    overview: LayoutDashboard, information: FileText, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
+    overview: LayoutDashboard, information: FileText, contact: MessagesSquare, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
     wishes: Heart, live: Radio, social: Share2, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
     settings: Settings, messages: Mail, activity: History,
 };
