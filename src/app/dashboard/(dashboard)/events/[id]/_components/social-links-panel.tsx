@@ -14,10 +14,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    ActionSheet, FormField, ModuleHeader, OverviewCard, RowActions, SearchBox, StatTile, StatusPill,
+    ActionSheet, DeleteSheet, DetailRow, DetailSection, FormField, ModuleHeader, OverviewCard, RowActions, SearchBox, StatTile, StatusPill,
 } from "@/components/module-kit";
 import { DynamicIcon } from "@/components/common/dynamic-icon";
 import { cn } from "@/lib/utils";
@@ -240,23 +237,26 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
                 />
             )}
 
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete this social link?</DialogTitle>
-                        <DialogDescription>&ldquo;{deleting?.title || deleting?.platform_name}&rdquo; will be removed from the event app.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button
-                            variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate({ id: deleting.id, preset: false }, { onSuccess: () => setDeleting(null) })}
-                        >
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeleteSheet
+                open={!!deleting}
+                onClose={() => setDeleting(null)}
+                title="Delete Social Link"
+                subtitle="The link is removed from the event app."
+                summary={deleting && (
+                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                        {linkIcon(deleting, 40)}
+                        <div className="min-w-0">
+                            <p className="truncate text-[13px] font-semibold">{deleting.title || deleting.platform_name}</p>
+                            <p className="truncate text-[11.5px] text-muted-foreground">{deleting.url}</p>
+                        </div>
+                    </div>
+                )}
+                question="Delete this social link?"
+                effects={[{ label: "Participants", value: "No longer see this link" }]}
+                confirmLabel="Delete Link"
+                busy={remove.isPending}
+                onConfirm={() => deleting && remove.mutate({ id: deleting.id, preset: false }, { onSuccess: () => setDeleting(null) })}
+            />
         </div>
     );
 }
@@ -436,64 +436,55 @@ const stamp = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefi
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
 }) : "—");
 
-/** Social Link Details — as the app's screen. */
+/** Social Link Details — a slide-in panel like the other modules' views (Jamal, 2026-11-10). */
 function SocialLinkDetails({
     link, order, canEdit, onClose, onEdit, onDelete,
 }: {
     link: SocialLink; order: number; canEdit: boolean;
     onClose: () => void; onEdit: () => void; onDelete: () => void;
 }) {
-    const yesNo = (v: boolean) => <span className={v ? "text-success" : "text-muted-foreground"}>{v ? "Yes" : "No"}</span>;
-    const row = (label: string, value: React.ReactNode) => (
-        <div className="flex items-center justify-between gap-4 py-1.5 text-[12.5px]">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="text-right font-medium">{value}</span>
-        </div>
-    );
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Social Link Details</DialogTitle>
-                    <DialogDescription className="sr-only">{link.title}</DialogDescription>
-                </DialogHeader>
-                <div className="flex items-center gap-3">
+        <ActionSheet
+            open onClose={onClose} icon={Share2} title="Social Link Details" subtitle={link.title || link.platform_name}
+            footer={canEdit ? (
+                <>
+                    <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> Delete</Button>
+                    <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
+                </>
+            ) : undefined}
+        >
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
                     {linkIcon(link, 48)}
                     <div className="min-w-0">
-                        <p className="truncate text-[15px] font-bold">{link.title || link.platform_name}</p>
+                        <p className="truncate text-[14px] font-bold">{link.title || link.platform_name}</p>
                         <p className="text-[12px] text-muted-foreground">{link.platform_name}</p>
                     </div>
                 </div>
-                <div>
-                    <p className="text-[12.5px] font-bold">URL</p>
-                    <div className="mt-1 flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+                <DetailSection title="URL">
+                    <div className="flex items-center gap-2 py-2">
                         <a href={link.url ?? "#"} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-[12.5px] text-primary hover:underline">{link.url}</a>
                         <Button size="icon" variant="ghost" className="size-7" aria-label="Copy link"
                             onClick={() => { void navigator.clipboard?.writeText(link.url ?? ""); toast.success("Link copied"); }}>
                             <Copy className="size-3.5" />
                         </Button>
-                        <a href={link.url ?? "#"} target="_blank" rel="noreferrer" aria-label="Open" className="text-muted-foreground hover:text-foreground"><ExternalLink className="size-3.5" /></a>
+                        <Button asChild size="icon" variant="ghost" className="size-7" aria-label="Open link">
+                            <a href={link.url ?? "#"} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /></a>
+                        </Button>
                     </div>
-                </div>
+                </DetailSection>
                 {link.description && (
-                    <div>
-                        <p className="text-[12.5px] font-bold">Description</p>
-                        <p className="mt-1 whitespace-pre-line break-words text-[12.5px] text-foreground/85">{link.description}</p>
-                    </div>
+                    <DetailSection title="Description">
+                        <p className="whitespace-pre-line break-words py-2 text-[12.5px] text-foreground/85">{link.description}</p>
+                    </DetailSection>
                 )}
-                <div className="divide-y divide-border rounded-lg border border-border px-3">
-                    {order > 0 && row("Display Order", order)}
-                    {row("Show in App", yesNo(link.show_in_app))}
-                    {row("Created On", stamp(link.created_at))}
-                    {row("Last Updated", stamp(link.updated_at))}
-                </div>
-                {canEdit && (
-                    <DialogFooter className="gap-2 sm:gap-2">
-                        <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> Delete</Button>
-                        <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
-                    </DialogFooter>
-                )}
-            </DialogContent>
-        </Dialog>
+                <DetailSection title="Settings">
+                    {order > 0 && <DetailRow label="Display Order">{order}</DetailRow>}
+                    <DetailRow label="Status" tone={link.show_in_app ? "success" : "muted"}>{link.show_in_app ? "Visible" : "Hidden"}</DetailRow>
+                    <DetailRow label="Created On">{stamp(link.created_at)}</DetailRow>
+                    <DetailRow label="Last Updated">{stamp(link.updated_at)}</DetailRow>
+                </DetailSection>
+            </div>
+        </ActionSheet>
     );
 }

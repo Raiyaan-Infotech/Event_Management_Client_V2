@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { MAIN_CONTENT_ID, PageLoader } from "@/components/common/page-loader";
@@ -30,6 +30,12 @@ import { MAIN_CONTENT_ID, PageLoader } from "@/components/common/page-loader";
  */
 const DELAY_MS = 180;
 
+/** The top-most open dialog / slide-in panel, if any. */
+const topDialog = () => {
+    const open = document.querySelectorAll<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
+    return open.length ? open[open.length - 1] : null;
+};
+
 export function GlobalLoader() {
     // Only a FIRST load (a query with no data yet). A background refresh of data
     // already on screen — reconnect, a socket update, a stale refetch — stays
@@ -54,19 +60,39 @@ export function GlobalLoader() {
         return () => { clearTimeout(t); setVisible(false); };
     }, [busy]);
 
+    // Where the loader goes while a dialog / slide-in panel is open (see below).
+    const [host] = useState(() => (typeof document === "undefined" ? null : document.createElement("div")));
+    useLayoutEffect(() => {
+        if (!visible || !host) return;
+        const dialog = topDialog();
+        if (!dialog?.parentElement) return;
+        // Right BEFORE the panel: same layer as the panel's dimmed backdrop, but later in the page,
+        // so the loader sits above the backdrop and below the panel.
+        dialog.parentElement.insertBefore(host, dialog);
+        return () => host.remove();
+    }, [visible, host]);
+
     // A mutation is a deliberate action, so name it — "Saving..." over a form
     // the user just submitted is more informative than a generic spinner.
     const text = mutating > 0 ? "Saving..." : "Loading...";
     if (!visible) return null;
-    // A dialog / slide-in sheet is open (Wishes panels, Delete Folder, …): it sits above the
-    // content box, so a content-only loader would be hidden BEHIND it (2026-11-06). The loader
-    // then goes INSIDE that panel (the top-most one) instead of over the whole screen
-    // (Jamal, 2026-11-10) — the sidebar, top bar and page stay uncovered.
-    const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]');
-    const dialog = dialogs.length ? dialogs[dialogs.length - 1] : null;
-    if (dialog) return createPortal(<PageLoader text={text} className="z-[60] rounded-[inherit]" />, dialog);
+    const main = document.getElementById(MAIN_CONTENT_ID);
+    // A dialog / slide-in panel is open (Add Social Link, Wishes panels, …): the loader still covers the
+    // MAIN CONTENT, not the panel (Jamal, 2026-11-10: "loader show main content not canvas"). The
+    // content box is under the panel's backdrop, so the loader is drawn fixed over the content's
+    // visible area, on the backdrop's layer — the panel stays on top and readable.
+    if (topDialog() && host) {
+        const r = main?.getBoundingClientRect();
+        const top = r ? Math.max(r.top, 0) : 0;
+        const box = r
+            ? { top, left: r.left, width: r.width, height: Math.max(0, Math.min(r.bottom, window.innerHeight) - top) }
+            : { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+        return createPortal(
+            <div className="fixed z-50" style={box}><PageLoader text={text} className="grid place-items-center" /></div>,
+            host,
+        );
+    }
     // Otherwise only the main content, not the sidebar / top bar (Jamal, 2026-11-05).
     // Looked up each time it shows: the dashboard and the event workspace have their own box.
-    const main = document.getElementById(MAIN_CONTENT_ID);
     return main ? createPortal(<PageLoader text={text} />, main) : <PageLoader fullScreen text={text} />;
 }

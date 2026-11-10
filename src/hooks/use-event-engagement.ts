@@ -587,3 +587,84 @@ export function useReorderSocialLinks(eventId: number) {
 
 export const uploadSocialIcon = (eventId: number, file: File) =>
     uploadFile(`/client/events/${eventId}/social-links/icon`, file);
+
+/* ── Downloads ────────────────────────────────────────────────────────────── */
+
+/** A category chip of "Add Download" — from the backend's download_categories table (2026-11-10). */
+export interface DownloadCategory { key: string; name: string; color: string | null }
+
+export type DownloadVisibility = 'all' | 'bride' | 'groom';
+export type DownloadAccess = 'all' | 'confirmed';
+
+export interface EventDownload {
+    id: number;
+    event_id: number;
+    title: string;
+    category_key: string;
+    /** Null for a participant who may not open it. */
+    file_url: string | null;
+    file_name: string;
+    /** PDF / DOCX / JPG … */
+    file_type: string;
+    file_size: number;
+    description: string | null;
+    visibility: DownloadVisibility;
+    download_access: DownloadAccess;
+    expires_at: string | null;
+    expired: boolean;
+    show_in_app: boolean;
+    can_download: boolean;
+    download_count?: number;
+    sort_order: number;
+    created_at: string | null;
+    updated_at: string | null;
+}
+
+export interface DownloadsPage {
+    downloads: EventDownload[];
+    categories: DownloadCategory[];
+    counts?: { total: number; visible: number; hidden: number; downloads: number };
+    max_file_bytes: number;
+    file_types: string[];
+    can_edit: boolean;
+}
+
+export interface UploadedDownloadFile { url: string; file_name: string; file_type: string; file_size: number }
+
+export function useDownloads(eventId: number) {
+    return useQuery({
+        queryKey: key(eventId, 'downloads'),
+        queryFn: () => api.get<DownloadsPage>(`/client/events/${eventId}/downloads`),
+        retry: false,
+    });
+}
+
+export function useSaveDownload(eventId: number) {
+    const refresh = useRefresh(eventId, 'downloads');
+    return useMutation({
+        mutationFn: ({ id, data }: { id?: number; data: Record<string, unknown>; quiet?: boolean }) => (id
+            ? api.put(`/client/downloads/${id}`, data)
+            : api.post(`/client/events/${eventId}/downloads`, data)),
+        onSuccess: (_r, v) => {
+            if (!v.quiet) toast.success(v.id ? 'Download updated' : 'Download added');
+            refresh();
+        },
+        onError: (e) => report(e, 'Could not save this download'),
+    });
+}
+
+export function useDeleteDownload(eventId: number) {
+    const refresh = useRefresh(eventId, 'downloads');
+    return useMutation({
+        mutationFn: (id: number) => api.del(`/client/downloads/${id}`),
+        onSuccess: () => { toast.success('Download deleted'); refresh(); },
+        onError: (e) => report(e, 'Could not delete this download'),
+    });
+}
+
+/** Upload the file first; the download is then saved with what comes back. */
+export async function uploadDownloadFile(eventId: number, file: File): Promise<UploadedDownloadFile> {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post<UploadedDownloadFile>(`/client/events/${eventId}/downloads/file`, form);
+}
