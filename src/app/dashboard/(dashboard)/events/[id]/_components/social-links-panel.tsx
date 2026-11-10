@@ -14,7 +14,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    ActionSheet, DeleteSheet, DetailRow, DetailSection, FormField, ModuleHeader, OverviewCard, RowActions, SearchBox, StatTile, StatusPill,
+    ActionSheet, DeletePopup, DetailRow, DetailSection, FormField, ModuleHeader, OverviewCard, RowActions, SearchBox, StatTile, StatusPill,
 } from "@/components/module-kit";
 import { DynamicIcon } from "@/components/common/dynamic-icon";
 import { cn } from "@/lib/utils";
@@ -237,24 +237,10 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
                 />
             )}
 
-            <DeleteSheet
-                open={!!deleting}
-                onClose={() => setDeleting(null)}
-                title="Delete Social Link"
-                subtitle="The link is removed from the event app."
-                summary={deleting && (
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                        {linkIcon(deleting, 40)}
-                        <div className="min-w-0">
-                            <p className="truncate text-[13px] font-semibold">{deleting.title || deleting.platform_name}</p>
-                            <p className="truncate text-[11.5px] text-muted-foreground">{deleting.url}</p>
-                        </div>
-                    </div>
-                )}
-                question="Delete this social link?"
-                effects={[{ label: "Participants", value: "No longer see this link" }]}
-                confirmLabel="Delete Link"
-                busy={remove.isPending}
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete this social link?"
+                description={<>&ldquo;{deleting?.title || deleting?.platform_name}&rdquo; will be removed from the event app.</>}
                 onConfirm={() => deleting && remove.mutate({ id: deleting.id, preset: false }, { onSuccess: () => setDeleting(null) })}
             />
         </div>

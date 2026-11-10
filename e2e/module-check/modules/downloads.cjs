@@ -28,7 +28,7 @@ module.exports = async (k) => {
         expect(/PDF/.test(type), `file type not detected (${type})`);
     });
 
-    await step('4+5. add (saving state)', async () => {
+    await step('4. add', async () => {
         await page.getByPlaceholder(/Wedding Invitation PDF/i).fill(TITLE);
         await page.getByRole('dialog').getByRole('button', { name: /^Invitation/ }).first().click();
         await k.saveAndWatch(/Save Download/i, 'saving');
@@ -65,7 +65,7 @@ module.exports = async (k) => {
 
     await step('9. delete', async () => {
         await k.rowMenu(TITLE2, /Delete Download/i);
-        await k.confirmDelete(/Delete Download/i);
+        await k.confirmDelete();
         await k.toast(/Download deleted/i);
         await k.panelClosed();
         expect((await mine()).length === 0, 'download still in the API');

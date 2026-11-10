@@ -13,7 +13,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, DatePickerField, DeleteSheet, DetailRow, DetailSection, FormField, ModuleHeader, Notice, OverviewCard,
+    ActionSheet, CharCount, DatePickerField, DeletePopup, DetailRow, DetailSection, FormField, ModuleHeader, Notice, OverviewCard,
     RowActions, SearchBox, StatTile, StatusPill,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
@@ -258,27 +258,10 @@ export function DownloadsPanel({ event }: { event: ClientEvent }) {
                 />
             )}
 
-            <DeleteSheet
-                open={!!deleting}
-                onClose={() => setDeleting(null)}
-                title="Delete Download"
-                subtitle="The file is removed for everyone."
-                summary={deleting && (
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                        <FileBadge type={deleting.file_type} />
-                        <div className="min-w-0">
-                            <p className="truncate text-[13px] font-semibold">{deleting.title}</p>
-                            <p className="truncate text-[11.5px] text-muted-foreground">{deleting.file_name} · {fileSize(deleting.file_size)}</p>
-                        </div>
-                    </div>
-                )}
-                question="Delete this download?"
-                effects={[
-                    { label: "The file", value: "Deleted from storage" },
-                    { label: "Participants", value: "Can no longer download it" },
-                ]}
-                confirmLabel="Delete Download"
-                busy={remove.isPending}
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete this download?"
+                description={<>&ldquo;{deleting?.title}&rdquo; ({deleting?.file_name}) will be deleted for everyone. This cannot be undone.</>}
                 onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
             />
         </div>

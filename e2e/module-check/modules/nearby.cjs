@@ -24,7 +24,7 @@ module.exports = async (k) => {
         await k.shot('suggestions');
     });
 
-    await step('4+5. add 2 places (saving state)', async () => {
+    await step('4. add 2 places', async () => {
         const adds = page.getByRole('button', { name: /^\s*Add\s*$/ });
         expect(await adds.count() >= 2, 'fewer than 2 suggestions to add');
         await adds.nth(0).click();
@@ -72,7 +72,7 @@ module.exports = async (k) => {
 
     await step('9. delete', async () => {
         await k.rowMenu(NAME2, /Delete Place/i);
-        await k.confirmDelete(/Delete Place/i);
+        await k.confirmDelete();
         await k.toast(/Nearby place deleted/i);
         await k.panelClosed();
         expect(!(await places()).some((p) => p.id === saved[0].id), 'place still in the API');

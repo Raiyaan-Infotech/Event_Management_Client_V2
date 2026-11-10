@@ -416,7 +416,7 @@ export function useSaveGalleryCategory(eventId: number) {
             ? api.put(`/client/gallery/categories/${id}`, data)
             : api.post(`/client/events/${eventId}/gallery/categories`, data)),
         onSuccess: (_r, v) => {
-            toast.success(v.id ? 'Category updated' : 'Category added');
+            toast.success(v.id ? 'Folder updated' : 'Folder added');
             invalidate(qc, eventId, 'gallery');
         },
         onError: (e) => report(e, 'Could not save this category'),
@@ -477,7 +477,7 @@ export function useDeleteGalleryCategory(eventId: number) {
     return useMutation({
         mutationFn: (id: number) => api.del(`/client/gallery/categories/${id}`),
         onSuccess: () => {
-            toast.success('Category removed — its photos moved to Media');
+            toast.success('Folder deleted — its files moved to Media');
             invalidate(qc, eventId, 'gallery');
         },
         onError: (e) => report(e, 'Could not remove this category'),

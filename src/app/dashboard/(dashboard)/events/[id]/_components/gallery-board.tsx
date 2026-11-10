@@ -22,8 +22,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    ActionSheet, CharCount, CountTabs, FormField, ModuleHeader, Notice, NumberStepper, Pager, PhotoDropzone,
-    SearchBox, SortSelect, StatTile, StatusPill,
+    ActionSheet, CharCount, CountTabs, DeletePopup, FormField, ModuleHeader, Notice, NumberStepper, Pager, PhotoDropzone, SearchBox, SortSelect, StatTile, StatusPill,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/media-url";
@@ -278,32 +277,18 @@ function Overview({
                 <Button variant="link" size="sm" className="shrink-0 text-primary" onClick={() => onOpen(null)}>View All <ChevronRight className="size-3.5" /></Button>
             </div>
 
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Folder?</DialogTitle>
-                        <DialogDescription>&ldquo;{deleting?.name}&rdquo; will be removed. Its {deleting?.item_count ?? 0} files move to Media — nothing is deleted.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button variant="destructive" disabled={remove.isPending} onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { setSel((s) => s.filter((x) => x !== deleting.id)); setDeleting(null); } })}>Delete Folder</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-            <Dialog open={bulkDelete} onOpenChange={setBulkDelete}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete {picked.length} folder{picked.length === 1 ? "" : "s"}?</DialogTitle>
-                        <DialogDescription>
-                            {picked.map((f) => `“${f.name}”`).join(", ")} will be removed. Their {picked.reduce((n, f) => n + f.item_count, 0)} files move to Media — nothing is deleted.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setBulkDelete(false)}>Cancel</Button>
-                        <Button variant="destructive" disabled={removeMany.isPending} onClick={() => removeMany.mutate(sel, { onSettled: () => { setBulkDelete(false); setSel([]); } })}>Delete Folders</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending} confirmLabel="Delete Folder"
+                title="Delete Folder?"
+                description={<>&ldquo;{deleting?.name}&rdquo; will be removed. Its {deleting?.item_count ?? 0} files move to Media — nothing is deleted.</>}
+                onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { setSel((s) => s.filter((x) => x !== deleting.id)); setDeleting(null); } })}
+            />
+            <DeletePopup
+                open={bulkDelete} onClose={() => setBulkDelete(false)} busy={removeMany.isPending} confirmLabel="Delete Folders"
+                title={`Delete ${picked.length} folder${picked.length === 1 ? "" : "s"}?`}
+                description={<>{picked.map((f) => `“${f.name}”`).join(", ")} will be removed. Their {picked.reduce((n, f) => n + f.item_count, 0)} files move to Media — nothing is deleted.</>}
+                onConfirm={() => removeMany.mutate(sel, { onSettled: () => { setBulkDelete(false); setSel([]); } })}
+            />
         </div>
     );
 }
@@ -586,20 +571,14 @@ function FolderView({
                 from={folderId} onClose={() => setMoving(null)} onDone={(to) => { setMoving(null); setSel([]); if (!moving.copy && to !== folderId && folderId !== null) setPicked(null); void onOpen; }} />}
             {editing && <EditMediaDialog eventId={eventId} item={editing} onClose={() => setEditing(null)} />}
             {viewer !== null && shown[viewer] && <MediaViewer items={shown} index={viewer} onIndex={setViewer} onClose={() => setViewer(null)} />}
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete {deleting?.length === 1 ? "this file" : `${deleting?.length} files`}?</DialogTitle>
-                        <DialogDescription>They are removed from Media and from the event app. This cannot be undone.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button variant="destructive" disabled={bulk.isPending} onClick={() => deleting && bulk.mutate({ ids: deleting, action: "delete" }, {
-                            onSuccess: () => { setDeleting(null); setSel([]); if (picked && deleting.includes(picked)) setPicked(null); },
-                        })}>Delete</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={bulk.isPending}
+                title={`Delete ${deleting?.length === 1 ? "this file" : `${deleting?.length} files`}?`}
+                description="They are removed from Media and from the event app. This cannot be undone."
+                onConfirm={() => deleting && bulk.mutate({ ids: deleting, action: "delete" }, {
+                    onSuccess: () => { setDeleting(null); setSel([]); if (picked && deleting.includes(picked)) setPicked(null); },
+                })}
+            />
         </div>
     );
 }
@@ -824,7 +803,7 @@ function FolderSheet({ eventId, folder, count, onClose }: { eventId: number; fol
     };
     return (
         <ActionSheet open onClose={onClose} icon={FolderPlus} title={folder ? "Edit Folder" : "Create New Folder"} subtitle="Organize your event media by creating a new folder."
-            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={submit}><Folder className="size-3.5" /> Save Folder</Button></>}>
+            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={submit}>{save.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Folder className="size-3.5" />} Save Folder</Button></>}>
             <FormField label="Folder Name" required>
                 <Input value={name} maxLength={120} disabled={isDefault} placeholder="Enter folder name (e.g., Mehndi, Haldi, Highlights)" onChange={(e) => setName(e.target.value)} className={cn("h-9", tried && !name.trim() && "border-destructive")} />
             </FormField>

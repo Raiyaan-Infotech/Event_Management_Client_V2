@@ -12,7 +12,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-    ActionSheet, DeleteSheet, DetailRow, DetailSection, FormField, ModuleHeader, Notice, OverviewCard, RowActions, SearchBox,
+    ActionSheet, DeletePopup, DetailRow, DetailSection, FormField, ModuleHeader, Notice, OverviewCard, RowActions, SearchBox,
     StatTile, StatusPill,
 } from "@/components/module-kit";
 import { DynamicIcon } from "@/components/common/dynamic-icon";
@@ -266,24 +266,10 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
                 <EditPlaceSheet key={editing.id} eventId={event.id} place={editing} categories={cats} onClose={() => setEditing(null)} />
             )}
 
-            <DeleteSheet
-                open={!!deleting}
-                onClose={() => setDeleting(null)}
-                title="Delete Place"
-                subtitle="The place is removed from Near By."
-                summary={deleting && (
-                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                        <PlaceThumb photo={deleting.photo_url} category={catOf(deleting.category_key)} size={40} />
-                        <div className="min-w-0">
-                            <p className="truncate text-[13px] font-semibold">{deleting.name}</p>
-                            <p className="truncate text-[11.5px] text-muted-foreground">{deleting.address}</p>
-                        </div>
-                    </div>
-                )}
-                question="Delete this nearby place?"
-                effects={[{ label: "Participants", value: "No longer see this place" }]}
-                confirmLabel="Delete Place"
-                busy={remove.isPending}
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete this place?"
+                description={<>&ldquo;{deleting?.name}&rdquo; will be removed from Near By.</>}
                 onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
             />
         </div>

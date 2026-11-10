@@ -18,7 +18,7 @@ npm run test:module -- <module> --local    # local; portal :3005 + backend :5001
 npm run test:module -- all
 ```
 
-`<module>` = a file name in `e2e/module-check/modules/` (`social-links`, `downloads`, `nearby`). If the module asked
+`<module>` = a file name in `e2e/module-check/modules/` (`social-links`, `downloads`, `nearby`, `agenda`, `family`, `live`, `media`, `wishes`). If the module asked
 for has no file yet, write one first by copying `modules/social-links.cjs` (same 11 steps: page loads, loading state,
 error message, add + saving state, edit, view, hide, delete, clean up, no errors) and adjust the tab, buttons and
 fields to that module's page.

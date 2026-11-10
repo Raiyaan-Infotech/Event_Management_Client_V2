@@ -94,11 +94,16 @@ function makeKit({ page, ctx, PORTAL, API, EVENT, OUT, STAMP, report }) {
         });
         await shot(shotName);
         await slow({ writes: 0 });
-        expect(spinner > 0, 'Save button has no spinner while saving');
-        expect(disabled, 'Save button is not disabled while saving');
-        expect(box.top <= 1, `saving loader does not start at the top (top=${box.top})`);
-        expect(box.right >= box.width - 1, 'saving loader does not reach the right edge (panel not covered)');
-        expect(Math.abs(box.left - box.sidebarRight) <= 2, `saving loader covers the sidebar or leaves a gap (left=${box.left}, sidebar ends ${box.sidebarRight})`);
+        // Recorded as its own step ("5. saving state") so the add itself carries on and is still verified.
+        const problems = [
+            !spinner && 'Save button has no spinner while saving',
+            !disabled && 'Save button is not disabled while saving',
+            box.top > 1 && `saving loader does not start at the top (top=${box.top})`,
+            box.right < box.width - 1 && 'saving loader does not reach the right edge (panel not covered)',
+            Math.abs(box.left - box.sidebarRight) > 2 && `saving loader covers the sidebar or leaves a gap (left=${box.left}, sidebar ends ${box.sidebarRight})`,
+        ].filter(Boolean);
+        report.steps.push({ step: '5. saving state (button spinner + loader)', ok: !problems.length, ...(problems.length ? { error: problems.join('; ') } : {}) });
+        console.log(problems.length ? '  ✗' : '  ✓', '5. saving state (button spinner + loader)', problems.length ? `— ${problems.join('; ')}` : '');
     };
 
     /** Row ⋯ menu on the row that contains [rowText], then the menu item. */
@@ -109,10 +114,24 @@ function makeKit({ page, ctx, PORTAL, API, EVENT, OUT, STAMP, report }) {
         await page.waitForTimeout(500);
     };
 
-    /** The standard Delete panel: tick "I understand…", press the red button. */
-    const confirmDelete = async (confirmButton) => {
-        await page.getByRole('checkbox').last().click();
-        await page.getByRole('button', { name: confirmButton }).last().click();
+    /**
+     * The delete confirmation = the centre popup (Jamal, 2026-11-09 / 11-11): checks it is a popup (not a slide-in),
+     * presses its red button with the delete held 2.5 s, and checks the button shows its spinner.
+     * Recorded as its own step "9b"; the caller then checks the item is gone.
+     */
+    const confirmDelete = async () => {
+        const dlg = page.locator('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]').last();
+        await dlg.waitFor();
+        const popup = (await page.locator('[data-slot="dialog-content"][data-state="open"]').count()) > 0;
+        await shot('delete-confirm');
+        const btn = dlg.getByRole('button', { name: /Delete|Remove/ }).last();
+        await slow({ writes: 2500 });
+        await btn.click();
+        await page.waitForTimeout(400);
+        const spin = await btn.locator('.animate-spin').count().catch(() => 0);
+        await slow({ writes: 0 });
+        const problems = [!popup && 'delete opened a slide-in panel, not the centre popup', !spin && 'Delete button shows no spinner while deleting'].filter(Boolean);
+        note('9b. delete = centre popup + spinner', !problems.length, problems.join('; '));
     };
 
     /** Page-load loader (check 2): reload with reads held, the "Loading..." loader shows. */
@@ -131,7 +150,16 @@ function makeKit({ page, ctx, PORTAL, API, EVENT, OUT, STAMP, report }) {
         await page.waitForTimeout(400);
     };
 
-    return { page, api, step, shot, expect, slow, openTab, toast, saveAndWatch, rowMenu, confirmDelete, loadingCheck, panelClosed, errors, RX, STAMP, EVENT };
+    /** A finding that does not stop the flow (e.g. "opens as a popup, not a slide-in"). */
+    const note = (name, ok, error) => {
+        report.steps.push({ step: name, ok, ...(ok ? {} : { error }) });
+        console.log(ok ? '  ✓' : '  ✗', name, ok ? '' : `— ${error}`);
+    };
+
+    /** The open panel is a slide-in (Sheet), not a centred popup (Dialog). */
+    const isSlideIn = async () => (await page.locator('[data-slot="sheet-content"][data-state="open"]').count()) > 0;
+
+    return { page, api, step, shot, expect, isSlideIn, note, slow, openTab, toast, saveAndWatch, rowMenu, confirmDelete, loadingCheck, panelClosed, errors, RX, STAMP, EVENT };
 }
 
 module.exports = { makeKit, readEnvFile, RX };

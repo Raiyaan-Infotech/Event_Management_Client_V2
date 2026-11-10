@@ -2,15 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, Eye, EyeOff, Layers, Pencil, Settings, Smartphone, Trash2, User, UserPlus, Users } from "lucide-react";
+import {
+    Download, Eye, EyeOff, Layers, Loader2, Pencil, Settings, Smartphone, Trash2, User, UserPlus, Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PhoneInput } from "@/components/common/phone-input";
@@ -21,8 +20,7 @@ import {
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
-    ChoiceRadio, CountTabs, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell,
-    PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+    ChoiceRadio, CountTabs, DeletePopup, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
 } from "@/components/module-kit";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 
@@ -231,6 +229,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                 <>
                     <Button variant="outline" onClick={clear}>{f.id ? "Cancel" : "Clear"}</Button>
                     <Button disabled={save.isPending || reorder.isPending} onClick={submit}>
+                        {(save.isPending || reorder.isPending) && <Loader2 className="size-3.5 animate-spin" />}
                         {f.id ? "Update Family Member" : "Save Family Member"}
                     </Button>
                 </>
@@ -350,23 +349,12 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
 
             {settingsOpen && <FamilySettingsDialog eventId={event.id} settings={query.data.settings} onClose={() => setSettingsOpen(false)} />}
 
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Family Member?</DialogTitle>
-                        <DialogDescription>
-                            {deleting?.full_name} will be removed from this event&apos;s family list. To keep them but not show them, choose Hide from App instead.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { if (form?.id === deleting.id) clear(); setDeleting(null); } })}>
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete Family Member?"
+                description={<>{deleting?.full_name} will be removed from this event&apos;s family list. To keep them but not show them, choose Hide from App instead.</>}
+                onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { if (form?.id === deleting.id) clear(); setDeleting(null); } })}
+            />
             {aside}
         </div>
     );

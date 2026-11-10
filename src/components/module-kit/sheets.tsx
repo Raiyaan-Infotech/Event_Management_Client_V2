@@ -1,11 +1,14 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { MoreHorizontal, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Loader2, MoreHorizontal, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -135,6 +138,34 @@ export function InfoGrid({ items }: { items: { label: string; value: React.React
                 </div>
             ))}
         </div>
+    );
+}
+
+/**
+ * THE delete confirmation of every module (Jamal, 2026-11-09, confirmed 2026-11-11): a small centred popup —
+ * title, one line, Cancel + red Delete. The Delete button shows a spinner and both buttons lock while it runs.
+ */
+export function DeletePopup({
+    open, onClose, title, description, confirmLabel = "Delete", busy, onConfirm,
+}: {
+    open: boolean; onClose: () => void; title: string; description: React.ReactNode;
+    confirmLabel?: string; busy?: boolean; onConfirm: () => void;
+}) {
+    return (
+        <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button>
+                    <Button variant="destructive" disabled={busy} onClick={onConfirm}>
+                        {busy && <Loader2 className="size-3.5 animate-spin" />} {confirmLabel}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 

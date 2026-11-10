@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowDown, ArrowUp, CalendarDays, Clock, Copy, ExternalLink, FolderPlus, Loader2, Mail, Pencil, Plus, Power, QrCode, Search,
-    Share2, Trash2, Upload, X,
+    Radio, Share2, Trash2, Upload, X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -28,6 +28,7 @@ import {
     useReorderLiveTypes, useSaveLiveStream, useSaveLiveType,
     type LivePlatform, type LiveStream, type LiveStreamType,
 } from "@/hooks/use-event-engagement";
+import { ActionSheet, DeletePopup } from "@/components/module-kit";
 import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui";
 
 /**
@@ -245,21 +246,12 @@ export function LivePanel({ event }: { event: ClientEvent }) {
                 />
             )}
 
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete this live stream?</DialogTitle>
-                        <DialogDescription>&quot;{deleting?.title}&quot; will be removed for everyone.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}>
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete this live stream?"
+                description={<>&quot;{deleting?.title}&quot; will be removed for everyone.</>}
+                onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
+            />
         </div>
     );
 }
@@ -424,12 +416,20 @@ function StreamDialog({
     const bad = (v: string) => tried && !v.trim();
 
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>{stream ? "Edit Live Stream" : "Add Live Stream"}</DialogTitle>
-                    <DialogDescription>{minDate && maxDate ? `The date must fall within the event (${minDate} – ${maxDate}).` : "Guests open this link to watch."}</DialogDescription>
-                </DialogHeader>
+        // A slide-in panel like every module's form (Jamal, 2026-11-11 module checklist).
+        <ActionSheet
+            open onClose={onClose} icon={Radio} width={540}
+            title={stream ? "Edit Live Stream" : "Add Live Stream"}
+            subtitle={minDate && maxDate ? `The date must fall within the event (${minDate} – ${maxDate}).` : "Guests open this link to watch."}
+            footer={(
+                <>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button disabled={save.isPending || uploading} onClick={submit}>
+                        {save.isPending && <Loader2 className="size-3.5 animate-spin" />} {stream ? "Save Changes" : "Add Live Stream"}
+                    </Button>
+                </>
+            )}
+        >
                 <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                         <Label className="text-[12.5px]">Cover Image (optional)</Label>
@@ -493,12 +493,7 @@ function StreamDialog({
                         <SwitchRow id="ls-enabled" label="Enable Live Stream" hint="Guests see it in the event app" checked={enabled} onChange={setEnabled} />
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button disabled={save.isPending || uploading} onClick={submit}>{stream ? "Save Changes" : "Add Live Stream"}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </ActionSheet>
     );
 }
 
@@ -511,12 +506,7 @@ function StreamDetailsDialog({
 }) {
     const p = platformOf(stream.platform);
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Live Stream Details</DialogTitle>
-                    <DialogDescription className="sr-only">{stream.title}</DialogDescription>
-                </DialogHeader>
+        <ActionSheet open onClose={onClose} icon={Radio} title="Live Stream Details" subtitle={stream.title} width={520}>
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
                     {stream.cover_image
                         // eslint-disable-next-line @next/next/no-img-element
@@ -556,8 +546,7 @@ function StreamDetailsDialog({
                         </Button>
                     </div>
                 )}
-            </DialogContent>
-        </Dialog>
+        </ActionSheet>
     );
 }
 

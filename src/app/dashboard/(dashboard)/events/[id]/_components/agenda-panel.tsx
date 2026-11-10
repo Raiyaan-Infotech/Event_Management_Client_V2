@@ -2,20 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, CalendarPlus, Download, Plus, Save } from "lucide-react";
+import {
+    CalendarDays, CalendarPlus, Download, Loader2, Plus, Save,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
     useDeleteAgendaItem, useEventAgenda, useSaveAgendaItem, type AgendaItem,
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
-import { CharCount, DatePickerField, DayCalendar, FormField, FormPanel, ModuleHeader } from "@/components/module-kit";
+import {
+    CharCount, DatePickerField, DayCalendar, DeletePopup, FormField, FormPanel, ModuleHeader,
+} from "@/components/module-kit";
 import { Empty, PanelLoading, Section } from "./module-ui";
 
 /**
@@ -247,7 +248,7 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                 footer={(
                     <>
                         <Button variant="outline" onClick={clear}>Clear</Button>
-                        <Button disabled={save.isPending} onClick={submit}><Save className="size-3.5" /> {f.id ? "Update Session" : "Save Session"}</Button>
+                        <Button disabled={save.isPending} onClick={submit}>{save.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />} {f.id ? "Update Session" : "Save Session"}</Button>
                     </>
                 )}
             >
@@ -275,21 +276,12 @@ export function AgendaPanel({ event }: { event: ClientEvent }) {
                 </FormField>
             </FormPanel>
 
-            <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete this session?</DialogTitle>
-                        <DialogDescription>&quot;{deleting?.title}&quot; will be removed from the agenda.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
-                        <Button variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { if (form?.id === deleting.id) clear(); setDeleting(null); } })}>
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeletePopup
+                open={!!deleting} onClose={() => setDeleting(null)} busy={remove.isPending}
+                title="Delete this session?"
+                description={<>&quot;{deleting?.title}&quot; will be removed from the agenda.</>}
+                onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => { if (form?.id === deleting.id) clear(); setDeleting(null); } })}
+            />
 
         </div>
     );

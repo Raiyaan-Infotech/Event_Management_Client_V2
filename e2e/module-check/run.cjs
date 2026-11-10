@@ -51,6 +51,8 @@ const docs = path.join(os.homedir(), 'Documents', 'EventInvite_Portal_Test');
     for (const name of list) {
         const OUT = path.join(docs, `${day}_${name}${LOCAL ? '_local' : ''}`);
         fs.mkdirSync(OUT, { recursive: true });
+        // A fresh run: old screenshots (e.g. a FAIL from an earlier run) must not linger.
+        for (const f of fs.readdirSync(OUT)) if (/\.(png|json)$/.test(f)) fs.unlinkSync(path.join(OUT, f));
         const STAMP = `QA-${Date.now().toString(36)}`;
         const report = { module: name, target: LOCAL ? 'local' : 'live', portal: PORTAL, event: EVENT, started: new Date().toISOString(), steps: [] };
         console.log(`\n▶ ${name}  (${report.target}, event #${EVENT})`);

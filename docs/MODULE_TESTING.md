@@ -20,7 +20,7 @@ npm run test:module -- downloads --local
 npm run test:module -- all
 ```
 
-Modules with a check file today: `social-links`, `downloads`, `nearby` (`e2e/module-check/modules/`).
+Modules with a check file today: `social-links`, `downloads`, `nearby`, `agenda`, `family`, `live`, `media`, `wishes` (`e2e/module-check/modules/`).
 
 ## What every module must pass
 
@@ -32,9 +32,9 @@ Modules with a check file today: `social-links`, `downloads`, `nearby` (`e2e/mod
 | 4 | **Add** | Fill the form → Save → success message → the new item is in the list (and in the API). |
 | 5 | **Saving state** | While saving with the panel open: the **Save button shows its spinner and is disabled**, and the **"Saving..." loader covers everything except the sidebar** (top bar, page and the whole panel). |
 | 6 | **Edit** | Row ⋯ → Edit → change a field → Save → success message → the list shows the new value. |
-| 7 | **View** | Row ⋯ → View Details opens in the **slide-in panel** (not a popup) with the item's details. |
+| 7 | **View** | Row ⋯ → View Details opens in the **slide-in panel** (not a popup) with the item's details. Add / Edit forms are slide-in panels too. |
 | 8 | **Show / Hide** (where the module has it) | Row ⋯ → Hide → status pill changes to Hidden, the tiles' counts change. |
-| 9 | **Delete** | Row ⋯ → Delete → the delete panel (tick "I understand…") → success message → the item is gone. |
+| 9 | **Delete** | Delete → the **centre confirm popup** (title, one line, Cancel + red Delete) — the Delete button shows a **spinner** while it runs → success message → the item is gone. (Jamal, 2026-11-09 / 11-11: popup, not a slide-in.) |
 | 10 | **Clean up** | Everything the test created is deleted again (the test marks it with a `QA-…` stamp). |
 | 11 | **No errors** | No page errors and no API 5xx during the run. |
 

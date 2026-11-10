@@ -19,7 +19,7 @@ module.exports = async (k) => {
         await k.shot('error-message');
     });
 
-    await step('4+5. add (saving state)', async () => {
+    await step('4. add', async () => {
         await page.getByRole('button', { name: /Choose a platform/i }).click();
         const tile = page.locator('[data-radix-popper-content-wrapper] button:not([disabled])').first();
         name = (await tile.innerText()).split('\n')[0].trim();
@@ -60,7 +60,7 @@ module.exports = async (k) => {
 
     await step('9. delete', async () => {
         await k.rowMenu(URL2, /Delete Link/i);
-        await k.confirmDelete(/Delete Link/i);
+        await k.confirmDelete();
         await k.toast(/deleted|removed/i);
         await k.panelClosed();
         expect((await mine()).length === 0, 'link still in the API');
