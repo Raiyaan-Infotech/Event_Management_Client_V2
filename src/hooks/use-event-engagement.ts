@@ -668,3 +668,118 @@ export async function uploadDownloadFile(eventId: number, file: File): Promise<U
     form.append('file', file);
     return api.post<UploadedDownloadFile>(`/client/events/${eventId}/downloads/file`, form);
 }
+
+/* ── Near By places ───────────────────────────────────────────────────────── */
+
+/** A category tile of "Add Nearby Place" — from the backend's nearby_categories table (2026-11-10). */
+export interface NearbyCategory { key: string; name: string; icon: string; color: string | null; searchable: boolean }
+
+export interface NearbyPlace {
+    id: number;
+    event_id: number;
+    google_place_id: string | null;
+    name: string;
+    description: string | null;
+    category_key: string;
+    address: string | null;
+    lat: number | null;
+    lng: number | null;
+    distance_km: number | null;
+    rating: number | null;
+    rating_count: number | null;
+    map_url: string | null;
+    photo_url: string | null;
+    show_in_app: boolean;
+    sort_order: number;
+    created_at: string | null;
+    updated_at: string | null;
+}
+
+export interface NearbyVenue { name: string | null; address: string | null; lat: number | null; lng: number | null; has_location: boolean }
+
+export interface NearbyPlacesPage {
+    places: NearbyPlace[];
+    categories: NearbyCategory[];
+    venue: NearbyVenue;
+    counts?: { total: number; visible: number; hidden: number };
+    options?: { radii_km: number[]; default_radius_km: number; sorts: string[] };
+    can_edit: boolean;
+}
+
+/** One Google Maps suggestion (not saved yet). */
+export interface NearbySuggestion {
+    google_place_id: string;
+    name: string;
+    category_key: string;
+    address: string | null;
+    lat: number;
+    lng: number;
+    distance_km: number;
+    rating: number | null;
+    rating_count: number | null;
+    map_url: string;
+    photo_uri: string | null;
+    already_added: boolean;
+}
+
+export function useNearbyPlaces(eventId: number) {
+    return useQuery({
+        queryKey: key(eventId, 'nearby-places'),
+        queryFn: () => api.get<NearbyPlacesPage>(`/client/events/${eventId}/nearby-places`),
+        retry: false,
+    });
+}
+
+/** Google Maps suggestions; runs only when there is something to search. */
+export function useNearbySuggestions(
+    eventId: number,
+    params: { q: string; categories: string[]; radius_km: number; sort: string },
+    enabled: boolean,
+) {
+    const qs = new URLSearchParams({
+        q: params.q, categories: params.categories.join(','), radius_km: String(params.radius_km), sort: params.sort,
+    }).toString();
+    return useQuery({
+        queryKey: key(eventId, 'nearby-places', 'suggestions', qs),
+        queryFn: () => api.get<{ suggestions: NearbySuggestion[] }>(`/client/events/${eventId}/nearby-places/suggestions?${qs}`),
+        enabled: enabled && (!!params.q.trim() || params.categories.length > 0),
+        retry: false,
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
+export function useAddNearbyPlaces(eventId: number) {
+    const refresh = useRefresh(eventId, 'nearby-places');
+    return useMutation({
+        mutationFn: (places: NearbySuggestion[]) => api.post<{ added: number }>(`/client/events/${eventId}/nearby-places`, { places }),
+        onSuccess: (r) => { toast.success(r.added === 1 ? 'Nearby place added' : `${r.added} nearby places added`); refresh(); },
+        onError: (e) => report(e, 'Could not save the nearby places'),
+    });
+}
+
+export function useUpdateNearbyPlace(eventId: number) {
+    const refresh = useRefresh(eventId, 'nearby-places');
+    return useMutation({
+        mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => api.put(`/client/nearby-places/${id}`, data),
+        onSuccess: () => { toast.success('Nearby place updated'); refresh(); },
+        onError: (e) => report(e, 'Could not update this place'),
+    });
+}
+
+export function useDeleteNearbyPlace(eventId: number) {
+    const refresh = useRefresh(eventId, 'nearby-places');
+    return useMutation({
+        mutationFn: (id: number) => api.del(`/client/nearby-places/${id}`),
+        onSuccess: () => { toast.success('Nearby place deleted'); refresh(); },
+        onError: (e) => report(e, 'Could not delete this place'),
+    });
+}
+
+export function useReorderNearbyPlaces(eventId: number) {
+    const refresh = useRefresh(eventId, 'nearby-places');
+    return useMutation({
+        mutationFn: (ids: number[]) => api.put(`/client/events/${eventId}/nearby-places/reorder`, { ids }),
+        onSuccess: refresh,
+        onError: (e) => report(e, 'Could not change the order'),
+    });
+}

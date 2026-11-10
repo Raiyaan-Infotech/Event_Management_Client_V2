@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    Download, FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MapPin, MessagesSquare, Radio, Settings, Share2, SquareCheck,
+    Download, FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MapPin, MapPinned, MessagesSquare, Radio, Settings, Share2, SquareCheck,
     UserRound, Users, UsersRound, type LucideIcon,
 } from "lucide-react";
 import { useEventOptions } from "@/hooks/use-client-portal";
@@ -25,6 +25,8 @@ export const EVENT_TABS = [
     { value: "family", label: "Family" },
     { value: "wishes", label: "Wed Wishes" },
     { value: "live", label: "Live Streaming" },
+    // Places near the venue chosen from Google Maps suggestions (Jamal, 2026-11-10).
+    { value: "nearby", label: "Near By" },
     { value: "social", label: "Social Links" },
     // Files for participants to download (Jamal, 2026-11-10).
     { value: "downloads", label: "Downloads" },
@@ -44,7 +46,7 @@ export const EVENT_TABS = [
  */
 export const TAB_MENU_SLUG: Partial<Record<EventTab, string>> = {
     agenda: "agenda", venue: "venue", gallery: "gallery", family: "family", wishes: "wishes", live: "live-streaming",
-    social: "social-links", downloads: "downloads", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
+    nearby: "near-by", social: "social-links", downloads: "downloads", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
 };
 export const TOP_TABS: EventTab[] = ["overview", "information", "contact"];
 /** Sidebar bottom (Jamal, 2026-11-06): SETTING = App Menu; REPORT = Activity Log. */
@@ -55,7 +57,7 @@ export type EventTab = (typeof EVENT_TABS)[number]["value"];
 
 export const EVENT_TAB_ICONS: Record<EventTab, LucideIcon> = {
     overview: LayoutDashboard, information: FileText, contact: MessagesSquare, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
-    wishes: Heart, live: Radio, social: Share2, downloads: Download, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
+    wishes: Heart, live: Radio, nearby: MapPinned, social: Share2, downloads: Download, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
     settings: Settings, messages: Mail, activity: History,
 };
 
