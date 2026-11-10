@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     Activity, ArrowLeft, CalendarDays, Check, CheckCheck, CheckSquare, Copy, Crown, ExternalLink, Eye, EyeOff, Filter,
-    Heart, Image as ImageIcon, ImagePlus, Info, LayoutGrid, List, Loader2, Mail, MapPin, MessageSquare, MoreHorizontal, Pencil,
+    Heart, Image as ImageIcon, ImagePlus, LayoutGrid, List, Loader2, Mail, MapPin, MessageSquare, MoreHorizontal, Pencil,
     Phone, Play, PlayCircle, Reply, Send, Smile, Trash2, UserCheck, UserRound, Users, UserX, Video, X,
 } from "lucide-react";
 import Link from "next/link";
@@ -422,13 +422,7 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                 </div>
                 {!thread.isOrg && (
                     <div className="flex items-center gap-2">
-                        <Button size="icon" variant="outline" className="size-9 rounded-full" onClick={onDetails} aria-label="Participant details" title="Participant Details">
-                            <Info className="size-4" />
-                        </Button>
-                        <Button size="icon" variant="outline" className={cn("size-9 rounded-full", thread.blocked ? "text-success" : "border-primary/30 bg-primary/5 text-primary hover:text-primary")}
-                            onClick={() => onPanel("block", latest)} aria-label={thread.blocked ? "Unblock participant" : "Block participant"} title={thread.blocked ? "Unblock Participant" : "Block Participant"}>
-                            {thread.blocked ? <UserCheck className="size-4" /> : <UserX className="size-4" />}
-                        </Button>
+                        {/* Participant Details + Block live in the ⋯ menu only (Jamal, 2026-11-10). */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button size="icon" variant="outline" className="size-9 rounded-full" aria-label="More"><MoreHorizontal className="size-4" /></Button>
@@ -437,6 +431,9 @@ function ThreadView({ eventId, thread, participant, bubbleActions, onPanel, onBa
                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={onDetails}><UserRound className="size-4 text-muted-foreground" /> Participant Details</DropdownMenuItem>
                                 <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={onHide}>
                                     {thread.chatHidden ? <><Eye className="size-4 text-muted-foreground" /> Move to Inbox</> : <><EyeOff className="size-4 text-muted-foreground" /> Hide Chat</>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2.5 py-2 text-[13px]" onClick={() => onPanel("block", latest)}>
+                                    {thread.blocked ? <><UserCheck className="size-4 text-muted-foreground" /> Unblock Participant</> : <><UserX className="size-4 text-muted-foreground" /> Block Participant</>}
                                 </DropdownMenuItem>
                                 {thread.participantId && (
                                     <>

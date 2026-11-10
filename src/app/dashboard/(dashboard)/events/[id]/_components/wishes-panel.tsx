@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowLeft, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus, Settings,
-    ShieldCheck, Trash2, TriangleAlert, Video, X, Ban, UserCheck,
+    Trash2, TriangleAlert, Video, X, Ban, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +24,9 @@ import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module
 import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
 import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider, useWishPanels } from "./wish-panels";
 import { useEventParticipants } from "@/hooks/use-event-participants";
+import { useEventOptions } from "@/hooks/use-client-portal";
+import { useSetMenuShown } from "@/hooks/use-event-modules";
+import { cn } from "@/lib/utils";
 
 /**
  * Since 2026-11-09 the page is Jamal's CHAT design (wishes-chat.tsx): conversations per participant
@@ -136,7 +139,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             {header}
             {tiles}
             {settingsPage
-                ? <WishesSettingsPage eventId={event.id} settings={data.settings} onDone={() => setSettingsPage(false)} onWords={() => { setSettingsPage(false); open({ kind: "words" }); }} />
+                ? <WishesSettingsPage event={event} settings={data.settings} onDone={() => setSettingsPage(false)} />
                 : <WishesChat event={event} data={data} wishes={wishes} view={view} onView={setView} bubbleActions={actionsFor} onPanel={fromChat} />}
             {/* Every action panel slides in from the right ("canvas"); Delete is a centred pop-up. */}
             {panel && (
@@ -412,49 +415,83 @@ function ToggleRow({ label, hint, checked, onChange, disabled }: { label: string
     );
 }
 
-function WishesSettingsPage({ eventId, settings, onDone, onWords }: { eventId: number; settings: WishSettings; onDone: () => void; onWords: () => void }) {
+/**
+ * Jamal's Wishes Settings mockup (2026-11-10): Wish Visibility & Publishing · Moderation & Privacy, plus a
+ * Participant Display card (what other participants see about the writer). Switches that are not in the
+ * mockup (Allow New Wishes, Wish Details Screen, Show Wish Photo / Video, Allow Comments, Hold Flagged
+ * Wishes, Notify of Flagged Wishes) are no longer shown — their saved values are kept as they are.
+ */
+function WishesSettingsPage({ event, settings, onDone }: { event: ClientEvent; settings: WishSettings; onDone: () => void }) {
+    const eventId = event.id;
     const saveSettings = useSaveWishSettings(eventId);
     const filterQuery = useWishFilter(eventId);
     const saveFilter = useSaveWishFilter(eventId);
-    const [s, setS] = useState<WishSettings>(settings);
+    const options = useEventOptions();
+    const menuIds = useMemo(() => event.menu_ids ?? [], [event.menu_ids]);
+    const setMenu = useSetMenuShown(eventId, menuIds);
+    // "Enable Wed Wishes Menu" = the Wishes menu in the event's menu_ids (a Default menu is always on).
+    const wishMenu = options.data?.menus.find((m) => m.slug === "wishes") ?? null;
+    const menuDefault = !!wishMenu && !!Number(wishMenu.is_default);
+    const menuSaved = !!wishMenu && (menuDefault || menuIds.includes(wishMenu.id));
+    const [menuOn, setMenuOn] = useState<boolean | null>(null);
+    const menuShown = menuOn ?? menuSaved;
+    // Older backends do not send the 2026-11-10 keys: start them as the server would.
+    const [s, setS] = useState<WishSettings>({
+        allow_text: true, allow_video: settings.allow_photo, relationship: true, side: true, audience: true,
+        notify_new: false, hide_blocked: false, ...settings,
+    });
     const [filter, setFilter] = useState<WishFilter | null>(null);
     const f = filter ?? filterQuery.data ?? { enabled: false, words: [], auto_hide: true, notify: true };
-    const setF = (patch: Partial<WishFilter>) => setFilter({ ...f, ...patch });
     const set = (k: keyof WishSettings) => (v: boolean) => setS((p) => ({ ...p, [k]: v }));
-    const busy = saveSettings.isPending || saveFilter.isPending;
+    const on = (k: keyof WishSettings) => s[k] !== false;
+    const busy = saveSettings.isPending || saveFilter.isPending || setMenu.isPending;
     const save = async () => {
         try {
             await saveSettings.mutateAsync(s);
             if (filter) await saveFilter.mutateAsync(filter);
+            if (wishMenu && !menuDefault && menuOn !== null && menuOn !== menuSaved) await setMenu.mutateAsync({ menuId: wishMenu.id, show: menuOn });
             onDone();
         } catch { /* the hooks showed the error */ }
     };
     const card = "flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4";
+    const heading = "text-[15px] font-bold";
     return (
         <>
             <div className="grid gap-4 lg:grid-cols-2">
                 <div className={card}>
-                    <p className="text-[15px] font-bold">Wish Visibility &amp; Publishing</p>
-                    <ToggleRow label="Allow New Wishes" hint="Participants can post wishes" checked={s.allow_new} onChange={set("allow_new")} />
-                    <ToggleRow label="Allow Image Wishes" hint="Participants can add a photo" checked={s.allow_photo} onChange={set("allow_photo")} />
-                    <ToggleRow label="Wish Details Screen" hint="Participants can open a wish in full" checked={s.details_screen} onChange={set("details_screen")} />
-                    <ToggleRow label="Show Profile Photo" checked={s.profile_photo} onChange={set("profile_photo")} />
-                    <ToggleRow label="Show Wish Photo / Video" checked={s.wish_photo} onChange={set("wish_photo")} />
-                    <ToggleRow label="Show Time" checked={s.time} onChange={set("time")} />
-                    <ToggleRow label="Allow Comments" hint="Participants can comment on wishes" checked={s.allow_comments ?? true} onChange={set("allow_comments")} />
-                    <ToggleRow label="Show Likes" hint="Participants see like counts" checked={s.show_likes ?? true} onChange={set("show_likes")} />
+                    <p className={heading}>Wish Visibility &amp; Publishing</p>
+                    <ToggleRow label="Enable Wed Wishes Menu"
+                        hint={!wishMenu ? (options.isLoading ? undefined : "Wed Wishes is not in your plan") : menuDefault ? "Always on — Wed Wishes is a default menu" : "Show Wed Wishes in the event app"}
+                        checked={menuShown} disabled={!wishMenu || menuDefault} onChange={setMenuOn} />
+                    <ToggleRow label="Allow Text Wishes" checked={on("allow_text")} onChange={set("allow_text")} />
+                    <ToggleRow label="Allow Image Wishes" checked={on("allow_photo")} onChange={set("allow_photo")} />
+                    <ToggleRow label="Allow Video Wishes" checked={on("allow_video")} onChange={set("allow_video")} />
+                    <ToggleRow label="Show Likes" checked={on("show_likes")} onChange={set("show_likes")} />
                 </div>
                 <div className={card}>
-                    <p className="text-[15px] font-bold">Moderation &amp; Privacy</p>
-                    <ToggleRow label="Filter Blocked Words" checked={f.enabled} disabled={filterQuery.isLoading} onChange={(v) => setF({ enabled: v })} />
-                    <ToggleRow label="Hold Flagged Wishes for Review" hint="Hidden until you approve them" checked={f.auto_hide} onChange={(v) => setF({ auto_hide: v })} />
-                    <ToggleRow label="Notify Organizer of Flagged Wishes" checked={f.notify} onChange={(v) => setF({ notify: v })} />
-                    <Button variant="outline" className="justify-start border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={onWords}>
-                        <ShieldCheck className="size-4" /> Manage Blocked Words ({f.words.length})
-                    </Button>
-                    <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-primary">
-                        Participant video uploading is disabled. Organizer video posting is permitted.
-                    </p>
+                    <p className={heading}>Moderation &amp; Privacy</p>
+                    <ToggleRow label="Filter Blocked Words" checked={f.enabled} disabled={filterQuery.isLoading} onChange={(v) => setFilter({ ...f, enabled: v })} />
+                    <ToggleRow label="Notify Organizer of New Wishes" checked={!!s.notify_new} onChange={set("notify_new")} />
+                    <ToggleRow label="Hide Wishes for Blocked Participants" checked={!!s.hide_blocked} onChange={set("hide_blocked")} />
+                    {!on("allow_video") && (
+                        <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[12px] text-primary">
+                            Participant video uploading is disabled. Organizer video posting is permitted.
+                        </p>
+                    )}
+                </div>
+                <div className={cn(card, "lg:col-span-2")}>
+                    <div>
+                        <p className={heading}>Participant Display</p>
+                        <p className="text-[12px] text-muted-foreground">What other participants see about the person who wrote a wish.</p>
+                    </div>
+                    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                        <ToggleRow label="Show Profile Photo" checked={on("profile_photo")} onChange={set("profile_photo")} />
+                        <ToggleRow label="Show Name" hint="Off = shown as “Guest”" checked={on("name")} onChange={set("name")} />
+                        <ToggleRow label="Show Relationship" checked={on("relationship")} onChange={set("relationship")} />
+                        <ToggleRow label="Show Bride / Groom Side" checked={on("side")} onChange={set("side")} />
+                        <ToggleRow label="Show Wish To" hint="Bride / Groom / Both" checked={on("audience")} onChange={set("audience")} />
+                        <ToggleRow label="Show Time" checked={on("time")} onChange={set("time")} />
+                    </div>
                 </div>
             </div>
             <div className="flex justify-end gap-2">

@@ -46,6 +46,9 @@ export interface Wish {
     post_type: 'text' | 'image' | 'video';
     audience: WishAudience;
     guest_name: string;
+    /** The writer's relationship / Bride-Groom side from their participant row (2026-11-10). */
+    relationship?: string | null;
+    side?: 'bride' | 'groom' | null;
     mobile: string | null;
     message: string;
     photo: string | null;
@@ -104,6 +107,14 @@ export interface WishSettings {
     allow_comments?: boolean;
     /** Participants see like counts (2026-11-09). */
     show_likes?: boolean;
+    /** 2026-11-10 (optional: an older backend does not send them). */
+    allow_text?: boolean;
+    allow_video?: boolean;
+    relationship?: boolean;
+    side?: boolean;
+    audience?: boolean;
+    notify_new?: boolean;
+    hide_blocked?: boolean;
 }
 
 export type BlockReason = 'inappropriate' | 'spam' | 'harassment' | 'other';
