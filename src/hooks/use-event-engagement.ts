@@ -695,7 +695,11 @@ export interface NearbyPlace {
     updated_at: string | null;
 }
 
-export interface NearbyVenue { name: string | null; address: string | null; lat: number | null; lng: number | null; has_location: boolean }
+export interface NearbyVenue {
+    name: string | null; address: string | null; lat: number | null; lng: number | null; has_location: boolean;
+    /** Where the point came from: the venue pin, the venue's map link, or its address found on Google. */
+    source?: 'pin' | 'map_link' | 'address' | null;
+}
 
 export interface NearbyPlacesPage {
     places: NearbyPlace[];

@@ -81,12 +81,18 @@ export function GlobalLoader() {
     // MAIN CONTENT, not the panel (Jamal, 2026-11-10: "loader show main content not canvas"). The
     // content box is under the panel's backdrop, so the loader is drawn fixed over the content's
     // visible area, on the backdrop's layer — the panel stays on top and readable.
-    if (topDialog() && host) {
+    const dialog = topDialog();
+    if (dialog && host) {
         const r = main?.getBoundingClientRect();
         const top = r ? Math.max(r.top, 0) : 0;
+        // A slide-in panel on the right covers part of the content: the loader stops where the panel
+        // starts, so its spinner is centred in the part still visible — not half under the panel.
+        const d = dialog.getBoundingClientRect();
+        const sidePanel = d.right >= window.innerWidth - 2 && d.left > (r?.left ?? 0);
+        const right = r ? (sidePanel ? Math.min(r.right, d.left) : r.right) : window.innerWidth;
         const box = r
-            ? { top, left: r.left, width: r.width, height: Math.max(0, Math.min(r.bottom, window.innerHeight) - top) }
-            : { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+            ? { top, left: r.left, width: Math.max(0, right - r.left), height: Math.max(0, Math.min(r.bottom, window.innerHeight) - top) }
+            : { top: 0, left: 0, width: sidePanel ? d.left : window.innerWidth, height: window.innerHeight };
         return createPortal(
             <div className="fixed z-50" style={box}><PageLoader text={text} className="grid place-items-center" /></div>,
             host,

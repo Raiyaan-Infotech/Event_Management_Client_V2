@@ -21,7 +21,7 @@ import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
     useAddNearbyPlaces, useDeleteNearbyPlace, useNearbyPlaces, useNearbySuggestions, useReorderNearbyPlaces, useUpdateNearbyPlace,
-    type NearbyCategory, type NearbyPlace, type NearbySuggestion,
+    type NearbyCategory, type NearbyPlace, type NearbySuggestion, type NearbyVenue,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section } from "./module-ui";
 
@@ -35,6 +35,21 @@ import { Empty, PanelLoading, Section } from "./module-ui";
 
 type View = "list" | "grid";
 type StatusFilter = "all" | "visible" | "hidden";
+
+const SOURCE_LABEL = { pin: "Venue map pin", map_link: "Venue map link", address: "Venue address (found on Google Maps)" } as const;
+
+/** "Near: Aysha Mahal" — the event location Near By searches from, and where it came from. */
+function VenueLocation({ venue }: { venue: NearbyVenue }) {
+    const label = venue.name || venue.address || "Event venue";
+    return (
+        <span
+            title={venue.source ? `Location from: ${SOURCE_LABEL[venue.source]}` : undefined}
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 font-medium text-primary"
+        >
+            <MapPin className="size-3.5 shrink-0" /> <span className="truncate">Near {label}</span>
+        </span>
+    );
+}
 
 const SORT_LABEL: Record<string, string> = { distance: "Distance", rating: "Rating", name: "Name" };
 
@@ -140,8 +155,13 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
                 <StatTile icon={EyeOff} value={counts.hidden} label={counts.hidden === 1 ? "Hidden Place" : "Hidden Places"} tone="warning" active={status === "hidden"} onClick={() => setStatus("hidden")} />
             </OverviewCard>
 
-            {!page.venue.has_location && (
-                <Notice tone="warning" title="Venue location not set">Set the venue pin on the map (Venue) so Google Maps can suggest places near it.</Notice>
+            {page.venue.has_location ? (
+                <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                    Places are found around the event location: <VenueLocation venue={page.venue} />
+                    {page.venue.source === "address" && <span>· found from the venue address — set the map pin in Venue for an exact spot.</span>}
+                </p>
+            ) : (
+                <Notice tone="warning" title="Event location not found">Set the venue pin on the map (Venue) so Google Maps can suggest places near it.</Notice>
             )}
 
             <div className="flex flex-wrap items-center gap-3">
@@ -245,7 +265,7 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
                     categories={cats}
                     radii={page.options?.radii_km ?? [1, 2, 3, 5, 10]}
                     defaultRadius={page.options?.default_radius_km ?? 2}
-                    venueReady={page.venue.has_location}
+                    venue={page.venue}
                     onClose={() => setAdding(false)}
                 />
             )}
@@ -291,10 +311,11 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
 
 /** Add Nearby Place — Google Maps suggestions around the venue; pick several, save once. */
 function AddNearbySheet({
-    eventId, categories, radii, defaultRadius, venueReady, onClose,
+    eventId, categories, radii, defaultRadius, venue, onClose,
 }: {
-    eventId: number; categories: NearbyCategory[]; radii: number[]; defaultRadius: number; venueReady: boolean; onClose: () => void;
+    eventId: number; categories: NearbyCategory[]; radii: number[]; defaultRadius: number; venue: NearbyVenue; onClose: () => void;
 }) {
+    const venueReady = venue.has_location;
     const add = useAddNearbyPlaces(eventId);
     const searchable = categories.filter((c) => c.searchable);
     const [text, setText] = useState("");
@@ -336,7 +357,7 @@ function AddNearbySheet({
         >
             <div className="flex flex-col gap-4">
                 {!venueReady && (
-                    <Notice tone="warning" title="Venue location not set">Set the venue pin on the map first (Venue), then come back to add nearby places.</Notice>
+                    <Notice tone="warning" title="Event location not found">Set the venue pin on the map first (Venue), then come back to add nearby places.</Notice>
                 )}
 
                 <FormField label="Search Nearby Places">
@@ -371,9 +392,7 @@ function AddNearbySheet({
                 </FormField>
 
                 <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 font-medium text-primary">
-                        <MapPin className="size-3.5" /> Near venue
-                    </span>
+                    <VenueLocation venue={venue} />
                     <span className="flex items-center gap-2">
                         Radius
                         <Select value={String(radius)} onValueChange={(v) => setRadius(Number(v))}>
