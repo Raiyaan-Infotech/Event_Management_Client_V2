@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ArrowDown, ArrowUp, Check, CircleCheck, ExternalLink, Eye, EyeOff, Info, LayoutGrid, List, Loader2, MapPin, MapPinned, Pencil, Plus,
     Search, Star, Trash2, X,
@@ -35,21 +35,6 @@ import { Empty, PanelLoading, Section } from "./module-ui";
 
 type View = "list" | "grid";
 type StatusFilter = "all" | "visible" | "hidden";
-
-const SOURCE_LABEL = { pin: "Venue map pin", map_link: "Venue map link", address: "Venue address (found on Google Maps)" } as const;
-
-/** "Near: Aysha Mahal" — the event location Near By searches from, and where it came from. */
-function VenueLocation({ venue }: { venue: NearbyVenue }) {
-    const label = venue.name || venue.address || "Event venue";
-    return (
-        <span
-            title={venue.source ? `Location from: ${SOURCE_LABEL[venue.source]}` : undefined}
-            className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 font-medium text-primary"
-        >
-            <MapPin className="size-3.5 shrink-0" /> <span className="truncate">Near {label}</span>
-        </span>
-    );
-}
 
 const SORT_LABEL: Record<string, string> = { distance: "Distance", rating: "Rating", name: "Name" };
 
@@ -305,7 +290,7 @@ export function NearbyPanel({ event }: { event: ClientEvent }) {
     );
 }
 
-/** Add Nearby Place — Google Maps suggestions around the venue; pick several, save once. */
+/** Add Nearby Place — Jamal's design (2026-11-11): Google Maps suggestions around the venue; pick several, save once. */
 function AddNearbySheet({
     eventId, categories, radii, defaultRadius, venue, onClose,
 }: {
@@ -314,6 +299,7 @@ function AddNearbySheet({
     const venueReady = venue.has_location;
     const add = useAddNearbyPlaces(eventId);
     const searchable = categories.filter((c) => c.searchable);
+    const searchRef = useRef<HTMLInputElement>(null);
     const [text, setText] = useState("");
     const [q, setQ] = useState("");
     const [picked, setPicked] = useState<string[]>(() => searchable.slice(0, 2).map((c) => c.key));
@@ -334,11 +320,22 @@ function AddNearbySheet({
     const toggle = (s: NearbySuggestion) => setSelected((cur) => (cur.some((x) => x.google_place_id === s.google_place_id)
         ? cur.filter((x) => x.google_place_id !== s.google_place_id)
         : [...cur, s]));
-    const togglePick = (key: string) => setPicked((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
+    // A tile Google can search toggles; "Other" (no Google type) sends you to the search box instead.
+    const tap = (c: NearbyCategory) => (c.searchable
+        ? setPicked((cur) => (cur.includes(c.key) ? cur.filter((k) => k !== c.key) : [...cur, c.key]))
+        : searchRef.current?.focus());
+    const venueLabel = venue.name || venue.address || "the venue";
+
+    const label = (textEl: string, info?: string) => (
+        <p className="flex items-center gap-1.5 text-[13.5px] font-bold">
+            {textEl}
+            {info && <span title={info} className="text-muted-foreground"><Info className="size-3.5" /></span>}
+        </p>
+    );
 
     return (
         <ActionSheet
-            open onClose={onClose} icon={MapPinned} width={560}
+            open onClose={onClose} icon={MapPinned} width={500} large
             title="Add Nearby Place"
             subtitle="Search and add places from Google Maps suggestions."
             footer={(
@@ -351,126 +348,148 @@ function AddNearbySheet({
                 </>
             )}
         >
-            <div className="flex flex-col gap-4">
-                {!venueReady && (
-                    <Notice tone="warning" title="Event location not found">Set the venue pin on the map first (Venue), then come back to add nearby places.</Notice>
-                )}
+            {!venueReady && (
+                <Notice tone="warning" title="Event location not found">Set the venue pin on the map first (Venue), then come back to add nearby places.</Notice>
+            )}
 
-                <FormField label="Search Nearby Places">
-                    <div className="relative">
-                        <DynamicIcon name="logos:google-icon" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search hotel, restaurant, hospital, ATM..." className="h-9 pr-9 pl-9" disabled={!venueReady} />
-                        {text
-                            ? <button type="button" aria-label="Clear" onClick={() => setText("")} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground"><X className="size-4" /></button>
-                            : <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />}
+            <div className="flex flex-col gap-2">
+                {label("Search Nearby Places")}
+                <div className="relative">
+                    <DynamicIcon name="logos:google-icon" className="pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2" />
+                    <Input
+                        ref={searchRef} value={text} onChange={(e) => setText(e.target.value)} disabled={!venueReady}
+                        placeholder="Search hotel, restaurant, hospital, ATM..." className="h-10 rounded-lg pr-10 pl-10 !text-[13px]"
+                    />
+                    {text
+                        ? <button type="button" aria-label="Clear" onClick={() => setText("")} className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground"><X className="size-4" /></button>
+                        : <Search className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />}
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                {label("Select Category (Google Maps)", q ? "Your typed search is used while the search box has text." : "Pick one or more kinds of place to see Google Maps suggestions near the venue.")}
+                <div className="grid grid-cols-4 gap-2">
+                    {categories.map((c) => {
+                        const on = c.searchable ? picked.includes(c.key) : false;
+                        return (
+                            <button
+                                key={c.key} type="button" onClick={() => tap(c)} disabled={!venueReady}
+                                title={c.searchable ? undefined : "Type the place name in the search box"}
+                                className={cn(
+                                    "relative flex flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2.5 text-[12.5px] font-medium transition-colors disabled:opacity-50",
+                                    on ? "border-primary/50 bg-primary/10" : "border-border bg-card hover:bg-muted",
+                                )}
+                            >
+                                {on && <span className="absolute top-1.5 right-1.5 grid size-[18px] place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-3" /></span>}
+                                <DynamicIcon name={c.icon} color={c.color} className="size-6" />
+                                <span className="max-w-full truncate">{c.name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]">
+                <span
+                    title={`Places are searched around ${venueLabel}${venue.source === "address" ? " (found from the venue address)" : ""}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-medium text-primary"
+                >
+                    <MapPin className="size-3.5" /> Near venue <Check className="size-3.5" />
+                </span>
+                <span className="flex items-center gap-2">
+                    Radius
+                    <Select value={String(radius)} onValueChange={(v) => setRadius(Number(v))}>
+                        <SelectTrigger className="!h-9 w-[92px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>{radii.map((r) => <SelectItem key={r} value={String(r)}>{r} km</SelectItem>)}</SelectContent>
+                    </Select>
+                </span>
+                <span className="flex items-center gap-2">
+                    Sort By
+                    <Select value={sort} onValueChange={setSort}>
+                        <SelectTrigger className="!h-9 w-[112px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>{Object.entries(SORT_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                    <p className="flex items-center gap-1.5 text-[13.5px] font-bold">
+                        <DynamicIcon name="logos:google-icon" className="size-[18px]" /> Google Maps Suggestions
+                        <span title="From Google Maps, nearest first. Places already added to this event show Added." className="text-muted-foreground"><Info className="size-3.5" /></span>
+                    </p>
+                    {found.data && <span className="text-[12px] text-muted-foreground">{list.length} results</span>}
+                </div>
+                {!venueReady ? null : found.isFetching ? (
+                    <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border py-8 text-[12.5px] text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" /> Searching Google Maps…
                     </div>
-                </FormField>
-
-                <FormField label="Select Category (Google Maps)" note={q ? <span className="text-[11px] text-muted-foreground">Typed search is used while the box has text.</span> : undefined}>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                        {searchable.map((c) => {
-                            const on = picked.includes(c.key);
+                ) : found.isError ? (
+                    <Notice tone="danger">{found.error instanceof Error ? found.error.message : "Could not load suggestions."}</Notice>
+                ) : !q && !picked.length ? (
+                    <p className="rounded-xl border border-dashed border-border py-6 text-center text-[12.5px] text-muted-foreground">Choose a category or type a search.</p>
+                ) : list.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border py-6 text-center text-[12.5px] text-muted-foreground">No places found within {radius} km. Try a bigger radius.</p>
+                ) : (
+                    <ul className="flex flex-col gap-2">
+                        {list.map((s) => {
+                            const on = isSelected(s);
+                            const cat = catOf(s.category_key);
                             return (
-                                <button
-                                    key={c.key} type="button" onClick={() => togglePick(c.key)} disabled={!venueReady}
-                                    className={cn(
-                                        "relative flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-[11.5px] font-medium transition-colors disabled:opacity-50",
-                                        on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-muted",
+                                <li key={s.google_place_id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 shadow-xs">
+                                    <PlaceThumb photo={s.photo_uri} category={cat} size={56} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[13.5px] font-bold">{s.name}</p>
+                                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                                            <CategoryChip category={cat} fallback={s.category_key} />
+                                            {s.rating !== null && <span className="inline-flex items-center gap-1 font-medium"><Star className="size-3.5 fill-amber-400 text-amber-400" /> {s.rating}</span>}
+                                            <span className="inline-flex items-center gap-1 font-medium"><MapPin className="size-3.5 text-primary" /> {distanceText(s.distance_km)}</span>
+                                        </div>
+                                        {s.address && (
+                                            <p className="mt-1 flex items-center gap-1 text-[11.5px] text-muted-foreground">
+                                                <MapPin className="size-3 shrink-0" /> <span className="truncate">{s.address}</span>
+                                            </p>
+                                        )}
+                                    </div>
+                                    {s.already_added ? (
+                                        <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-success"><CircleCheck className="size-4" /> Added</span>
+                                    ) : on ? (
+                                        <Button size="sm" className="h-9 shrink-0 px-3 text-[12.5px]" onClick={() => toggle(s)} title="Selected — click to remove">
+                                            <Check className="size-3.5" /> Add to Event
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" variant="outline" onClick={() => toggle(s)}
+                                            className="h-9 min-w-[96px] shrink-0 border-primary/50 text-[12.5px] text-primary hover:bg-primary/5 hover:text-primary">
+                                            <Plus className="size-3.5" /> Add
+                                        </Button>
                                     )}
-                                >
-                                    {on && <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-2.5" /></span>}
-                                    <DynamicIcon name={c.icon} color={c.color} className="size-5" />
-                                    <span className="truncate">{c.name}</span>
-                                </button>
+                                </li>
                             );
                         })}
-                    </div>
-                </FormField>
-
-                <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
-                    <VenueLocation venue={venue} />
-                    <span className="flex items-center gap-2">
-                        Radius
-                        <Select value={String(radius)} onValueChange={(v) => setRadius(Number(v))}>
-                            <SelectTrigger className="!h-8 w-[90px] text-[12.5px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>{radii.map((r) => <SelectItem key={r} value={String(r)}>{r} km</SelectItem>)}</SelectContent>
-                        </Select>
-                    </span>
-                    <span className="flex items-center gap-2">
-                        Sort By
-                        <Select value={sort} onValueChange={setSort}>
-                            <SelectTrigger className="!h-8 w-[110px] text-[12.5px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>{Object.entries(SORT_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </span>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                        <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-                            <DynamicIcon name="logos:google-icon" className="size-4" /> Google Maps Suggestions
-                        </p>
-                        {found.data && <span className="text-[11.5px] text-muted-foreground">{list.length} results</span>}
-                    </div>
-                    {!venueReady ? null : found.isFetching ? (
-                        <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border py-8 text-[12.5px] text-muted-foreground">
-                            <Loader2 className="size-4 animate-spin" /> Searching Google Maps…
-                        </div>
-                    ) : found.isError ? (
-                        <Notice tone="danger">{found.error instanceof Error ? found.error.message : "Could not load suggestions."}</Notice>
-                    ) : !q && !picked.length ? (
-                        <p className="rounded-lg border border-dashed border-border py-6 text-center text-[12.5px] text-muted-foreground">Choose a category or type a search.</p>
-                    ) : list.length === 0 ? (
-                        <p className="rounded-lg border border-dashed border-border py-6 text-center text-[12.5px] text-muted-foreground">No places found within {radius} km. Try a bigger radius.</p>
-                    ) : (
-                        <ul className="flex flex-col gap-2">
-                            {list.map((s) => {
-                                const on = isSelected(s);
-                                const cat = catOf(s.category_key);
-                                return (
-                                    <li key={s.google_place_id} className={cn("flex items-center gap-3 rounded-lg border p-2.5", on ? "border-primary/40 bg-primary/5" : "border-border")}>
-                                        <PlaceThumb photo={s.photo_uri} category={cat} size={52} />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-[13px] font-semibold">{s.name}</p>
-                                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px]">
-                                                <CategoryChip category={cat} fallback={s.category_key} />
-                                                {s.rating !== null && <span className="inline-flex items-center gap-0.5"><Star className="size-3 fill-amber-400 text-amber-400" /> {s.rating}</span>}
-                                                <span className="inline-flex items-center gap-0.5"><MapPin className="size-3 text-primary" /> {distanceText(s.distance_km)}</span>
-                                            </div>
-                                            {s.address && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{s.address}</p>}
-                                        </div>
-                                        {s.already_added ? (
-                                            <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-success"><CircleCheck className="size-4" /> Added</span>
-                                        ) : (
-                                            <Button size="sm" variant={on ? "default" : "outline"} className={cn("shrink-0", !on && "border-primary/50 text-primary hover:bg-primary/5 hover:text-primary")} onClick={() => toggle(s)}>
-                                                {on ? <><Check className="size-3.5" /> Selected</> : <><Plus className="size-3.5" /> Add</>}
-                                            </Button>
-                                        )}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                </div>
-
-                {selected.length > 0 && (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                        <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-primary"><CircleCheck className="size-4" /> Selected Nearby Places ({selected.length})</p>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                            {selected.map((s) => (
-                                <div key={s.google_place_id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
-                                    <PlaceThumb photo={s.photo_uri} category={catOf(s.category_key)} size={36} />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-[12px] font-semibold">{s.name}</p>
-                                        <CategoryChip category={catOf(s.category_key)} fallback={s.category_key} />
-                                    </div>
-                                    <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggle(s)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    </ul>
                 )}
             </div>
+
+            {selected.length > 0 && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <p className="mb-2.5 flex items-center gap-2 text-[13.5px] font-bold text-primary">
+                        <span className="grid size-5 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-3" /></span>
+                        Selected Nearby Places ({selected.length})
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {selected.map((s) => (
+                            <div key={s.google_place_id} className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-2">
+                                <PlaceThumb photo={s.photo_uri} category={catOf(s.category_key)} size={40} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[12.5px] font-bold">{s.name}</p>
+                                    <div className="mt-0.5"><CategoryChip category={catOf(s.category_key)} fallback={s.category_key} /></div>
+                                </div>
+                                <button type="button" aria-label={`Remove ${s.name}`} onClick={() => toggle(s)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </ActionSheet>
     );
 }
