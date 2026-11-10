@@ -774,6 +774,15 @@ type DetailTab = "profile" | "wishes" | "media" | "comments";
 type KindFilter = "all" | Wish["post_type"];
 type MediaFilter = "all" | "image" | "video";
 type CommentFilter = "all" | "visible" | "hidden";
+/** Comments tab → Filter: who wrote it, and on which kind of wish. */
+type CommentBy = "all" | "participant" | "organizer";
+const COMMENT_BY: Record<CommentBy, string> = { all: "Everyone", participant: "Participants", organizer: "Event Organizer" };
+/** "02 Nov • 10:30 AM" (the mockup's comment time). */
+const commentTime = (iso: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return `${d.toLocaleDateString(undefined, { day: "2-digit", month: "short" })} • ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+};
 const KIND_META: Record<Wish["post_type"], { label: string; icon: typeof Heart }> = {
     text: { label: "Text Wish", icon: MessageSquare }, image: { label: "Image Wish", icon: ImageIcon }, video: { label: "Video Wish", icon: Video },
 };
@@ -838,6 +847,8 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
     const [mediaKind, setMediaKind] = useState<MediaFilter>("all");
     const [grid, setGrid] = useState(false);
     const [commentKind, setCommentKind] = useState<CommentFilter>("all");
+    const [commentBy, setCommentBy] = useState<CommentBy>("all");
+    const [commentOn, setCommentOn] = useState<KindFilter>("all");
     const wishesNew = useMemo(() => [...thread.wishes].reverse(), [thread.wishes]);
     const media = wishesNew.filter((w) => w.post_type !== "text");
     const wishIds = useMemo(() => thread.wishes.map((w) => w.id), [thread.wishes]);
@@ -860,7 +871,12 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
     const published = thread.wishes.filter((w) => wishStatus(w).label === "Published").length;
     const shownWishes = kind === "all" ? wishesNew : wishesNew.filter((w) => w.post_type === kind);
     const shownMedia = mediaKind === "all" ? media : media.filter((w) => w.post_type === mediaKind);
-    const shownComments = commentKind === "all" ? comments : comments.filter(({ c }) => (commentKind === "hidden" ? c.is_hidden : !c.is_hidden));
+    // The Filter menu (writer + wish kind) narrows the list; the chips and their counts follow it.
+    const filteredComments = comments.filter(({ c, w }) =>
+        (commentBy === "all" || (commentBy === "organizer") === !!c.added_by_organizer)
+        && (commentOn === "all" || w.post_type === commentOn));
+    const shownComments = commentKind === "all" ? filteredComments : filteredComments.filter(({ c }) => (commentKind === "hidden" ? c.is_hidden : !c.is_hidden));
+    const commentFilterOn = commentBy !== "all" || commentOn !== "all";
     const kindOf = (w: Wish) => (w.post_type === "video" ? "video" : w.post_type === "image" ? "photo" : "text");
 
     return (
@@ -1086,12 +1102,42 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
 
             {/* ── Comments (everyone's comments on this participant's wishes) ── */}
             {tab === "comments" && (
-                <DCard title={`Comments (${commentCount})`} icon={MessageSquare}>
+                <DCard title={`Comments (${commentCount})`} icon={MessageSquare}
+                    action={(
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline" className={cn(pinkOutline, commentFilterOn && "bg-primary/10")}>
+                                    <Filter className="size-3" /> Filter{commentFilterOn ? ` (${Number(commentBy !== "all") + Number(commentOn !== "all")})` : ""}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuLabel className="text-[11.5px] text-muted-foreground">Written by</DropdownMenuLabel>
+                                {(Object.keys(COMMENT_BY) as CommentBy[]).map((k) => (
+                                    <DropdownMenuItem key={k} className={cn("justify-between text-[13px]", commentBy === k && "font-semibold text-primary")} onSelect={(e) => { e.preventDefault(); setCommentBy(k); }}>
+                                        {COMMENT_BY[k]} {commentBy === k && <Check className="size-3.5" />}
+                                    </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-[11.5px] text-muted-foreground">On wish type</DropdownMenuLabel>
+                                {(["all", "text", "image", "video"] as KindFilter[]).map((k) => (
+                                    <DropdownMenuItem key={k} className={cn("justify-between text-[13px]", commentOn === k && "font-semibold text-primary")} onSelect={(e) => { e.preventDefault(); setCommentOn(k); }}>
+                                        {k === "all" ? "All wishes" : KIND_META[k].label} {commentOn === k && <Check className="size-3.5" />}
+                                    </DropdownMenuItem>
+                                ))}
+                                {commentFilterOn && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-[13px] text-muted-foreground" onClick={() => { setCommentBy("all"); setCommentOn("all"); }}>Clear filter</DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}>
                     <div className="mb-3">
                         <Chips value={commentKind} onChange={setCommentKind} items={[
-                            { value: "all", label: `All (${comments.length})` },
-                            { value: "visible", label: `Visible (${comments.filter(({ c }) => !c.is_hidden).length})` },
-                            { value: "hidden", label: `Hidden (${comments.filter(({ c }) => c.is_hidden).length})` },
+                            { value: "all", label: `All (${filteredComments.length})` },
+                            { value: "visible", label: `Visible (${filteredComments.filter(({ c }) => !c.is_hidden).length})` },
+                            { value: "hidden", label: `Hidden (${filteredComments.filter(({ c }) => c.is_hidden).length})` },
                         ]} />
                     </div>
                     {all.isLoading ? <p className="py-4 text-center text-[12.5px] text-muted-foreground">Loading…</p>
@@ -1103,7 +1149,7 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-2">
                                                 <p className="text-[13px] font-bold">{c.added_by_organizer ? "Event Organizer" : c.guest_name}</p>
-                                                <span className="shrink-0 text-[11px] text-muted-foreground">{c.created_at ? new Date(c.created_at).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" }) : ""}</span>
+                                                <span className="shrink-0 text-[11px] text-muted-foreground">{commentTime(c.created_at)}</span>
                                             </div>
                                             {editing?.id === c.id ? (
                                                 <div className="mt-1 flex flex-col gap-1.5">
@@ -1129,9 +1175,8 @@ function ParticipantDetails({ eventId, thread, participant: p, loading, bubbleAc
                                                             <Button size="sm" variant="outline" className="h-7 px-2.5 text-[12px]"><MoreHorizontal className="size-3.5" /> Actions</Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end" className="w-44">
-                                                            {c.can_edit && (
-                                                                <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => setEditing({ id: c.id, text: c.message })}><Pencil className="size-4 text-muted-foreground" /> Edit Message</DropdownMenuItem>
-                                                            )}
+                                                            {/* The organizer may reword any comment (2026-11-10); an old backend still says can_edit only for their own. */}
+                                                            <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => setEditing({ id: c.id, text: c.message })}><Pencil className="size-4 text-muted-foreground" /> Edit Message</DropdownMenuItem>
                                                             {c.is_hidden
                                                                 ? <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: true }, done: "Comment visible" })}><Eye className="size-4 text-muted-foreground" /> Show Message</DropdownMenuItem>
                                                                 : <DropdownMenuItem className="gap-2.5 text-[13px]" onClick={() => act.update.mutate({ id: c.id, data: { show_in_app: false, reviewed: true }, done: "Comment hidden" })}><EyeOff className="size-4 text-muted-foreground" /> Hide Message</DropdownMenuItem>}
