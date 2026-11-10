@@ -70,7 +70,7 @@ export interface Wish {
     added_by_organizer: boolean;
     author_blocked: boolean;
     /** Organizer only: why the writer is blocked (2026-11-09). */
-    author_block?: { reason: BlockReason | null; note: string | null } | null;
+    author_block?: { reason: BlockReason | null; note: string | null; blocked_at?: string | null } | null;
     /** Comments under it (2026-11-09). */
     comment_count?: number;
     /** Organizer only: how many participants reported it. */

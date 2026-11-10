@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowLeft, Check, CheckCircle2, Clock, Eye, EyeOff, Filter, Heart, ImagePlus, Loader2, Mail, MessageSquare, Pencil, Plus, Settings,
-    Trash2, TriangleAlert, Video, X, Ban, UserCheck,
+    Search, Trash2, TriangleAlert, Video, X, Ban, UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, StatTile, StatusPill, type RowAction,
+    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, PersonAvatar, StatTile, StatusPill, type RowAction,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
 import type { ClientEvent } from "@/hooks/use-client-events";
@@ -139,7 +139,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
             {header}
             {tiles}
             {settingsPage
-                ? <WishesSettingsPage event={event} settings={data.settings} onDone={() => setSettingsPage(false)} />
+                ? <WishesSettingsPage event={event} settings={data.settings} wishes={wishes} onUnblock={(w) => open({ kind: "block", wish: w })} onDone={() => setSettingsPage(false)} />
                 : <WishesChat event={event} data={data} wishes={wishes} view={view} onView={setView} bubbleActions={actionsFor} onPanel={fromChat} />}
             {/* Every action panel slides in from the right ("canvas"); Delete is a centred pop-up. */}
             {panel && (
@@ -421,7 +421,9 @@ function ToggleRow({ label, hint, checked, onChange, disabled }: { label: string
  * mockup (Allow New Wishes, Wish Details Screen, Show Wish Photo / Video, Allow Comments, Hold Flagged
  * Wishes, Notify of Flagged Wishes) are no longer shown — their saved values are kept as they are.
  */
-function WishesSettingsPage({ event, settings, onDone }: { event: ClientEvent; settings: WishSettings; onDone: () => void }) {
+function WishesSettingsPage({ event, settings, wishes, onUnblock, onDone }: {
+    event: ClientEvent; settings: WishSettings; wishes: Wish[]; onUnblock: (w: Wish) => void; onDone: () => void;
+}) {
     const eventId = event.id;
     const saveSettings = useSaveWishSettings(eventId);
     const filterQuery = useWishFilter(eventId);
@@ -493,12 +495,88 @@ function WishesSettingsPage({ event, settings, onDone }: { event: ClientEvent; s
                         <ToggleRow label="Show Time" checked={on("time")} onChange={set("time")} />
                     </div>
                 </div>
+                <BlockedParticipantsCard className={cn(card, "lg:col-span-2")} wishes={wishes} onUnblock={onUnblock} />
             </div>
             <div className="flex justify-end gap-2">
                 <Button variant="outline" disabled={busy} onClick={onDone}>Cancel</Button>
                 <Button disabled={busy} onClick={save}>{busy && <Loader2 className="size-3.5 animate-spin" />} Save Wishes Settings</Button>
             </div>
         </>
+    );
+}
+
+/**
+ * Wishes Settings → Blocked Participants (Jamal, 2026-11-10): everyone blocked from Wed Wishes on this event,
+ * with search + reason filter and Unblock (opens the usual Unblock panel). Built from the wish list (a block
+ * is always made from one of the person's wishes; someone whose wishes were ALL deleted is not listed).
+ */
+function BlockedParticipantsCard({ className, wishes, onUnblock }: { className: string; wishes: Wish[]; onUnblock: (w: Wish) => void }) {
+    const [q, setQ] = useState("");
+    const [reason, setReason] = useState<BlockReason | "all">("all");
+    // One row per blocked writer, using their latest wish (the list comes newest first).
+    const people = useMemo(() => {
+        const seen = new Map<string, Wish>();
+        for (const w of wishes) {
+            const key = w.thread_key ?? (w.participant_id !== null ? `p:${w.participant_id}` : null);
+            if (w.author_blocked && key && !seen.has(key)) seen.set(key, w);
+        }
+        return [...seen.values()];
+    }, [wishes]);
+    const needle = q.trim().toLowerCase();
+    const shown = people.filter((w) =>
+        (reason === "all" || w.author_block?.reason === reason)
+        && (!needle || [w.guest_name, w.author_block?.note, w.relationship].some((v) => v?.toLowerCase().includes(needle))));
+    const sideLabel = (s?: string | null) => (s === "bride" ? "Bride Side" : s === "groom" ? "Groom Side" : null);
+    return (
+        <div className={className}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="flex items-center gap-2 text-[15px] font-bold">Blocked Participants <StatusPill tone="danger">{people.length}</StatusPill></p>
+                    <p className="text-[12px] text-muted-foreground">People who can no longer post or interact in Wed Wishes on this event.</p>
+                </div>
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                        <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or note…" className="h-8 pl-8 text-[12.5px]" />
+                    </div>
+                    <Select value={reason} onValueChange={(v) => setReason(v as BlockReason | "all")}>
+                        <SelectTrigger className="h-8 w-[170px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All reasons</SelectItem>
+                            {(Object.keys(REASON_LABEL) as BlockReason[]).map((r) => <SelectItem key={r} value={r}>{REASON_LABEL[r]}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            {shown.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[12.5px] text-muted-foreground">
+                    {people.length ? "No blocked participant matches." : "No one is blocked from Wed Wishes."}
+                </p>
+            ) : (
+                <div className="divide-y divide-border rounded-lg border border-border">
+                    {shown.map((w) => {
+                        const b = w.author_block;
+                        const meta = [sideLabel(w.side), w.relationship].filter(Boolean).join(" • ");
+                        return (
+                            <div key={w.thread_key ?? w.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+                                <PersonAvatar name={w.guest_name} photo={w.avatar} size={34} rounded="full" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[13px] font-semibold">{w.guest_name}</p>
+                                    <p className="truncate text-[11.5px] text-muted-foreground">
+                                        {[meta, b?.blocked_at ? `Blocked ${new Date(b.blocked_at).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })}` : null].filter(Boolean).join(" · ") || "Participant"}
+                                    </p>
+                                    {b?.note && <p className="mt-0.5 line-clamp-1 text-[11.5px] text-foreground/80">“{b.note}”</p>}
+                                </div>
+                                {b?.reason && <StatusPill tone="danger">{REASON_LABEL[b.reason]}</StatusPill>}
+                                <Button size="sm" variant="outline" className="h-8 text-[12px] text-success hover:text-success" onClick={() => onUnblock(w)}>
+                                    <UserCheck className="size-3.5" /> Unblock
+                                </Button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
 
