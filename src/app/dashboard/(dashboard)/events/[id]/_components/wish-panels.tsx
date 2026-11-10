@@ -79,7 +79,7 @@ export function PersonCard({ wish, sub, right, children }: { wish: Wish; sub?: R
             <div className="flex items-center gap-2.5">
                 <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-bold">{wish.guest_name}</p>
+                    <p className="truncate text-[13px] font-bold">{wish.guest_name}</p>
                     <p className="text-[11.5px] text-muted-foreground">{sub ?? who}</p>
                 </div>
                 {right}
@@ -93,7 +93,7 @@ export function PersonCard({ wish, sub, right, children }: { wish: Wish; sub?: R
 function Card({ title, icon: Icon, children, className }: { title?: string; icon?: typeof Heart; children: React.ReactNode; className?: string }) {
     return (
         <div className={cn("rounded-xl border border-border bg-card p-3", className)}>
-            {title && <p className="mb-2 flex items-center gap-1.5 text-[13px] font-bold">{Icon && <Icon className="size-3.5 text-primary" />} {title}</p>}
+            {title && <p className="mb-2 flex items-center gap-1.5 text-[12.5px] font-bold">{Icon && <Icon className="size-3.5 text-primary" />} {title}</p>}
             {children}
         </div>
     );
@@ -138,8 +138,8 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
             <PersonCard wish={wish} right={<StatusPill tone={st.tone}>{st.label}</StatusPill>} />
             <Card title="Wish Details" icon={Heart}>
                 {wish.message
-                    ? <p className="whitespace-pre-line break-words text-[13.5px] font-medium leading-relaxed">{wish.message}</p>
-                    : <p className="text-[13px] text-muted-foreground">No message — {wish.post_type} only.</p>}
+                    ? <p className="whitespace-pre-line break-words text-[13px] font-medium leading-relaxed">{wish.message}</p>
+                    : <p className="text-[12.5px] text-muted-foreground">No message — {wish.post_type} only.</p>}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <span className="flex flex-wrap gap-1.5">
                         <StatusPill tone="primary">{TYPE_WISH[wish.post_type]}</StatusPill>
@@ -183,7 +183,7 @@ export function ViewWish({ eventId, wish, onClose, onEdit, onComments }: { event
             )}
             <Card>
                 <div className="mb-1 flex items-center justify-between">
-                    <p className="text-[13px] font-bold">Latest Comments</p>
+                    <p className="text-[12.5px] font-bold">Latest Comments</p>
                     <button type="button" onClick={onComments} className="text-[12px] font-semibold text-primary hover:underline">Manage ({wish.comment_count ?? 0})</button>
                 </div>
                 {latest.length === 0
@@ -273,7 +273,7 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
                                     : (wish.thumbnail_url || wish.photo) ? <img src={mediaUrl(wish.thumbnail_url ?? wish.photo)} alt="" className="size-full object-cover" /> : null}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13.5px] font-semibold">{file ? file.name : kind === "video" ? "Video" : "Image"}</p>
+                                <p className="truncate text-[13px] font-semibold">{file ? file.name : kind === "video" ? "Video" : "Image"}</p>
                                 <p className="text-[12px] text-muted-foreground">
                                     {[sizeOf(file ? file.size : wish.size_bytes), file ? file.type.split("/")[1]?.toUpperCase() : extOf(wish.video_url ?? wish.photo)].filter(Boolean).join(" • ")}
                                 </p>
@@ -286,7 +286,7 @@ export function EditWish({ eventId, wish, onClose }: { eventId: number; wish: Wi
                         <button type="button" onClick={() => fileRef.current?.click()}
                             className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-primary/40 bg-primary/[0.03] px-3 py-5 text-center transition hover:bg-primary/5">
                             <Upload className="size-5 text-primary" />
-                            <span className="text-[13px] font-semibold">Upload {kind === "video" ? "Video" : "Image"}</span>
+                            <span className="text-[12.5px] font-semibold">Upload {kind === "video" ? "Video" : "Image"}</span>
                             <span className="text-[11px] text-muted-foreground">{kind === "video" ? "MP4 (Max 25MB)" : "JPG, PNG (Max 2MB)"}</span>
                         </button>
                     )}
@@ -319,7 +319,7 @@ export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish:
             <span className="grid size-11 place-items-center rounded-xl bg-success/10 text-success"><Check className="size-6" /></span>
             <PersonCard wish={wish} sub={`${who} • Submitted ${dateOnly(wish.created_at)}`}>
                 <div className="mt-3 border-t border-primary/15 pt-3">
-                    {wish.message && <p className="whitespace-pre-line break-words text-[14px]">{wish.message}</p>}
+                    {wish.message && <p className="whitespace-pre-line break-words text-[13.5px]">{wish.message}</p>}
                     {wish.post_type !== "text" && <WishMedia wish={wish} className="mt-2 max-h-[220px]" />}
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                         <StatusPill tone="primary">{TYPE_WISH[wish.post_type]}</StatusPill>
@@ -329,7 +329,7 @@ export function ApproveWish({ eventId, wish, onClose }: { eventId: number; wish:
                 </div>
             </PersonCard>
             <div className="rounded-xl border border-success/30 bg-success/[0.06] p-3">
-                <p className="mb-1.5 text-[13px] font-bold text-success">What happens when you publish?</p>
+                <p className="mb-1.5 text-[12.5px] font-bold text-success">What happens when you publish?</p>
                 <ul className="flex flex-col gap-0.5 text-[12.5px]">
                     {["Visible to permitted event participants", "Appears in the Wed Wishes feed", "Participants can like and comment", "Organizer can hide the wish later",
                         ...(reported(wish) ? ["Its reports are cleared"] : [])].map((t) => (
@@ -380,7 +380,7 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
                 <div className="flex items-center gap-2.5">
                     <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={36} rounded="full" />
                     <div className="min-w-0">
-                        <p className="truncate text-[13.5px] font-bold">{wish.guest_name}&apos;s Wish</p>
+                        <p className="truncate text-[13px] font-bold">{wish.guest_name}&apos;s Wish</p>
                         <p className="line-clamp-2 break-words text-[12.5px] text-muted-foreground">{wish.message || TYPE_WISH[wish.post_type]}</p>
                     </div>
                 </div>
@@ -409,12 +409,12 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
                                         <PersonAvatar name={c.added_by_organizer ? "Event Organizer" : c.guest_name} size={34} rounded="full" />
                                         <div className="min-w-0 flex-1">
                                             <p className="flex flex-wrap items-center gap-1.5">
-                                                <span className="text-[13px] font-bold">{c.guest_name}</span>
+                                                <span className="text-[12.5px] font-bold">{c.guest_name}</span>
                                                 {c.added_by_organizer && <StatusPill tone="primary">Organizer</StatusPill>}
                                                 <StatusPill tone={s.tone}>{s.label}</StatusPill>
                                             </p>
                                             <p className="text-[11.5px] text-muted-foreground">{dateTime(c.created_at).replace(",", " •")}</p>
-                                            {c.message && <p className="mt-1 break-words text-[13px]">{c.message}</p>}
+                                            {c.message && <p className="mt-1 break-words text-[12.5px]">{c.message}</p>}
                                             {c.photo && (
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img src={mediaUrl(c.photo)} alt="" className="mt-1.5 max-h-40 rounded-lg object-cover" />
@@ -439,7 +439,7 @@ export function ManageComments({ eventId, wish, onClose }: { eventId: number; wi
                     )}
             <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-300/60 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/20">
                 <div>
-                    <p className="text-[13px] font-semibold">Allow new comments on this wish</p>
+                    <p className="text-[12.5px] font-semibold">Allow new comments on this wish</p>
                     <p className="mt-0.5 text-[12px] text-muted-foreground">Turn off to close comments while keeping published replies visible.</p>
                 </div>
                 <Switch checked={allow} onCheckedChange={setAllow} aria-label="Allow new comments on this wish" />
@@ -471,7 +471,7 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
                 <div className="flex items-center gap-2.5 rounded-xl border border-border px-3 py-2">
                     <PersonAvatar name={wish.guest_name} photo={wish.avatar} size={30} rounded="full" />
                     <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold">{wish.guest_name}</span>
+                        <span className="block truncate text-[12.5px] font-semibold">{wish.guest_name}</span>
                         <span className="block text-[12px] text-muted-foreground">{who.replace(" • Participant", "")}</span>
                     </span>
                     <ChevronDown className="size-4 text-muted-foreground" />
@@ -480,7 +480,7 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
             <FormField label="Channel">
                 <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
                     <Smartphone className="size-4 text-primary" />
-                    <span className="flex-1 text-[13px] font-semibold">In-App</span>
+                    <span className="flex-1 text-[12.5px] font-semibold">In-App</span>
                     <StatusPill tone="success" icon={Check}>In-App Notification</StatusPill>
                     <span title="Shown in the participant's notifications in the event app."><Info className="size-4 text-muted-foreground" /></span>
                 </div>
@@ -499,7 +499,7 @@ export function SendNotification({ eventId, wish, onClose }: { eventId: number; 
                     <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><Bell className="size-4" /></span>
                     <div className="min-w-0 flex-1">
                         <p className="flex items-start justify-between gap-2">
-                            <span className="break-words text-[13px] font-bold">{subject.trim() || "Subject"}</span>
+                            <span className="break-words text-[12.5px] font-bold">{subject.trim() || "Subject"}</span>
                             <span className="shrink-0 text-[11.5px] text-muted-foreground">now</span>
                         </p>
                         <p className="mt-1 whitespace-pre-line break-words text-[12px] text-foreground/80">{message.trim() || "Your message…"}</p>

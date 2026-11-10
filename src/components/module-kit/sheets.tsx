@@ -67,10 +67,10 @@ export function ActionSheet({
         );
     }
     const head = (titleEl: React.ReactNode, subEl: React.ReactNode) => (
-        <div className={cn("flex items-start gap-3 border-b border-primary/15 bg-primary/5", inline ? "px-4 py-3" : "px-5 py-4")}>
+        <div className="flex items-start gap-3 border-b border-primary/15 bg-primary/5 px-4 py-3">
             {Icon && (
-                <span className={cn("grid shrink-0 place-items-center rounded-full bg-card", inline ? "size-9" : "size-11", TONE_TEXT[tone])}>
-                    <Icon className={inline ? "size-4" : "size-5"} />
+                <span className={cn("grid size-9 shrink-0 place-items-center rounded-full bg-card", TONE_TEXT[tone])}>
+                    <Icon className="size-4" />
                 </span>
             )}
             <div className="min-w-0 flex-1">{titleEl}{subEl}</div>
@@ -93,12 +93,13 @@ export function ActionSheet({
     return (
         <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
             <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-none" style={{ maxWidth: width }}>
+                {/* Compact (Jamal, 2026-11-10): 16px title, 12.5px body, 36px footer buttons — every module's slide-in. */}
                 {head(
-                    <SheetTitle className="text-[19px] font-bold">{title}</SheetTitle>,
-                    <SheetDescription className={cn("text-[12.5px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>,
+                    <SheetTitle className="text-[16px] leading-tight font-bold">{title}</SheetTitle>,
+                    <SheetDescription className={cn("mt-0.5 text-[12px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>,
                 )}
-                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5">{children}</div>
-                {footer && <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-border p-5">{footer}</div>}
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 text-[12.5px]">{children}</div>
+                {footer && <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-border px-4 py-3 [&>*]:h-9 [&>*]:text-[13px]">{footer}</div>}
             </SheetContent>
         </Sheet>
     );
