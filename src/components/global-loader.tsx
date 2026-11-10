@@ -70,8 +70,17 @@ export function GlobalLoader() {
     // or the sidebar (Jamal, 2026-11-10). It starts at the content's scroll box (just under the top bar,
     // right of the sidebar) and is placed above the panel.
     if (topDialog()) {
-        const area = (main?.parentElement ?? main)?.getBoundingClientRect();
-        const box = { top: Math.max(area?.top ?? 0, 0), left: Math.max(area?.left ?? 0, 0), right: 0, bottom: 0 };
+        const scroller = main?.parentElement ?? main;
+        const area = scroller?.getBoundingClientRect();
+        // The whole page scrolls, so once scrolled the content box starts ABOVE the window — start at the
+        // sticky top bar's bottom edge instead (the element just before the content box), never over it.
+        const topBar = scroller?.previousElementSibling?.getBoundingClientRect();
+        const box = {
+            top: Math.max(area?.top ?? 0, topBar?.bottom ?? 0, 0),
+            left: Math.max(area?.left ?? 0, 0),
+            right: 0,
+            bottom: 0,
+        };
         return createPortal(
             // pointer-events-none: a click on it would count as "outside the panel" and close it mid-save.
             <div className="pointer-events-none fixed z-[60]" style={box}><PageLoader text={text} className="grid place-items-center" /></div>,
