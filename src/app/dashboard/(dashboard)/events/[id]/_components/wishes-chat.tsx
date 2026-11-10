@@ -238,7 +238,9 @@ export function WishesChat({ event, data, wishes, view, onView, bubbleActions, o
             && (!q || t.name.toLowerCase().includes(q) || t.wishes.some((w) => w.message.toLowerCase().includes(q))));
     }, [threads, search, view.status]);
     // All = the main inbox; Hidden = chats moved out with Hide Chat.
-    const inbox = filtered.filter((t) => !t.chatHidden);
+    // The Blocked filter (the Blocked Participants tile) lists EVERY blocked person, hidden chats too,
+    // so the list matches the tile's count.
+    const inbox = view.status === "blocked" ? filtered : filtered.filter((t) => !t.chatHidden);
     const counts = { all: inbox.length, unread: inbox.filter((t) => t.unread > 0).length, hidden: filtered.filter((t) => t.chatHidden).length };
     const shown = view.tab === "unread" ? inbox.filter((t) => t.unread > 0) : view.tab === "hidden" ? filtered.filter((t) => t.chatHidden) : inbox;
     const selected = threads.find((t) => t.key === picked) ?? shown[0] ?? null;
