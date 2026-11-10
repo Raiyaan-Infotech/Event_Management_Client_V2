@@ -500,19 +500,27 @@ export const uploadLiveCover = (eventId: number, file: File) =>
 
 /* ── Social Links ─────────────────────────────────────────────────────────── */
 
-export const SOCIAL_PRESETS = {
-    instagram: { label: 'Instagram', color: '#E1306C' },
-    facebook: { label: 'Facebook', color: '#1877F2' },
-    x: { label: 'X', color: '#111111' },
-    youtube: { label: 'YouTube', color: '#FF0000' },
-} as const;
-export type SocialPresetKey = keyof typeof SOCIAL_PRESETS;
+/** A platform of "Add Social Link" — from the backend's social_platforms table (2026-11-10). */
+export interface SocialPlatform {
+    key: string;
+    name: string;
+    /** Iconify id, e.g. "mdi:instagram". */
+    icon: string;
+    color: string | null;
+    url_placeholder: string | null;
+    /** Others: saved without a platform key; the organizer names it. */
+    is_custom: boolean;
+}
 
 export interface SocialLink {
     id: number;
     event_id: number;
-    /** Set for the four preset rows; null = a custom link. */
-    platform_key: SocialPresetKey | null;
+    /** A social_platforms key (instagram / whatsapp / …); null = a custom (Others) link. */
+    platform_key: string | null;
+    /** The four rows every event has: Remove clears them instead of deleting. */
+    is_preset?: boolean;
+    platform_icon?: string | null;
+    platform_color?: string | null;
     platform_name: string;
     title: string;
     url: string | null;
@@ -527,6 +535,8 @@ export interface SocialLink {
 
 export interface SocialLinksPage {
     links: SocialLink[];
+    /** The platforms to pick from (older backends: missing). */
+    platforms?: SocialPlatform[];
     can_edit: boolean;
     icon_size: number;
     menu_id: number | null;

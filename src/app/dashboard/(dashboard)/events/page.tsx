@@ -22,6 +22,14 @@ import {
     faShareNodes,
     faTrash,
     faCircle,
+    faHeart,
+    faLock,
+    faGlobe,
+    faCircleInfo,
+    faFileLines,
+    faTowerBroadcast,
+    faBan,
+    type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,6 +101,25 @@ const STATUS_LABELS: Record<DerivedStatus, string> = {
     past: "Completed",
     draft: "Draft",
     cancelled: "Cancelled",
+};
+
+/** The icon in front of each status label (Jamal, 2026-11-10: "✓ Published", "Draft" with a page icon). */
+const STATUS_ICONS: Record<DerivedStatus, IconDefinition> = {
+    live: faTowerBroadcast,
+    upcoming: faCircleCheck,
+    past: faCircleCheck,
+    draft: faFileLines,
+    cancelled: faBan,
+};
+
+/** "10 Jan 2026, 10:24 AM" */
+const formatUpdated = (iso: string | null | undefined) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const date = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${date}, ${time}`;
 };
 
 const SORT_OPTIONS = [
@@ -518,8 +545,9 @@ function EventRow({
                     <h3 className="text-[14.5px] font-bold leading-snug text-foreground break-words">{event.name}</h3>
                     <Badge
                         variant="ghost"
-                        className={cn("rounded px-2 py-0.5 text-[10.5px] font-semibold", STATUS_BADGE[event.derived_status])}
+                        className={cn("gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold", STATUS_BADGE[event.derived_status])}
                     >
+                        <FontAwesomeIcon icon={STATUS_ICONS[event.derived_status]} className="!size-[10px]" />
                         {STATUS_LABELS[event.derived_status]}
                     </Badge>
                 </div>
@@ -539,14 +567,27 @@ function EventRow({
                 </p>
                 <div className="mt-0.5 flex flex-wrap gap-1.5">
                     {event.category?.name ? (
-                        <span className="rounded bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                            <FontAwesomeIcon icon={faHeart} className="!size-[10px]" />
                             {event.category.name}
                         </span>
                     ) : null}
-                    <span className="rounded bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
+                        <FontAwesomeIcon icon={event.privacy === "private" ? faLock : faGlobe} className="!size-[10px]" />
                         {event.privacy}
                     </span>
                 </div>
+                {/* RSVP summary + last edit (Jamal, 2026-11-10 mockup) */}
+                <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                        <FontAwesomeIcon icon={faCircleInfo} className="!size-[10px] shrink-0" />
+                        RSVP: {confirmed + (event.pending_count ?? 0) === 0
+                            ? "No responses yet"
+                            : `${confirmed.toLocaleString()} Confirmed • ${(event.pending_count ?? 0).toLocaleString()} Pending`}
+                    </span>
+                    <span className="text-border">|</span>
+                    <span>Last updated: {formatUpdated(event.updated_at)}</span>
+                </p>
             </div>
 
             {/* Pre-event setup — a straight divider line on each side, no box */}

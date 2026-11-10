@@ -1,139 +1,222 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, EyeOff, Link2, Loader2, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFacebook, faInstagram, faXTwitter, faYoutube } from "@fortawesome/free-brands-svg-icons";
+import {
+    ArrowDown, ArrowUp, Check, ChevronDown, Copy, ExternalLink, Eye, EyeOff, LayoutGrid, Link2, List, Loader2, Pencil, Plus,
+    Share2, Trash2, Upload, X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    ActionSheet, FormField, ModuleHeader, OverviewCard, RowActions, SearchBox, StatTile, StatusPill,
+} from "@/components/module-kit";
+import { DynamicIcon } from "@/components/common/dynamic-icon";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/media-url";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
-    SOCIAL_PRESETS, uploadSocialIcon, useDeleteSocialLink, useReorderSocialLinks, useSaveSocialLink, useSocialLinks,
-    type SocialLink,
+    uploadSocialIcon, useDeleteSocialLink, useReorderSocialLinks, useSaveSocialLink, useSocialLinks,
+    type SocialLink, type SocialPlatform,
 } from "@/hooks/use-event-engagement";
-import { Empty, FieldError, PanelLoading, Section, SwitchRow } from "./module-ui";
+import { Empty, PanelLoading, Section } from "./module-ui";
 
 /**
- * Social Links — as the app's Social Links screen (V1, Jamal's mockup
- * 2026-10-20). The four presets (Instagram, Facebook, X, YouTube) are always
- * there ("Not added yet" until they get a link); + Add Social Link makes a
- * custom one with its own icon. Move up / down sets the order guests see.
- * Same endpoints as the app.
+ * Social Links — Jamal's web design (2026-11-10): tiles (Total / Visible / Hidden), search + status
+ * filter + list / grid view, and the "Add Social Link" panel whose Platform grid comes from the backend
+ * (`platforms` = the social_platforms table), not from this file.
+ *
+ * Only links WITH a URL are listed: the four preset rows every event has (Instagram, Facebook, X,
+ * YouTube) stay hidden until they get one — adding that platform fills the preset row (backend).
  */
 
-const PRESET_ICON = { instagram: faInstagram, facebook: faFacebook, x: faXTwitter, youtube: faYoutube } as const;
+type View = "list" | "grid";
+type StatusFilter = "all" | "visible" | "hidden";
 
 const shortUrl = (url: string | null) => (url ?? "").replace(/^https?:\/\/(www\.)?/, "");
 
-export function SocialIcon({ link, size = 40 }: { link: Pick<SocialLink, "platform_key" | "icon_url" | "platform_name">; size?: number }) {
-    const preset = link.platform_key ? SOCIAL_PRESETS[link.platform_key] : null;
+/** A platform / link icon: the platform's Iconify icon in its colour, else the uploaded icon, else a link. */
+export function SocialIcon({
+    icon, color, iconUrl, size = 36,
+}: { icon?: string | null; color?: string | null; iconUrl?: string | null; size?: number }) {
     const box = { width: size, height: size };
-    if (preset && link.platform_key) {
+    if (icon) {
         return (
-            <span className="grid shrink-0 place-items-center rounded-lg" style={{ ...box, backgroundColor: `${preset.color}14` }}>
-                <FontAwesomeIcon icon={PRESET_ICON[link.platform_key]} style={{ color: preset.color, width: size * 0.45, height: size * 0.45 }} />
+            <span className="grid shrink-0 place-items-center rounded-lg" style={{ ...box, backgroundColor: `${color ?? "#6B7280"}14` }}>
+                <DynamicIcon name={icon} color={color} className="size-[55%]" />
             </span>
         );
     }
-    if (link.icon_url) {
+    if (iconUrl) {
         // eslint-disable-next-line @next/next/no-img-element
-        return <img src={mediaUrl(link.icon_url)} alt="" className="shrink-0 rounded-lg border border-border object-cover" style={box} />;
+        return <img src={mediaUrl(iconUrl)} alt="" className="shrink-0 rounded-lg border border-border object-cover" style={box} />;
     }
     return (
         <span className="grid shrink-0 place-items-center rounded-lg bg-primary/10 text-primary" style={box}>
-            <Link2 style={{ width: size * 0.45, height: size * 0.45 }} />
+            <Link2 style={{ width: size * 0.5, height: size * 0.5 }} />
         </span>
     );
 }
 
+const linkIcon = (l: SocialLink, size?: number) => (
+    <SocialIcon icon={l.platform_icon} color={l.platform_color} iconUrl={l.icon_url} size={size} />
+);
+
 export function SocialLinksPanel({ event }: { event: ClientEvent }) {
     const query = useSocialLinks(event.id);
+    const save = useSaveSocialLink(event.id);
     const remove = useDeleteSocialLink(event.id);
     const reorder = useReorderSocialLinks(event.id);
     const [editing, setEditing] = useState<SocialLink | "new" | null>(null);
     const [deleting, setDeleting] = useState<SocialLink | null>(null);
     const [viewing, setViewing] = useState<SocialLink | null>(null);
+    const [search, setSearch] = useState("");
+    const [status, setStatus] = useState<StatusFilter>("all");
+    const [view, setView] = useState<View>("list");
+
+    const all = query.data?.links;
+    const links = useMemo(() => (all ?? []).filter((l) => !!l.url), [all]);
+    const shown = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return links.filter((l) => (status === "all" || (status === "visible") === l.show_in_app)
+            && (!q || `${l.title} ${l.platform_name} ${l.url}`.toLowerCase().includes(q)));
+    }, [links, search, status]);
 
     if (query.isLoading) return <PanelLoading />;
     if (query.isError || !query.data) {
         return <Section title="Social Links"><Empty title="Could not load the social links">Please try again in a moment.</Empty></Section>;
     }
     const page = query.data;
-    const links = page.links;
+    const platforms = page.platforms ?? [];
+    const visible = links.filter((l) => l.show_in_app).length;
 
-    const move = (i: number, dir: -1 | 1) => {
-        const j = i + dir;
-        if (j < 0 || j >= links.length) return;
+    /** Move within the listed links; the order sent keeps every other row after them. */
+    const move = (link: SocialLink, dir: -1 | 1) => {
         const ids = links.map((l) => l.id);
+        const i = ids.indexOf(link.id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= ids.length) return;
         [ids[i], ids[j]] = [ids[j], ids[i]];
         reorder.mutate(ids);
     };
+    const toggle = (l: SocialLink) => save.mutate({ id: l.id, data: { show_in_app: !l.show_in_app } });
+
+    const actions = (l: SocialLink) => {
+        const i = links.findIndex((x) => x.id === l.id);
+        return [
+            { label: "View Details", icon: Eye, onClick: () => setViewing(l) },
+            { label: "Edit Link", icon: Pencil, onClick: () => setEditing(l), hidden: !page.can_edit },
+            { label: l.show_in_app ? "Hide from App" : "Show in App", icon: l.show_in_app ? EyeOff : Eye, onClick: () => toggle(l), hidden: !page.can_edit },
+            { label: "Move Up", icon: ArrowUp, onClick: () => move(l, -1), hidden: !page.can_edit || i <= 0 },
+            { label: "Move Down", icon: ArrowDown, onClick: () => move(l, 1), hidden: !page.can_edit || i >= links.length - 1 },
+            { label: "Delete Link", icon: Trash2, onClick: () => setDeleting(l), danger: true, divider: true, hidden: !page.can_edit },
+        ];
+    };
+
+    const pill = (l: SocialLink) => (l.show_in_app
+        ? <StatusPill tone="success" icon={Eye}>Visible</StatusPill>
+        : <StatusPill tone="muted" icon={EyeOff}>Hidden</StatusPill>);
 
     return (
-        <div className="flex flex-col gap-5">
-            <Section
+        <div className="flex flex-col gap-4">
+            <ModuleHeader
                 title="Social Links"
-                action={page.can_edit && (
+                subtitle="Add and manage social media and other important links for your event."
+                actions={page.can_edit && (
                     <Button size="sm" onClick={() => setEditing("new")}><Plus className="size-3.5" /> Add Social Link</Button>
                 )}
-            >
-                {links.length === 0 ? (
-                    <Empty title="No social links yet">Add the event&apos;s Instagram, Facebook, X or YouTube page, or any other link.</Empty>
-                ) : (
-                    <ul className="mt-2 flex flex-col gap-2">
-                        {links.map((link, i) => {
-                            const has = !!link.url;
-                            return (
-                                <li key={link.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border p-3">
-                                    <SocialIcon link={link} />
-                                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => has && setViewing(link)}>
-                                        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold">
-                                            <span className="truncate">{link.title || link.platform_name}</span>
-                                            {/* As the app: a link kept out of the app is marked, not switched here. */}
-                                            {has && !link.show_in_app && (
-                                                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground">
-                                                    <EyeOff className="size-2.5" /> Hidden
-                                                </span>
-                                            )}
-                                        </p>
-                                        {has ? (
-                                            <p className="truncate text-[12px] text-primary">{shortUrl(link.url)}</p>
-                                        ) : (
-                                            <p className="text-[12px] italic text-muted-foreground">Not added yet</p>
-                                        )}
-                                    </div>
-                                    {page.can_edit && (
-                                        <div className="flex shrink-0 items-center gap-1">
-                                            <Button size="icon" variant="ghost" className="size-8" aria-label="Move up" disabled={i === 0 || reorder.isPending} onClick={() => move(i, -1)}>
-                                                <ArrowUp className="size-3.5" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="size-8" aria-label="Move down" disabled={i === links.length - 1 || reorder.isPending} onClick={() => move(i, 1)}>
-                                                <ArrowDown className="size-3.5" />
-                                            </Button>
-                                            <Button size="icon" variant="ghost" className="size-8" aria-label={has ? "Edit" : "Add link"} onClick={() => setEditing(link)}>
-                                                {has ? <Pencil className="size-3.5" /> : <Plus className="size-3.5" />}
-                                            </Button>
-                                            {(!link.platform_key || has) && (
-                                                <Button size="icon" variant="ghost" className="size-8 text-destructive" aria-label="Delete" onClick={() => setDeleting(link)}>
-                                                    <Trash2 className="size-3.5" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
-            </Section>
+            />
+
+            <OverviewCard>
+                <StatTile icon={Link2} value={links.length} label="Total Links" tone="primary" active={status === "all"} onClick={() => setStatus("all")} />
+                <StatTile icon={Eye} value={visible} label="Visible Links" tone="success" active={status === "visible"} onClick={() => setStatus("visible")} />
+                <StatTile icon={EyeOff} value={links.length - visible} label={links.length - visible === 1 ? "Hidden Link" : "Hidden Links"} tone="warning" active={status === "hidden"} onClick={() => setStatus("hidden")} />
+            </OverviewCard>
+
+            <div className="flex flex-wrap items-center gap-3">
+                <SearchBox value={search} onChange={setSearch} placeholder="Search social links..." />
+                <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
+                    <SelectTrigger className="!h-8 w-[150px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="visible">Visible</SelectItem>
+                        <SelectItem value="hidden">Hidden</SelectItem>
+                    </SelectContent>
+                </Select>
+                <div className="flex overflow-hidden rounded-md border border-border">
+                    {([["list", List], ["grid", LayoutGrid]] as const).map(([v, Icon]) => (
+                        <button
+                            key={v} type="button" aria-label={v === "list" ? "List view" : "Grid view"} onClick={() => setView(v)}
+                            className={cn("grid h-8 w-9 place-items-center", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
+                        >
+                            <Icon className="size-4" />
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {links.length === 0 ? (
+                <Empty title="No social links yet">Add the event&apos;s Instagram, YouTube, WhatsApp channel, website or any other link.</Empty>
+            ) : shown.length === 0 ? (
+                <Empty title="No links match">Try another search or status.</Empty>
+            ) : view === "list" ? (
+                <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                    <table className="w-full min-w-[640px] text-[12.5px]">
+                        <thead className="bg-muted/50 text-left text-[12px] font-semibold">
+                            <tr>
+                                <th className="w-10 px-3 py-2.5">#</th>
+                                <th className="px-3 py-2.5">Social Link</th>
+                                <th className="px-3 py-2.5">URL</th>
+                                <th className="px-3 py-2.5">Status</th>
+                                <th className="w-16 px-3 py-2.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {shown.map((l) => (
+                                <tr key={l.id} className="hover:bg-muted/30">
+                                    <td className="px-3 py-2.5 font-medium">{links.indexOf(l) + 1}</td>
+                                    <td className="px-3 py-2.5">
+                                        <button type="button" onClick={() => setViewing(l)} className="flex min-w-0 items-center gap-2.5 text-left">
+                                            {linkIcon(l, 32)}
+                                            <span className="truncate font-semibold">{l.title || l.platform_name}</span>
+                                        </button>
+                                    </td>
+                                    <td className="max-w-[260px] px-3 py-2.5">
+                                        <a href={l.url ?? "#"} target="_blank" rel="noreferrer" className="block truncate text-foreground/80 hover:text-primary hover:underline">{l.url}</a>
+                                    </td>
+                                    <td className="px-3 py-2.5">{pill(l)}</td>
+                                    <td className="px-3 py-2.5 text-right"><RowActions compact items={actions(l)} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                    {shown.map((l) => (
+                        <div key={l.id} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
+                            <div className="flex items-start gap-2.5">
+                                {linkIcon(l, 40)}
+                                <button type="button" onClick={() => setViewing(l)} className="min-w-0 flex-1 text-left">
+                                    <p className="truncate text-[13px] font-semibold">{l.title || l.platform_name}</p>
+                                    <p className="truncate text-[11.5px] text-muted-foreground">{l.platform_name}</p>
+                                </button>
+                                <RowActions compact items={actions(l)} />
+                            </div>
+                            <a href={l.url ?? "#"} target="_blank" rel="noreferrer" className="truncate text-[12px] text-primary hover:underline">{shortUrl(l.url)}</a>
+                            <div>{pill(l)}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {viewing && (
                 <SocialLinkDetails
@@ -147,10 +230,12 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
             )}
 
             {editing && (
-                <SocialLinkDialog
+                <SocialLinkSheet
                     key={editing === "new" ? "new" : editing.id}
                     eventId={event.id}
                     link={editing === "new" ? null : editing}
+                    platforms={platforms}
+                    taken={new Set(links.filter((l) => l.platform_key).map((l) => l.platform_key as string))}
                     onClose={() => setEditing(null)}
                 />
             )}
@@ -158,20 +243,16 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
             <Dialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{deleting?.platform_key ? `Remove the ${deleting.platform_name} link?` : "Delete this social link?"}</DialogTitle>
-                        <DialogDescription>
-                            {deleting?.platform_key
-                                ? `${deleting.platform_name} stays in the list as "Not added yet".`
-                                : `"${deleting?.title}" will be removed for everyone.`}
-                        </DialogDescription>
+                        <DialogTitle>Delete this social link?</DialogTitle>
+                        <DialogDescription>&ldquo;{deleting?.title || deleting?.platform_name}&rdquo; will be removed from the event app.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleting(null)}>Cancel</Button>
                         <Button
                             variant="destructive" disabled={remove.isPending}
-                            onClick={() => deleting && remove.mutate({ id: deleting.id, preset: !!deleting.platform_key }, { onSuccess: () => setDeleting(null) })}
+                            onClick={() => deleting && remove.mutate({ id: deleting.id, preset: false }, { onSuccess: () => setDeleting(null) })}
                         >
-                            {deleting?.platform_key ? "Remove" : "Delete"}
+                            Delete
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -180,19 +261,36 @@ export function SocialLinksPanel({ event }: { event: ClientEvent }) {
     );
 }
 
-function SocialLinkDialog({ eventId, link, onClose }: { eventId: number; link: SocialLink | null; onClose: () => void }) {
+/** The platform of a saved link, or a stand-in for a custom one. */
+const platformOf = (link: SocialLink, platforms: SocialPlatform[]) =>
+    (link.platform_key ? platforms.find((p) => p.key === link.platform_key) : platforms.find((p) => p.is_custom)) ?? null;
+
+/**
+ * Add / Edit Social Link — the design's right-hand panel: Platform (a grid of the backend's platforms),
+ * Display Name, Profile / Page URL, Visibility. A link's platform is fixed once saved.
+ */
+function SocialLinkSheet({
+    eventId, link, platforms, taken, onClose,
+}: { eventId: number; link: SocialLink | null; platforms: SocialPlatform[]; taken: Set<string>; onClose: () => void }) {
     const save = useSaveSocialLink(eventId);
-    const preset = !!link?.platform_key;
-    const [platform, setPlatform] = useState(link?.platform_name ?? "");
+    const [platform, setPlatform] = useState<SocialPlatform | null>(link ? platformOf(link, platforms) : null);
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [title, setTitle] = useState(link?.title ?? "");
     const [url, setUrl] = useState(link?.url ?? "");
-    const [description, setDescription] = useState(link?.description ?? "");
-    const [iconUrl, setIconUrl] = useState<string | null>(link?.icon_url ?? null);
-    const [openExternal, setOpenExternal] = useState(link?.open_external ?? true);
     const [showInApp, setShowInApp] = useState(link?.show_in_app ?? true);
+    const [iconUrl, setIconUrl] = useState<string | null>(link?.icon_url ?? null);
     const [uploading, setUploading] = useState(false);
     const [tried, setTried] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const custom = !!platform?.is_custom;
+    const locked = !!link;
+
+    const pick = (p: SocialPlatform) => {
+        // The display name follows the platform until it is typed by hand.
+        if (!title.trim() || title === platform?.name) setTitle(p.is_custom ? "" : p.name);
+        setPlatform(p);
+        setPickerOpen(false);
+    };
 
     const pickIcon = async (file: File | undefined) => {
         if (!file) return;
@@ -210,7 +308,7 @@ function SocialLinkDialog({ eventId, link, onClose }: { eventId: number; link: S
 
     const submit = () => {
         setTried(true);
-        if ((!preset && (!platform.trim() || !title.trim())) || !url.trim()) {
+        if ((!locked && !platform) || !title.trim() || !url.trim()) {
             toast.error("Please fill all mandatory fields.");
             return;
         }
@@ -218,78 +316,119 @@ function SocialLinkDialog({ eventId, link, onClose }: { eventId: number; link: S
             toast.error("Please enter a valid link starting with http:// or https://.");
             return;
         }
-        const data: Record<string, unknown> = {
-            url: url.trim(),
-            description: description.trim() || null,
-            open_external: openExternal,
-            show_in_app: showInApp,
-            ...(preset ? (title.trim() ? { title: title.trim() } : {}) : {
-                platform_name: platform.trim(), title: title.trim(), icon_url: iconUrl,
-            }),
-        };
+        const data: Record<string, unknown> = { title: title.trim(), url: url.trim(), show_in_app: showInApp };
+        if (!link) {
+            if (custom) Object.assign(data, { platform_name: title.trim(), icon_url: iconUrl });
+            else data.platform_key = platform!.key;
+        } else if (!link.platform_key) {
+            Object.assign(data, { platform_name: title.trim(), icon_url: iconUrl });
+        }
         save.mutate({ id: link?.id, data }, { onSuccess: onClose });
     };
 
     const bad = (v: string) => tried && !v.trim();
 
     return (
-        <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{link ? (preset ? `${link.platform_name} Link` : "Edit Social Link") : "Add Social Link"}</DialogTitle>
-                    <DialogDescription>Guests open this link from the event app.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3">
-                    {!preset && (
-                        <div className="flex items-center gap-3">
-                            <SocialIcon link={{ platform_key: null, icon_url: iconUrl, platform_name: platform }} size={52} />
-                            <div className="flex flex-col gap-1">
-                                <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { void pickIcon(e.target.files?.[0]); e.target.value = ""; }} />
-                                <div className="flex gap-2">
-                                    <Button type="button" size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
-                                        {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-                                        {iconUrl ? "Change Icon" : "Upload Icon"}
-                                    </Button>
-                                    {iconUrl && (
-                                        <Button type="button" size="sm" variant="ghost" onClick={() => setIconUrl(null)}><X className="size-3.5" /> Remove</Button>
-                                    )}
-                                </div>
-                                <p className="text-[11px] text-muted-foreground">Optional · square image, up to 1 MB</p>
-                            </div>
-                        </div>
-                    )}
-                    {!preset && (
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-[12.5px]">Platform Name <span className="text-destructive">*</span></Label>
-                            <Input value={platform} maxLength={60} placeholder="e.g. Our Website, Venue Location, LinkedIn" onChange={(e) => setPlatform(e.target.value)} className={cn(bad(platform) && "border-destructive")} />
-                            <FieldError show={bad(platform)} />
-                        </div>
-                    )}
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Title {!preset && <span className="text-destructive">*</span>}</Label>
-                        <Input value={title} maxLength={100} placeholder="e.g. Our Wedding Instagram" onChange={(e) => setTitle(e.target.value)} className={cn(!preset && bad(title) && "border-destructive")} />
-                        {!preset && <FieldError show={bad(title)} />}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Link <span className="text-destructive">*</span></Label>
-                        <Input value={url} maxLength={500} placeholder="https://" onChange={(e) => setUrl(e.target.value)} className={cn(bad(url) && "border-destructive")} />
-                        <FieldError show={bad(url)} />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-[12.5px]">Description (optional)</Label>
-                        <Textarea value={description} maxLength={300} rows={2} onChange={(e) => setDescription(e.target.value)} />
-                    </div>
-                    <div className="rounded-lg border border-border px-3">
-                        <SwitchRow id="sl-external" label="Open in External App" hint="Opens in Instagram / YouTube / the browser" checked={openExternal} onChange={setOpenExternal} />
-                        <SwitchRow id="sl-show" label="Show in Event App" hint="Guests see this link" checked={showInApp} onChange={setShowInApp} />
-                    </div>
-                </div>
-                <DialogFooter>
+        <ActionSheet
+            open onClose={onClose} icon={Share2}
+            title={link ? "Edit Social Link" : "Add Social Link"}
+            subtitle={link ? "Change this link or who can see it." : "Add a social media or custom link for your event."}
+            footer={(
+                <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button disabled={save.isPending || uploading} onClick={submit}>{link ? "Save Changes" : "Add Link"}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <Button disabled={save.isPending || uploading} onClick={submit}>
+                        {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                        Save Social Link
+                    </Button>
+                </>
+            )}
+        >
+            <div className="flex flex-col gap-4">
+                <FormField label="Platform" required>
+                    <Popover open={pickerOpen} onOpenChange={(o) => !locked && setPickerOpen(o)}>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button" disabled={locked}
+                                className={cn(
+                                    "flex h-9 w-full items-center gap-2 rounded-md border bg-background px-3 text-left text-[13px] disabled:cursor-not-allowed disabled:opacity-70",
+                                    tried && !platform && !locked ? "border-destructive" : "border-input",
+                                )}
+                            >
+                                {platform
+                                    ? <><SocialIcon icon={platform.icon} color={platform.color} size={22} /> <span className="flex-1">{platform.name}</span></>
+                                    : locked && link
+                                        ? <>{linkIcon(link, 22)} <span className="flex-1">{link.platform_name}</span></>
+                                        : <span className="flex-1 text-muted-foreground">Choose a platform</span>}
+                                {!locked && <ChevronDown className="size-4 text-muted-foreground" />}
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+                            {platforms.length === 0 ? (
+                                <p className="p-3 text-center text-[12px] text-muted-foreground">No platforms available.</p>
+                            ) : (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {platforms.map((p) => {
+                                        const added = !p.is_custom && taken.has(p.key);
+                                        const on = platform?.key === p.key;
+                                        return (
+                                            <button
+                                                key={p.key} type="button" disabled={added} onClick={() => pick(p)}
+                                                title={added ? `${p.name} is already added` : undefined}
+                                                className={cn(
+                                                    "relative flex flex-col items-center gap-1.5 rounded-lg border px-1 py-2.5 text-[12px] font-medium transition-colors",
+                                                    on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-muted",
+                                                    added && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                                                )}
+                                            >
+                                                {on && <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-2.5" /></span>}
+                                                <DynamicIcon name={p.icon} color={p.color} className="size-6" />
+                                                <span className="truncate">{p.name}</span>
+                                                {added && <span className="text-[10px] text-muted-foreground">Added</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </PopoverContent>
+                    </Popover>
+                </FormField>
+
+                {(custom || (link && !link.platform_key)) && (
+                    <div className="flex items-center gap-3">
+                        <SocialIcon iconUrl={iconUrl} size={44} />
+                        <div className="flex flex-col gap-1">
+                            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { void pickIcon(e.target.files?.[0]); e.target.value = ""; }} />
+                            <div className="flex gap-2">
+                                <Button type="button" size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                                    {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+                                    {iconUrl ? "Change Icon" : "Upload Icon"}
+                                </Button>
+                                {iconUrl && <Button type="button" size="sm" variant="ghost" onClick={() => setIconUrl(null)}><X className="size-3.5" /> Remove</Button>}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">Optional · square image, up to 1 MB</p>
+                        </div>
+                    </div>
+                )}
+
+                <FormField label="Display Name" required>
+                    <Input value={title} maxLength={100} placeholder={custom ? "e.g. Venue Location" : "e.g. Our Wedding Instagram"}
+                        onChange={(e) => setTitle(e.target.value)} className={cn("h-9", bad(title) && "border-destructive")} />
+                </FormField>
+
+                <FormField label="Profile / Page URL" required>
+                    <Input value={url} maxLength={500} placeholder={platform?.url_placeholder || "https://"}
+                        onChange={(e) => setUrl(e.target.value)} className={cn("h-9", bad(url) && "border-destructive")} />
+                </FormField>
+
+                <div className="flex flex-col gap-2">
+                    <p className="text-[12px] font-semibold">Visibility</p>
+                    <label className="flex cursor-pointer items-center gap-3 text-[12.5px]">
+                        <Switch checked={showInApp} onCheckedChange={setShowInApp} />
+                        Show this link in the event app
+                    </label>
+                </div>
+            </div>
+        </ActionSheet>
     );
 }
 
@@ -319,7 +458,7 @@ function SocialLinkDetails({
                     <DialogDescription className="sr-only">{link.title}</DialogDescription>
                 </DialogHeader>
                 <div className="flex items-center gap-3">
-                    <SocialIcon link={link} size={48} />
+                    {linkIcon(link, 48)}
                     <div className="min-w-0">
                         <p className="truncate text-[15px] font-bold">{link.title || link.platform_name}</p>
                         <p className="text-[12px] text-muted-foreground">{link.platform_name}</p>
@@ -344,14 +483,13 @@ function SocialLinkDetails({
                 )}
                 <div className="divide-y divide-border rounded-lg border border-border px-3">
                     {order > 0 && row("Display Order", order)}
-                    {row("Open in External App", yesNo(link.open_external))}
                     {row("Show in App", yesNo(link.show_in_app))}
                     {row("Created On", stamp(link.created_at))}
                     {row("Last Updated", stamp(link.updated_at))}
                 </div>
                 {canEdit && (
                     <DialogFooter className="gap-2 sm:gap-2">
-                        <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> {link.platform_key ? "Remove Link" : "Delete"}</Button>
+                        <Button variant="outline" className="text-destructive" onClick={onDelete}><Trash2 className="size-3.5" /> Delete</Button>
                         <Button onClick={onEdit}><Pencil className="size-3.5" /> Edit</Button>
                     </DialogFooter>
                 )}
