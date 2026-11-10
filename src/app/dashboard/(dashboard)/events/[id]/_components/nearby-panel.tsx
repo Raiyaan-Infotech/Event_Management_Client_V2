@@ -389,24 +389,24 @@ function AddNearbySheet({
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 text-[12.5px]">
                 <span
                     title={`Places are searched around ${venueLabel}${venue.source === "address" ? " (found from the venue address)" : ""}`}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 font-medium text-primary"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1.5 font-medium whitespace-nowrap text-primary"
                 >
                     <MapPin className="size-3.5" /> Near venue <Check className="size-3.5" />
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex shrink-0 items-center gap-1.5">
                     Radius
                     <Select value={String(radius)} onValueChange={(v) => setRadius(Number(v))}>
-                        <SelectTrigger className="!h-9 w-[92px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="!h-9 w-[82px] text-[12.5px]"><SelectValue /></SelectTrigger>
                         <SelectContent>{radii.map((r) => <SelectItem key={r} value={String(r)}>{r} km</SelectItem>)}</SelectContent>
                     </Select>
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                     Sort By
                     <Select value={sort} onValueChange={setSort}>
-                        <SelectTrigger className="!h-9 w-[112px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="!h-9 w-[100px] text-[12.5px]"><SelectValue /></SelectTrigger>
                         <SelectContent>{Object.entries(SORT_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
                     </Select>
                 </span>
