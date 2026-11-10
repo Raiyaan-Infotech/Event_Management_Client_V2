@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { MAIN_CONTENT_ID, PageLoader } from "@/components/common/page-loader";
@@ -60,42 +60,22 @@ export function GlobalLoader() {
         return () => { clearTimeout(t); setVisible(false); };
     }, [busy]);
 
-    // Where the loader goes while a dialog / slide-in panel is open (see below).
-    const [host] = useState(() => (typeof document === "undefined" ? null : document.createElement("div")));
-    useLayoutEffect(() => {
-        if (!visible || !host) return;
-        const dialog = topDialog();
-        if (!dialog?.parentElement) return;
-        // Right BEFORE the panel: same layer as the panel's dimmed backdrop, but later in the page,
-        // so the loader sits above the backdrop and below the panel.
-        dialog.parentElement.insertBefore(host, dialog);
-        return () => host.remove();
-    }, [visible, host]);
-
     // A mutation is a deliberate action, so name it — "Saving..." over a form
     // the user just submitted is more informative than a generic spinner.
     const text = mutating > 0 ? "Saving..." : "Loading...";
     if (!visible) return null;
     const main = document.getElementById(MAIN_CONTENT_ID);
-    // A dialog / slide-in panel is open (Add Social Link, Wishes panels, …): the loader still covers the
-    // MAIN CONTENT, not the panel (Jamal, 2026-11-10: "loader show main content not canvas"). The
-    // content box is under the panel's backdrop, so the loader is drawn fixed over the content's
-    // visible area, on the backdrop's layer — the panel stays on top and readable.
-    const dialog = topDialog();
-    if (dialog && host) {
-        const r = main?.getBoundingClientRect();
-        const top = r ? Math.max(r.top, 0) : 0;
-        // A slide-in panel on the right covers part of the content: the loader stops where the panel
-        // starts, so its spinner is centred in the part still visible — not half under the panel.
-        const d = dialog.getBoundingClientRect();
-        const sidePanel = d.right >= window.innerWidth - 2 && d.left > (r?.left ?? 0);
-        const right = r ? (sidePanel ? Math.min(r.right, d.left) : r.right) : window.innerWidth;
-        const box = r
-            ? { top, left: r.left, width: Math.max(0, right - r.left), height: Math.max(0, Math.min(r.bottom, window.innerHeight) - top) }
-            : { top: 0, left: 0, width: sidePanel ? d.left : window.innerWidth, height: window.innerHeight };
+    // A dialog / slide-in panel is open (Add Social Link, Wishes panels, …): ONE loader covers the main
+    // content AND the panel together, full height to the bottom of the window — but never the top bar
+    // or the sidebar (Jamal, 2026-11-10). It starts at the content's scroll box (just under the top bar,
+    // right of the sidebar) and is placed above the panel.
+    if (topDialog()) {
+        const area = (main?.parentElement ?? main)?.getBoundingClientRect();
+        const box = { top: Math.max(area?.top ?? 0, 0), left: Math.max(area?.left ?? 0, 0), right: 0, bottom: 0 };
         return createPortal(
-            <div className="fixed z-50" style={box}><PageLoader text={text} className="grid place-items-center" /></div>,
-            host,
+            // pointer-events-none: a click on it would count as "outside the panel" and close it mid-save.
+            <div className="pointer-events-none fixed z-[60]" style={box}><PageLoader text={text} className="grid place-items-center" /></div>,
+            document.body,
         );
     }
     // Otherwise only the main content, not the sidebar / top bar (Jamal, 2026-11-05).
