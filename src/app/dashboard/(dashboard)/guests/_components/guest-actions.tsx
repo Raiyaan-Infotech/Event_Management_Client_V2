@@ -13,8 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CheckChoices, DeleteSheet, DetailRow, DetailSection, FormField, InfoGrid, Notice,
-    PersonSummary, StatusPill, TONE_TEXT, type Tone,
+    ActionSheet, CheckChoices, DeletePopup, DetailRow, DetailSection, FormField, InfoGrid, Notice, PersonSummary, StatusPill, TONE_TEXT, type Tone,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
@@ -393,17 +392,11 @@ function HideGuest({ guest, onClose }: P) {
 function DeleteGuest({ guest, onClose }: P) {
     const remove = useDeleteGuest();
     return (
-        <DeleteSheet
-            open onClose={onClose} title="Delete Guest" subtitle="Permanently remove guest and associated records"
-            summary={<Summary g={guest} />}
-            question={`Are you sure you want to permanently delete ${guest.name} from this event?`}
-            effects={[
-                { label: "Guest profile & contact", value: "Will be deleted" },
-                { label: "Invitation association", value: "Will be removed" },
-                { label: "RSVP / attendance record", value: "Kept (already joined)", keep: true },
-                { label: "Audit history", value: "Retained", keep: true },
-            ]}
-            confirmLabel="Delete Guest" busy={remove.isPending}
+        // The centre confirm popup of every module (Jamal, 2026-11-09 / 11-11).
+        <DeletePopup
+            open onClose={onClose} busy={remove.isPending} confirmLabel="Delete Guest"
+            title="Delete Guest?"
+            description={<>{guest.name} will be permanently deleted from this event. Their invitation link is removed; an RSVP they already gave and the audit history are kept.</>}
             onConfirm={() => remove.mutate(guest.id, { onSuccess: onClose })}
         />
     );

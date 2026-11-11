@@ -4,7 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, ChevronDown, Minus, Plus, User, UserPlus, Users, X } from "lucide-react";
+import {
+    Camera, ChevronDown, Loader2, Minus, Plus, User, UserPlus, Users, X,
+} from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 
 import { Button } from "@/components/ui/button";
@@ -452,7 +454,10 @@ export function ParticipantForm({
         </>
     );
 
-    const saveLabel = save.isPending ? (editing ? "Updating..." : "Adding...") : editing ? "Update" : (<><Plus className="size-4" /> Add Participant</>);
+    // A spinner while saving (Jamal, 2026-11-11 module checklist), the label stays.
+    const saveLabel = save.isPending
+        ? <><Loader2 className="size-4 animate-spin" /> {editing ? "Update" : "Add Participant"}</>
+        : editing ? "Update" : (<><Plus className="size-4" /> Add Participant</>);
     const crop = (
             <ImageCropDialog
                 file={cropFile}

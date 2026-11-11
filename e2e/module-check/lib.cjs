@@ -45,13 +45,22 @@ function makeKit({ page, ctx, PORTAL, API, EVENT, OUT, STAMP, report }) {
 
     const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 
-    const api = async (p, init = {}) => {
-        const r = await ctx.request.fetch(`${API}${p}`, {
-            method: init.method || 'GET',
-            headers: { 'Content-Type': 'application/json', Origin: PORTAL, Referer: `${PORTAL}/` },
-            data: init.body,
-        });
-        return { status: r.status(), body: await r.json().catch(() => null) };
+    const api = async (p, init = {}, attempt = 1) => {
+        try {
+            const r = await ctx.request.fetch(`${API}${p}`, {
+                method: init.method || 'GET',
+                headers: { 'Content-Type': 'application/json', Origin: PORTAL, Referer: `${PORTAL}/` },
+                data: init.body,
+            });
+            return { status: r.status(), body: await r.json().catch(() => null) };
+        } catch (e) {
+            // A dropped connection (ECONNRESET) on the test's own check is not an app failure — try once more.
+            if (attempt < 2 && /ECONNRESET|socket hang up|ETIMEDOUT/i.test(String(e.message))) {
+                await new Promise((r) => setTimeout(r, 1500));
+                return api(p, init, attempt + 1);
+            }
+            throw e;
+        }
     };
 
     /** Hold every write (and optionally reads) this long, so loaders can be seen. */

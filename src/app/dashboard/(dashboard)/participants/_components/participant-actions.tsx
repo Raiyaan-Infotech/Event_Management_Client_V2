@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-    Ban, CheckCircle2, CircleHelp, Clock, Eye, EyeOff, FileText, Mail, MessageSquare, Pencil, Phone, Send,
-    Trash2, TriangleAlert, User, X, type LucideIcon,
+    Ban, CheckCircle2, CircleHelp, Clock, Eye, EyeOff, FileText, Loader2, Mail, MessageSquare, Pencil, Phone, Send, Trash2, TriangleAlert, User, X, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,8 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, CheckChoices, DeleteSheet, DetailRow, DetailSection, FormField, Notice, PersonSummary,
-    StatusPill, type Tone,
+    ActionSheet, CharCount, CheckChoices, DeletePopup, DetailRow, DetailSection, FormField, Notice, PersonSummary, StatusPill, type Tone,
 } from "@/components/module-kit";
 import { PhoneInput } from "@/components/common/phone-input";
 import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
@@ -195,7 +193,7 @@ function EditParticipant({ p, eventId, onClose, onSwitch }: P) {
     );
     return (
         <ActionSheet open onClose={onClose} icon={Pencil} title="Edit Participant"
-            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={submit}>Save Changes</Button></>}>
+            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={submit}>{save.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Changes</Button></>}>
             <Summary p={p} />
             <DetailSection title="Edit Participant Details" icon={Pencil}>
                 <div className="flex flex-col gap-2.5 py-2">
@@ -413,16 +411,13 @@ function HideParticipant({ p, onClose }: P) {
 function DeleteParticipant({ p, onClose }: P) {
     const remove = useRemoveParticipant();
     return (
-        <DeleteSheet open onClose={onClose} title="Delete Participant" subtitle="Remove this participant from the event"
-            summary={<Summary p={p} />}
-            question={`Are you sure you want to remove ${p.name} from this event? Their place against the plan's limit is freed.`}
-            effects={[
-                { label: "Participant record & RSVP", value: "Will be removed" },
-                { label: "Event access in the app", value: "Will be removed" },
-                { label: "Phone-book guest", value: "Kept", keep: true },
-            ]}
-            confirmLabel="Delete Participant" busy={remove.isPending}
-            onConfirm={() => remove.mutate(p.id, { onSuccess: onClose })} />
+        // The centre confirm popup of every module (Jamal, 2026-11-09 / 11-11).
+        <DeletePopup
+            open onClose={onClose} busy={remove.isPending} confirmLabel="Delete Participant"
+            title="Delete Participant?"
+            description={<>{p.name} will be removed from this event and lose access to it in the app; their place against the plan&apos;s limit is freed. The phone-book guest is kept.</>}
+            onConfirm={() => remove.mutate(p.id, { onSuccess: onClose })}
+        />
     );
 }
 

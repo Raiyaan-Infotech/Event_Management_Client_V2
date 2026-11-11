@@ -3,16 +3,14 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import {
-    ArrowRight, Bell, CheckCircle2, CircleHelp, Clock, Eye, FileText, Info, Mail, MessageSquare, Pencil, Send,
-    Trash2, UserRound, X, XCircle, type LucideIcon,
+    ArrowRight, Bell, CheckCircle2, CircleHelp, Clock, Eye, FileText, Info, Loader2, Mail, MessageSquare, Pencil, Send, Trash2, UserRound, X, XCircle, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, CheckChoices, ChoiceRadio, DetailSection, FormField, InfoGrid, Notice, NumberStepper,
-    PersonSummary, StatusPill, TONE_TEXT, type Tone,
+    ActionSheet, CharCount, CheckChoices, ChoiceRadio, DeletePopup, FormField, InfoGrid, Notice, NumberStepper, PersonSummary, StatusPill, TONE_TEXT, type Tone,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
@@ -282,7 +280,7 @@ function UpdateStatus({ r, onClose, target: initial }: P & { target: RsvpAnswer 
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button disabled={update.isPending} onClick={save}
                         className={cn(target === "yes" && "bg-success text-white hover:bg-success/90", target === "no" && "bg-destructive text-white hover:bg-destructive/90")}>
-                        <CheckCircle2 className="size-3.5" /> Mark as {next.label}
+                        {update.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />} Mark as {next.label}
                     </Button>
                 </>
             )}>
@@ -447,25 +445,15 @@ function HideResponse({ r, onClose }: P) {
 function DeleteResponse({ r, onClose }: P) {
     const fmt = useDateFormatter();
     const clear = useClearRsvp();
-    const [sure, setSure] = useState(false);
     const at = r.rsvp.responded_at;
+    // The centre confirm popup of every module (Jamal, 2026-11-09 / 11-11).
     return (
-        <ActionSheet open onClose={onClose} icon={Trash2} tone="danger" title="Delete Response" subtitle="Permanently remove this guest's RSVP response"
-            footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button variant="destructive" disabled={!sure || clear.isPending} onClick={() => clear.mutate(r.id, { onSuccess: onClose })}><Trash2 className="size-3.5" /> Delete Response</Button></>}>
-            <Summary r={r} />
-            <Notice tone="danger" title="This action cannot be undone.">
-                This will permanently delete {r.name}&apos;s RSVP response and attendance details from this event. The guest stays on the list as Pending.
-            </Notice>
-            <DetailSection title="What will be deleted?">
-                {[
-                    `RSVP response and status (${STATE_META[r.rsvp.state].label})`,
-                    `Attendance count (${r.rsvp.attending_count ?? 0} ${(r.rsvp.attending_count ?? 0) === 1 ? "guest" : "guests"})`,
-                    `Meal preference (${r.rsvp.meal_preference || "none"})`,
-                    `Response date and time (${at ? `${fmt(at)}, ${time(at)}` : "none"})`,
-                ].map((t) => <p key={t} className="flex items-center gap-2 py-1.5 text-[12.5px]"><CheckCircle2 className="size-3.5 text-primary" /> {t}</p>)}
-            </DetailSection>
-            <label className="flex items-center gap-2.5 text-[13px]"><Checkbox checked={sure} onCheckedChange={(v) => setSure(v === true)} /> I understand that this action cannot be undone.</label>
-        </ActionSheet>
+        <DeletePopup
+            open onClose={onClose} busy={clear.isPending} confirmLabel="Delete Response"
+            title="Delete Response?"
+            description={<>{r.name}&apos;s RSVP ({STATE_META[r.rsvp.state].label}{at ? `, ${fmt(at)} ${time(at)}` : ""}) and attendance details will be permanently deleted. The guest stays on the list as Pending.</>}
+            onConfirm={() => clear.mutate(r.id, { onSuccess: onClose })}
+        />
     );
 }
 

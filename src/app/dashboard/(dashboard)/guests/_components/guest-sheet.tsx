@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Pencil, Plus, UserPlus } from "lucide-react";
+import {
+    Loader2, Pencil, Plus, UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,7 +69,7 @@ export function GuestSheet({ eventId, guest, defaultGroup, onClose }: {
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button disabled={saving || full} onClick={save}>{saving ? "Saving…" : isEdit ? "Save Changes" : "Save Guest"}</Button>
+                    <Button disabled={saving || full} onClick={save}>{saving && <Loader2 className="size-3.5 animate-spin" />} {isEdit ? "Save Changes" : "Save Guest"}</Button>
                 </>
             )}
         >

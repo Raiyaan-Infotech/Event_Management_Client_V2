@@ -69,6 +69,9 @@ export function RsvpsView({ eventId }: { eventId: number }) {
 
     const params = useMemo<RsvpBoardParams>(() => ({
         tab, status, side, source, search: debounced, sort, from, to, page, limit: PAGE,
+        // The backend leaves not-invited guests out of the list unless asked — so "Status: Not Invited"
+        // always showed nothing (found by the module check, 2026-11-11).
+        show_uninvited: status === "not_invited",
     }), [tab, status, side, source, debounced, sort, from, to, page]);
     const board = useRsvpBoard(eventId, params);
     const hide = useHideRsvp();
