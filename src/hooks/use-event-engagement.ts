@@ -821,6 +821,8 @@ export interface ContactInbox {
 export interface ContactMessage {
     id: number; side: 'participant' | 'team'; mine: boolean; sender_name: string | null;
     body: string; photo: string | null; is_auto: boolean; created_at: string;
+    /** Replying to: the participant message this team reply quotes. */
+    reply_to: { id: number; side: 'participant' | 'team'; sender_name: string | null; body: string; photo: boolean } | null;
 }
 export interface ContactChatSummary { id: number; status: ContactChatStatus; awaiting: boolean; block: ContactBlock | null }
 export interface ContactDetails {
@@ -902,8 +904,8 @@ function useContactRefresh(eventId: number) {
 export function useSendContactMessage(eventId: number) {
     const refresh = useContactRefresh(eventId);
     return useMutation({
-        mutationFn: ({ chatId, body, photo }: { chatId: number; body: string; photo?: File | null; toast?: boolean }) =>
-            api.post<{ message: ContactMessage }>(`${contactBase(eventId)}/${chatId}/messages`, messageBody(body, photo)),
+        mutationFn: ({ chatId, body, photo, replyTo }: { chatId: number; body: string; photo?: File | null; replyTo?: number | null; toast?: boolean }) =>
+            api.post<{ message: ContactMessage }>(`${contactBase(eventId)}/${chatId}/messages`, messageBody(body, photo, replyTo ? { reply_to_id: replyTo } : {})),
         onSuccess: (_r, v) => { if (v.toast) toast.success('Reply sent'); refresh(); },
         onError: (e) => report(e, 'Could not send the message'),
     });

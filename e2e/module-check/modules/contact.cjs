@@ -109,6 +109,33 @@ module.exports = async (k) => {
         fs.unlinkSync(png);
     });
 
+    // Replying to = a dropdown of the participant's messages; the pick is saved and shown as a quote.
+    await step('6b. reply quoting a participant message (Replying to)', async () => {
+        const inbox = (await api(base)).body?.data;
+        const target = inbox?.chats.find((c) => c.status === 'open' && c.id !== chatId && c.inquiries > 0);
+        if (!target) { k.note('6b. a participant conversation to quote', false, 'no open participant conversation — run contact-chats-demo.seeder.js'); return; }
+        const theirs = ((await api(`${base}/${target.id}/messages`)).body?.data?.messages || []).filter((m) => m.side === 'participant');
+        const older = theirs[0];
+        await page.locator('section button').filter({ hasText: target.participant.name }).first().click();
+        await page.waitForTimeout(800);
+        await menu(/Reply to Participant/);
+        await panel().getByRole('combobox', { name: 'Replying to' }).click();
+        await page.getByRole('option').filter({ hasText: older.body.slice(0, 25) }).first().click();
+        const QUOTE_REPLY = `${STAMP} quoted reply`;
+        await panel().locator('textarea').fill(QUOTE_REPLY);
+        await k.shot('reply-quote-panel');
+        await panel().getByRole('button', { name: /Send Reply/i }).click();
+        await k.toast(/Reply sent/i);
+        await k.panelClosed();
+        await page.getByText(QUOTE_REPLY).first().waitFor();
+        await k.shot('reply-quote-bubble');
+        const saved = ((await api(`${base}/${target.id}/messages`)).body?.data?.messages || []).find((m) => m.body === QUOTE_REPLY);
+        expect(saved?.reply_to?.id === older.id, 'the picked message was not saved as the quote');
+        // Back to the test's own conversation for the steps below.
+        await page.locator('section button').filter({ hasText: who.name }).first().click();
+        await page.getByText(TEXT).first().waitFor();
+    });
+
     await step('7. view (Participant + Contact Person slide-ins)', async () => {
         await menu(/View Participant Details/);
         expect(await k.isSlideIn(), 'Participant Details is not a slide-in');

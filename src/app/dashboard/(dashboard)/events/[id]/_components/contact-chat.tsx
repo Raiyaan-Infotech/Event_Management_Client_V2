@@ -372,6 +372,7 @@ function Bubble({ m, participant, contactName }: { m: ContactMessage; participan
             <div className={cn("max-w-[75%] rounded-2xl px-3 py-2 shadow-xs",
                 team ? "rounded-br-sm bg-primary/12 text-foreground" : "rounded-bl-sm border border-border bg-card")}>
                 {m.is_auto && <p className="mb-0.5 text-[10.5px] font-semibold text-primary">Automatic message</p>}
+                {m.reply_to && <Quote q={m.reply_to} />}
                 {m.photo && (
                     <a href={mediaUrl(m.photo)} target="_blank" rel="noreferrer">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -384,6 +385,16 @@ function Bubble({ m, participant, contactName }: { m: ContactMessage; participan
                     {team && <CheckCheck className="size-3.5 text-primary" />}
                 </p>
             </div>
+        </div>
+    );
+}
+
+/** Replying to: the quoted participant message above a team reply. */
+function Quote({ q }: { q: NonNullable<ContactMessage["reply_to"]> }) {
+    return (
+        <div className="mb-1.5 rounded-lg border-l-[3px] border-primary bg-card/70 px-2 py-1">
+            <p className="text-[10.5px] font-semibold text-primary">{q.sender_name || "Participant"}</p>
+            <p className="line-clamp-2 text-[11.5px] text-muted-foreground">{q.body || (q.photo ? "📷 Photo" : "")}</p>
         </div>
     );
 }
@@ -529,25 +540,37 @@ function ReplySheet({ open, onClose, eventId, chat }: { open: boolean; onClose: 
     const [text, setText] = useState("");
     const [photo, setPhoto] = usePhoto();
     const fileRef = useRef<HTMLInputElement>(null);
-    const lastIn = [...(messages.data?.messages ?? [])].reverse().find((m) => m.side === "participant");
+    // Replying to: the participant's messages, newest first; the newest is picked until another is chosen.
+    const theirs = [...(messages.data?.messages ?? [])].reverse().filter((m) => m.side === "participant");
+    const [pickedQuote, setPickedQuote] = useState<string | null>(null);
+    const quote = theirs.find((m) => String(m.id) === pickedQuote) ?? theirs[0] ?? null;
     const first = chat.participant.name.split(" ")[0];
-    const close = () => { setText(""); setPhoto(null); onClose(); };
+    const close = () => { setText(""); setPhoto(null); setPickedQuote(null); onClose(); };
+    const label = (m: ContactMessage) => `${(m.body || "📷 Photo").slice(0, 55)}${m.body.length > 55 ? "…" : ""} · ${listTime(ms(m.created_at))}`;
     return (
         <ActionSheet large open={open} onClose={close} width={460} title="Reply to Participant" subtitle="Send an in-app response to this contact inquiry."
             footer={(
                 <>
                     <Button variant="outline" onClick={close}>Cancel</Button>
                     <Button disabled={(!text.trim() && !photo) || send.isPending}
-                        onClick={() => send.mutate({ chatId: chat.id, body: text.trim(), photo: photo?.file ?? null, toast: true }, { onSuccess: close })}>
+                        onClick={() => send.mutate({ chatId: chat.id, body: text.trim(), photo: photo?.file ?? null, replyTo: quote?.id ?? null, toast: true }, { onSuccess: close })}>
                         <Busy on={send.isPending} /> Send Reply
                     </Button>
                 </>
             )}>
             <ParticipantCard chat={chat} />
             <FormField label="To" required><Input readOnly value={`${chat.participant.name} (Participant)`} className="bg-muted/30" /></FormField>
-            <FormField label="Replying to">
-                <Input readOnly className="bg-muted/30"
-                    value={lastIn ? `${(lastIn.body || "Photo").slice(0, 60)}${(lastIn.body ?? "").length > 60 ? "…" : ""} · ${timeOf(lastIn.created_at)}` : "New message"} />
+            <FormField label="Replying to" note={quote ? "Shown as a quote above your reply, in the portal and in the app." : undefined}>
+                {theirs.length ? (
+                    <Select value={quote ? String(quote.id) : undefined} onValueChange={setPickedQuote}>
+                        <SelectTrigger className="w-full" aria-label="Replying to"><SelectValue /></SelectTrigger>
+                        <SelectContent className="max-w-[420px]">
+                            {theirs.map((m) => <SelectItem key={m.id} value={String(m.id)} className="text-[12.5px]">{label(m)}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                ) : (
+                    <Input readOnly className="bg-muted/30" value={messages.isLoading ? "Loading…" : "New message (the participant has not written yet)"} />
+                )}
             </FormField>
             <FormField label="Message" required>
                 <Textarea value={text} rows={6} maxLength={2000} placeholder={`Hi ${first},`} onChange={(e) => setText(e.target.value)} />
