@@ -142,12 +142,17 @@ function Thumb({ stream, className }: { stream: LiveStream; className?: string }
     );
 }
 
+/** A category is active unless explicitly set to false or 0 (defaults to active when unset or missing). */
+const isTypeActive = (t?: LiveStreamType | null): boolean =>
+    !!t && t.is_active !== false && (t.is_active as unknown) !== 0 && (t.is_active as unknown) !== "0";
+
 export function LivePanel({ event }: { event: ClientEvent }) {
     const fmt = useDateFormatter();
     const typesQuery = useLiveTypes(event.id);
     const streamsQuery = useLiveStreams(event.id);
     const remove = useDeleteLiveStream(event.id);
     const removeType = useDeleteLiveType(event.id);
+    const saveType = useSaveLiveType(event.id);
     const setStatus = useSetLiveStatus(event.id);
     const duplicate = useDuplicateLiveStream(event.id);
 
@@ -180,9 +185,10 @@ export function LivePanel({ event }: { event: ClientEvent }) {
     const when = (s: LiveStream) => `${fmt(s.stream_date)}, ${timeLabel(s.stream_time)}`;
 
     const addStream = (typeId?: number) => {
-        if (!types.some((t) => t.is_active)) {
+        if (!types.some(isTypeActive)) {
             toast.error(types.length ? "Turn on a category first." : "Create a category first.");
-            if (!types.length) setEditingType("new");
+            if (types.length) setEditingType(types[0]);
+            else setEditingType("new");
             return;
         }
         setEditing({ typeId });
@@ -287,11 +293,16 @@ export function LivePanel({ event }: { event: ClientEvent }) {
                                 <Layers className="size-4 shrink-0 text-primary" />
                                 <span className="truncate text-[13.5px] font-bold">{g.type?.name ?? "Other"}</span>
                                 <span className="shrink-0 text-[12px] text-muted-foreground">({g.items.length} {g.items.length === 1 ? "Stream" : "Streams"})</span>
-                                {g.type && !g.type.is_active && <StatusPill tone="muted">Inactive</StatusPill>}
+                                {g.type && !isTypeActive(g.type) && <StatusPill tone="muted">Inactive</StatusPill>}
                             </button>
                             {canEdit && g.type && (
                                 <RowActions compact label="Category actions" items={[
-                                    { label: "Create Stream Here", icon: Plus, onClick: () => addStream(g.type!.id), hidden: !g.type.is_active },
+                                    { label: "Create Stream Here", icon: Plus, onClick: () => addStream(g.type!.id), hidden: !isTypeActive(g.type) },
+                                    {
+                                        label: isTypeActive(g.type) ? "Turn Off Category" : "Turn On Category",
+                                        icon: isTypeActive(g.type) ? CircleStop : CheckCircle2,
+                                        onClick: () => saveType.mutate({ id: g.type!.id, data: { is_active: !isTypeActive(g.type) } }),
+                                    },
                                     { label: "Edit Category", icon: Pencil, onClick: () => setEditingType(g.type) },
                                     { label: "Delete Category", icon: Trash2, onClick: () => setDeletingType(g.type), danger: true, divider: true },
                                 ]} />
@@ -351,7 +362,7 @@ function CategorySheet({ eventId, types, type, onClose }: { eventId: number; typ
     const [name, setName] = useState(type?.name ?? "");
     const [description, setDescription] = useState(type?.description ?? "");
     const [order, setOrder] = useState(position);
-    const [active, setActive] = useState(type?.is_active ?? true);
+    const [active, setActive] = useState(type ? isTypeActive(type) : true);
     const [visibility, setVisibility] = useState<LiveVisibility>(type?.default_visibility ?? "public");
     const [notes, setNotes] = useState(type?.notes ?? "");
     const [tried, setTried] = useState(false);
@@ -439,7 +450,7 @@ function StreamSheet({
     minDate: string | null; maxDate: string | null; dateText: (d: string) => string; onClose: () => void;
 }) {
     const save = useSaveLiveStream(eventId);
-    const offered = types.filter((t) => t.is_active || t.id === stream?.type_id);
+    const offered = types.filter((t) => isTypeActive(t) || t.id === stream?.type_id);
     const firstType = offered.find((t) => t.id === defaultTypeId);
     const [step, setStep] = useState<"form" | "review">("form");
     const [typeId, setTypeId] = useState(String(stream?.type_id ?? firstType?.id ?? ""));
