@@ -375,20 +375,38 @@ export function useWishReports(eventId: number, wishId: number | null, enabled =
 /* ── Live Streaming ───────────────────────────────────────────────────────── */
 
 export const LIVE_PLATFORMS = [
-    { key: 'youtube', label: 'YouTube', color: '#FF0000' },
-    { key: 'facebook', label: 'Facebook', color: '#1877F2' },
-    { key: 'instagram', label: 'Instagram', color: '#E1306C' },
-    { key: 'zoom', label: 'Zoom', color: '#2D8CFF' },
-    { key: 'google_meet', label: 'Google Meet', color: '#00897B' },
-    { key: 'other', label: 'Other', color: '#6B7280' },
+    { key: 'youtube', label: 'YouTube Live', short: 'YouTube', color: '#FF0000' },
+    { key: 'facebook', label: 'Facebook Live', short: 'Facebook', color: '#1877F2' },
+    { key: 'instagram', label: 'Instagram Live', short: 'Instagram', color: '#E1306C' },
+    { key: 'zoom', label: 'Zoom', short: 'Zoom', color: '#2D8CFF' },
+    { key: 'google_meet', label: 'Google Meet', short: 'Google Meet', color: '#00897B' },
+    { key: 'teams', label: 'Microsoft Teams', short: 'Teams', color: '#5059C9' },
+    { key: 'custom_rtmp', label: 'Custom RTMP', short: 'Custom RTMP', color: '#DB2777' },
+    { key: 'embedded', label: 'Embedded Player', short: 'Embedded', color: '#475569' },
+    { key: 'other', label: 'Other Platform', short: 'Other', color: '#6B7280' },
 ] as const;
 export type LivePlatform = (typeof LIVE_PLATFORMS)[number]['key'];
+
+/** Who can watch a stream (Jamal's Visibility dropdown, 2026-11-11). */
+export const LIVE_VISIBILITIES = [
+    { key: 'public', label: 'Public', hint: 'Visible to everyone (including non-invited users)' },
+    { key: 'participants', label: 'Participants Only', hint: 'Visible only to event participants' },
+    { key: 'guests', label: 'Guests Only', hint: 'Visible only to invited guests (RSVPed or not)' },
+    { key: 'invite_link', label: 'Invite Link Only', hint: 'Visible only to people with the stream link' },
+    { key: 'unlisted', label: 'Unlisted', hint: 'Hidden from listings, accessible via direct link' },
+    { key: 'private', label: 'Private / Organizer Only', hint: 'Visible only to event organizers and co-organizers' },
+] as const;
+export type LiveVisibility = (typeof LIVE_VISIBILITIES)[number]['key'];
+export type LiveStatus = 'scheduled' | 'live' | 'ended';
 
 export interface LiveStreamType {
     id: number;
     name: string;
     description: string | null;
     cover_url: string | null;
+    is_active: boolean;
+    default_visibility: LiveVisibility;
+    notes: string | null;
     sort_order: number;
     stream_count: number;
     enabled_count: number;
@@ -402,11 +420,24 @@ export interface LiveStream {
     title: string;
     platform: LivePlatform;
     stream_url: string;
+    rtmp_url: string | null;
+    visibility: LiveVisibility;
     stream_date: string;
     stream_time: string;
+    end_time: string | null;
+    /** What is shown: Go Live / End Stream, else worked out from the schedule. */
+    status: LiveStatus;
+    /** What the organizer set. */
+    set_status: LiveStatus;
+    started_at: string | null;
+    ended_at: string | null;
     description: string | null;
+    notes: string | null;
     cover_image: string | null;
     is_enabled: boolean;
+    auto_go_live: boolean;
+    notify_participants: boolean;
+    views_count: number;
 }
 
 export interface LiveTypesPage {
@@ -422,7 +453,7 @@ export interface LiveTypesPage {
 export interface LiveStreamsPage {
     streams: LiveStream[];
     types: LiveStreamType[];
-    counts: { total: number; enabled: number; disabled: number };
+    counts: { total: number; live: number; scheduled: number; ended: number; enabled: number; disabled: number };
     can_edit: boolean;
 }
 
@@ -434,22 +465,34 @@ export function useLiveTypes(eventId: number) {
     });
 }
 
-/** Every stream of the event (the app's Live Streaming screen). */
+/** Every stream of the event. Re-read each minute: a stream turns Live / Ended by the clock. */
 export function useLiveStreams(eventId: number) {
     return useQuery({
         queryKey: key(eventId, 'live', 'streams'),
         queryFn: () => api.get<LiveStreamsPage>(`/client/events/${eventId}/live-streams`),
         retry: false,
+        refetchInterval: 60_000,
+    });
+}
+
+/** One stream with its viewer numbers (View Live Stream). */
+export function useLiveStream(eventId: number, streamId: number | null) {
+    return useQuery({
+        queryKey: [...key(eventId, 'live', 'streams'), 'one', streamId],
+        queryFn: () => api.get<{ stream: LiveStream; stats: { total_views: number; unique_viewers: number } }>(`/client/live-streams/${streamId}`),
+        enabled: !!streamId,
+        retry: false,
+        refetchInterval: 30_000,
     });
 }
 
 export function useSaveLiveType(eventId: number) {
     const refresh = useRefresh(eventId, 'live');
     return useMutation({
-        mutationFn: ({ id, name, description }: { id?: number; name: string; description: string | null }) => (id
-            ? api.put(`/client/live-stream-types/${id}`, { name, description })
-            : api.post(`/client/events/${eventId}/live-stream-types`, { name, description })),
-        onSuccess: (_r, v) => { toast.success(v.id ? 'Category updated' : 'Category added'); refresh(); },
+        mutationFn: ({ id, data }: { id?: number; data: Record<string, unknown> }) => (id
+            ? api.put(`/client/live-stream-types/${id}`, data)
+            : api.post(`/client/events/${eventId}/live-stream-types`, data)),
+        onSuccess: (_r, v) => { toast.success(v.id ? 'Category updated' : 'Category created'); refresh(); },
         onError: (e) => report(e, 'Could not save this category'),
     });
 }
@@ -463,15 +506,6 @@ export function useDeleteLiveType(eventId: number) {
     });
 }
 
-export function useReorderLiveTypes(eventId: number) {
-    const refresh = useRefresh(eventId, 'live');
-    return useMutation({
-        mutationFn: (ids: number[]) => api.put(`/client/events/${eventId}/live-stream-types/reorder`, { ids }),
-        onSuccess: refresh,
-        onError: (e) => report(e, 'Could not change the order'),
-    });
-}
-
 export function useSaveLiveStream(eventId: number) {
     const refresh = useRefresh(eventId, 'live');
     return useMutation({
@@ -479,10 +513,45 @@ export function useSaveLiveStream(eventId: number) {
             ? api.put(`/client/live-streams/${id}`, data)
             : api.post(`/client/events/${eventId}/live-streams`, data)),
         onSuccess: (_r, v) => {
-            if (!v.quiet) toast.success(v.id ? 'Live stream updated' : 'Live stream added');
+            if (!v.quiet) toast.success(v.id ? 'Live stream updated' : 'Live stream created');
             refresh();
         },
         onError: (e) => report(e, 'Could not save this live stream'),
+    });
+}
+
+const LIVE_STATUS_DONE: Record<LiveStatus, string> = {
+    live: 'The stream is live', ended: 'Live stream ended', scheduled: 'Live stream set back to scheduled',
+};
+
+/** Go Live / End Stream. */
+export function useSetLiveStatus(eventId: number) {
+    const refresh = useRefresh(eventId, 'live');
+    return useMutation({
+        mutationFn: ({ id, status }: { id: number; status: LiveStatus }) => api.patch(`/client/live-streams/${id}/status`, { status }),
+        onSuccess: (_r, v) => { toast.success(LIVE_STATUS_DONE[v.status]); refresh(); },
+        onError: (e) => report(e, 'Could not change the stream status'),
+    });
+}
+
+export function useDuplicateLiveStream(eventId: number) {
+    const refresh = useRefresh(eventId, 'live');
+    return useMutation({
+        mutationFn: (id: number) => api.post(`/client/live-streams/${id}/duplicate`, {}),
+        onSuccess: () => { toast.success('Live stream duplicated'); refresh(); },
+        onError: (e) => report(e, 'Could not duplicate this live stream'),
+    });
+}
+
+/** Share to Participants: an in-app notification to every app participant. */
+export function useShareLiveStream() {
+    return useMutation({
+        mutationFn: (id: number) => api.post<{ sent: number }>(`/client/live-streams/${id}/share`, {}),
+        onSuccess: (r) => {
+            if (r.sent) toast.success(`Sent to ${r.sent} participant${r.sent === 1 ? '' : 's'}`);
+            else toast.message('No participants use the app for this event yet');
+        },
+        onError: (e) => report(e, 'Could not share the stream'),
     });
 }
 
