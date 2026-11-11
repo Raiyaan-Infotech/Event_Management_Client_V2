@@ -220,7 +220,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                             <DetailSection title="Selected Participant">
                                 <DetailRow label="Full Name">{selected.participant.name}</DetailRow>
                                 <DetailRow label="Relationship">{sideOf(selected) ?? selected.participant.relationship}</DetailRow>
-                                <DetailRow label="Inquiries">{selected.inquiries}</DetailRow>
+                                <DetailRow label="Inquiries">{String(selected.inquiries)}</DetailRow>
                                 <DetailRow label="Current Status"><StatusPill tone={STATUS_PILL[selected.status].tone}>{STATUS_PILL[selected.status].label}</StatusPill></DetailRow>
                             </DetailSection>
                             <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
@@ -834,8 +834,8 @@ function ParticipantSheet({ open, onClose, eventId, chat, startTab, onReply }: {
                         </DetailRow>
                     </DetailSection>
                     <DetailSection title="Inquiry Summary">
-                        <DetailRow label="Total Messages">{d.summary.total_messages}</DetailRow>
-                        <DetailRow label="Inquiries">{d.summary.inquiries}</DetailRow>
+                        <DetailRow label="Total Messages">{String(d.summary.total_messages)}</DetailRow>
+                        <DetailRow label="Inquiries">{String(d.summary.inquiries)}</DetailRow>
                         <DetailRow label="Last Contacted">{d.summary.last_contacted ? fmt(d.summary.last_contacted) : null}</DetailRow>
                         <DetailRow label="Assigned Contact">{d.summary.assigned_contact}</DetailRow>
                     </DetailSection>
