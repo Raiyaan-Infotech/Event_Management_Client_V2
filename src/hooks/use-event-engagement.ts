@@ -911,14 +911,33 @@ export function useSendContactMessage(eventId: number) {
     });
 }
 
-/** New Message: start (or continue) a chat with one participant. */
+/**
+ * New Message: start (or continue) a chat with each picked participant — one request per person, in order.
+ * Resolves with the chat ids that worked; throws only when none did.
+ */
 export function useStartContactChat(eventId: number) {
     const refresh = useContactRefresh(eventId);
     return useMutation({
-        mutationFn: ({ participantId, body, photo }: { participantId: number; body: string; photo?: File | null }) =>
-            api.post<{ chat: ContactChatSummary; message: ContactMessage }>(contactBase(eventId), messageBody(body, photo, { participant_client_id: participantId })),
-        onSuccess: () => { toast.success('Message sent'); refresh(); },
-        onError: (e) => report(e, 'Could not send the message'),
+        mutationFn: async ({ participantIds, body, photo }: { participantIds: number[]; body: string; photo?: File | null }) => {
+            const chatIds: number[] = [];
+            let failed = 0;
+            let lastError: unknown = null;
+            for (const id of participantIds) {
+                try {
+                    const r = await api.post<{ chat: ContactChatSummary; message: ContactMessage }>(contactBase(eventId), messageBody(body, photo, { participant_client_id: id }));
+                    chatIds.push(r.chat.id);
+                } catch (e) { failed++; lastError = e; }
+            }
+            if (!chatIds.length) throw lastError;
+            return { chatIds, failed };
+        },
+        onSuccess: ({ chatIds, failed }) => {
+            const n = chatIds.length;
+            if (failed) toast.warning(`Message sent to ${n} — ${failed} could not be sent`);
+            else toast.success(n === 1 ? 'Message sent' : `Message sent to ${n} participants`);
+            refresh();
+        },
+        onError: (e) => { report(e, 'Could not send the message'); refresh(); },
     });
 }
 

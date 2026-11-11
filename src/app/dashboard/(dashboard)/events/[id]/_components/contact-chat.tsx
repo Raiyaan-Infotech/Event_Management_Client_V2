@@ -7,6 +7,7 @@ import {
     MessageSquare, MoreHorizontal, Plus, RotateCcw, Send, ShieldBan, Trash2, User, UserRound, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -116,7 +117,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
             <div ref={boxRef} style={{ height: boxHeight }}
                 className="grid min-h-[420px] min-w-0 gap-4 lg:grid-cols-[minmax(270px,320px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(270px,320px)_minmax(0,1fr)_300px]">
                 {/* ── Contact Conversations ── */}
-                <section className={cn("min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card", phoneThread ? "hidden lg:flex" : "flex")}>
+                <section className={cn("min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card", phoneThread ? "hidden lg:flex" : "flex")}>
                     <div className="flex flex-col gap-2.5 border-b border-border p-3">
                         <p className="text-[14px] font-bold">Contact Conversations ({data.counts.all})</p>
                         <div className="flex items-center gap-2">
@@ -195,7 +196,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                 </section>
 
                 {/* ── The conversation ── */}
-                <section className={cn("min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card", phoneThread ? "flex" : "hidden lg:flex")}>
+                <section className={cn("min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card", phoneThread ? "flex" : "hidden lg:flex")}>
                     {selected ? (
                         <ConversationView
                             key={selected.id}
@@ -223,7 +224,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                                 <DetailRow label="Inquiries">{String(selected.inquiries)}</DetailRow>
                                 <DetailRow label="Current Status"><StatusPill tone={STATUS_PILL[selected.status].tone}>{STATUS_PILL[selected.status].label}</StatusPill></DetailRow>
                             </DetailSection>
-                            <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+                            <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
                                 <p className="mb-1 text-[14px] font-bold">Conversation Actions</p>
                                 <Button className="gap-1.5" onClick={() => setPanel("reply")}><Send className="size-4" /> Reply to Participant</Button>
                                 {selected.status === "resolved"
@@ -262,9 +263,9 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
 function ContactPersonCard({ data, onOpen }: { data: ContactInbox; onOpen: () => void }) {
     const c = data.contact;
     return (
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
             <p className="flex items-center gap-2 text-[14px] font-bold"><UserRound className="size-4 text-primary" /> Designated Contact Person</p>
-            <button type="button" onClick={onOpen} className="flex items-center gap-3 rounded-xl border border-border bg-primary/[0.04] p-3 text-left transition hover:border-primary/40">
+            <button type="button" onClick={onOpen} className="flex items-center gap-3 rounded-lg border border-border bg-primary/[0.04] p-3 text-left transition hover:border-primary/40">
                 <ChatAvatar name={c.name ?? "Contact Person"} photo={c.photo} size={40} />
                 <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-bold">{c.name || "Not set yet"}</span>
@@ -369,7 +370,7 @@ function Bubble({ m, participant, contactName }: { m: ContactMessage; participan
             {team
                 ? <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">{m.is_auto ? <Bot className="size-3.5" /> : "CP"}</span>
                 : <ChatAvatar name={name} photo={participant.photo} size={28} />}
-            <div className={cn("max-w-[75%] rounded-2xl px-3 py-2 shadow-xs",
+            <div className={cn("max-w-[75%] rounded-lg px-3 py-2 shadow-xs",
                 team ? "rounded-br-sm bg-primary/12 text-foreground" : "rounded-bl-sm border border-border bg-card")}>
                 {m.is_auto && <p className="mb-0.5 text-[10.5px] font-semibold text-primary">Automatic message</p>}
                 {m.reply_to && <Quote q={m.reply_to} />}
@@ -482,7 +483,7 @@ function Composer({ eventId, chatId }: { eventId: number; chatId: number }) {
 function ParticipantCard({ chat }: { chat: ContactChatRow }) {
     const blocked = chat.status === "blocked";
     return (
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-primary/[0.04] p-3">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-primary/[0.04] p-3">
             <ChatAvatar name={chat.participant.name} photo={chat.participant.photo} size={42} />
             <div className="min-w-0 flex-1">
                 <p className="truncate text-[13.5px] font-bold">{chat.participant.name}</p>
@@ -497,7 +498,7 @@ function ParticipantCard({ chat }: { chat: ContactChatRow }) {
 function Lead({ icon: Icon, tone, title, children }: { icon: typeof CheckCircle2; tone: "success" | "danger"; title: string; children: React.ReactNode }) {
     return (
         <div className="flex flex-col items-center gap-2 py-1 text-center">
-            <span className={cn("grid size-14 place-items-center rounded-2xl", tone === "success" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
+            <span className={cn("grid size-14 place-items-center rounded-lg", tone === "success" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
                 <Icon className="size-6" />
             </span>
             <p className="text-[16px] font-bold">{title}</p>
@@ -510,7 +511,7 @@ function Lead({ icon: Icon, tone, title, children }: { icon: typeof CheckCircle2
 function OptionCard({ checked, onClick, title, hint, tone = "primary" }: { checked: boolean; onClick: () => void; title: string; hint: string; tone?: "primary" | "danger" }) {
     return (
         <button type="button" onClick={onClick}
-            className={cn("flex w-full items-start gap-3 rounded-xl border p-3 text-left transition",
+            className={cn("flex w-full items-start gap-3 rounded-lg border p-3 text-left transition",
                 checked ? (tone === "danger" ? "border-destructive/50 bg-destructive/5" : "border-primary/50 bg-primary/5") : "border-border hover:border-primary/30")}>
             <span className={cn("mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border-2", checked ? "border-primary" : "border-muted-foreground/40")}>
                 {checked && <span className="size-2 rounded-full bg-primary" />}
@@ -525,7 +526,7 @@ function OptionCard({ checked, onClick, title, hint, tone = "primary" }: { check
 
 function Note({ tone = "primary", icon: Icon = Info, children }: { tone?: "primary" | "danger"; icon?: typeof Info; children: React.ReactNode }) {
     return (
-        <p className={cn("flex gap-2 rounded-xl border p-3 text-[11.5px]",
+        <p className={cn("flex gap-2 rounded-lg border p-3 text-[11.5px]",
             tone === "danger" ? "border-destructive/25 bg-destructive/5 text-destructive" : "border-primary/15 bg-primary/5 text-muted-foreground")}>
             <Icon className="mt-0.5 size-3.5 shrink-0" /> <span>{children}</span>
         </p>
@@ -548,7 +549,7 @@ function ReplySheet({ open, onClose, eventId, chat }: { open: boolean; onClose: 
     const close = () => { setText(""); setPhoto(null); setPickedQuote(null); onClose(); };
     const label = (m: ContactMessage) => `${(m.body || "📷 Photo").slice(0, 55)}${m.body.length > 55 ? "…" : ""} · ${listTime(ms(m.created_at))}`;
     return (
-        <ActionSheet large open={open} onClose={close} width={460} title="Reply to Participant" subtitle="Send an in-app response to this contact inquiry."
+        <ActionSheet open={open} onClose={close} width={460} title="Reply to Participant" subtitle="Send an in-app response to this contact inquiry."
             footer={(
                 <>
                     <Button variant="outline" onClick={close}>Cancel</Button>
@@ -580,7 +581,7 @@ function ReplySheet({ open, onClose, eventId, chat }: { open: boolean; onClose: 
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()}><ImagePlus className="size-4" /> Add Photo</Button>
                 {photo && <PhotoPreview url={photo.url} onClear={() => setPhoto(null)} />}
             </div>
-            <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+            <div className="rounded-lg border border-primary/15 bg-primary/5 p-3">
                 <p className="flex items-center gap-1.5 text-[12.5px] font-semibold"><Eye className="size-4" /> Message Preview</p>
                 <p className="mt-1 text-[11.5px] text-muted-foreground">Your reply will appear in {first}&apos;s Contact conversation inside the Event Invite app.</p>
             </div>
@@ -596,7 +597,7 @@ function ResolveSheet({ open, onClose, eventId, chat, types }: { open: boolean; 
     const [notify, setNotify] = useState(true);
     const close = () => { setNote(""); setNotify(true); onClose(); };
     return (
-        <ActionSheet large open={open} onClose={close} width={460} title="Mark as Resolved" subtitle="Close this inquiry while keeping its message history."
+        <ActionSheet open={open} onClose={close} width={460} title="Mark as Resolved" subtitle="Close this inquiry while keeping its message history."
             footer={(
                 <>
                     <Button variant="outline" onClick={close}>Cancel</Button>
@@ -626,7 +627,7 @@ function ResolveSheet({ open, onClose, eventId, chat, types }: { open: boolean; 
 function ReopenSheet({ open, onClose, eventId, chat }: { open: boolean; onClose: () => void; eventId: number; chat: ContactChatRow }) {
     const set = useSetContactStatus(eventId);
     return (
-        <ActionSheet large open={open} onClose={onClose} width={460} title="Reopen Conversation" subtitle="Bring this inquiry back to Open."
+        <ActionSheet open={open} onClose={onClose} width={460} title="Reopen Conversation" subtitle="Bring this inquiry back to Open."
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -648,7 +649,7 @@ function BlockSheet({ open, onClose, eventId, chat, reasons }: { open: boolean; 
     const [duration, setDuration] = useState<"event_end" | "permanent">("event_end");
     const close = () => { setReason(""); setNote(""); setDuration("event_end"); onClose(); };
     return (
-        <ActionSheet large open={open} onClose={close} width={460} title="Block Participant" subtitle="Restrict this participant from contacting the event team."
+        <ActionSheet open={open} onClose={close} width={460} title="Block Participant" subtitle="Restrict this participant from contacting the event team."
             footer={(
                 <>
                     <Button variant="outline" onClick={close}>Cancel</Button>
@@ -686,7 +687,7 @@ function UnblockSheet({ open, onClose, eventId, chat }: { open: boolean; onClose
     const fmt = useDateFormatter();
     const b = chat.block;
     return (
-        <ActionSheet large open={open} onClose={onClose} width={460} title="Unblock Participant" subtitle="Let this participant contact the event team again."
+        <ActionSheet open={open} onClose={onClose} width={460} title="Unblock Participant" subtitle="Let this participant contact the event team again."
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -712,7 +713,7 @@ function RemoveSheet({ open, onClose, eventId, chat, onDone }: { open: boolean; 
     const [notify, setNotify] = useState(false);
     const close = () => { setReason(""); setNotify(false); onClose(); };
     return (
-        <ActionSheet large open={open} onClose={close} width={460} title="Remove Conversation" subtitle="Confirm this conversation-level action."
+        <ActionSheet open={open} onClose={close} width={460} title="Remove Conversation" subtitle="Confirm this conversation-level action."
             footer={(
                 <>
                     <Button variant="outline" onClick={close}>Cancel</Button>
@@ -781,14 +782,14 @@ function ContactPersonSheet({ open, onClose, event, data }: { open: boolean; onC
         </DetailSection>
     );
     return (
-        <ActionSheet large open={open} onClose={onClose} width={460} title="Contact Person Details" subtitle="View the single assigned event contact and their communication access."
+        <ActionSheet open={open} onClose={onClose} width={460} title="Contact Person Details" subtitle="View the single assigned event contact and their communication access."
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
                     <Button onClick={() => { onClose(); router.push(wsHref(`/dashboard/events/${event.id}?tab=settings&set=contact`)); }}>Edit Contact Person</Button>
                 </>
             )}>
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-primary/[0.04] p-3">
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-primary/[0.04] p-3">
                 <ChatAvatar name={c.name ?? "Contact Person"} photo={c.photo} size={46} />
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-bold">{c.name || "Not set yet"}</p>
@@ -831,7 +832,7 @@ function ParticipantSheet({ open, onClose, eventId, chat, startTab, onReply }: {
     const d = query.data;
     const tonePill = (label: string | null | undefined, good: string[]) => (label ? <StatusPill tone={good.includes(label) ? "success" : "muted"}>{label}</StatusPill> : null);
     return (
-        <ActionSheet large open={open} onClose={onClose} width={460} title="Participant Details" subtitle="Review the participant's event and contact information."
+        <ActionSheet open={open} onClose={onClose} width={460} title="Participant Details" subtitle="Review the participant's event and contact information."
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -867,7 +868,7 @@ function ParticipantSheet({ open, onClose, eventId, chat, startTab, onReply }: {
                 d.inquiries.length === 0 ? <Empty title="No inquiries yet">The participant has not asked a question yet.</Empty> : (
                     <div className="flex flex-col gap-2">
                         {d.inquiries.map((i, n) => (
-                            <div key={i.id} className="rounded-xl border border-border p-3">
+                            <div key={i.id} className="rounded-lg border border-border p-3">
                                 <div className="flex items-center justify-between gap-2">
                                     <p className="text-[12px] font-bold">Inquiry {d.inquiries.length - n}</p>
                                     <StatusPill tone={i.resolved_at ? (i.resolution_type === "Conversation removed" ? "muted" : "success") : "warning"}>
@@ -906,7 +907,8 @@ function ParticipantSheet({ open, onClose, eventId, chat, startTab, onReply }: {
 function NewMessageSheet({ open, onClose, eventId, onSent }: { open: boolean; onClose: () => void; eventId: number; onSent: (chatId: number) => void }) {
     const people = useContactRecipients(eventId, open);
     const start = useStartContactChat(eventId);
-    const [who, setWho] = useState<number | null>(null);
+    // Several participants at once (Jamal, 2026-11-11): each gets the message in their own Contact conversation.
+    const [who, setWho] = useState<number[]>([]);
     const [find, setFind] = useState("");
     const [text, setText] = useState("");
     const [photo, setPhoto] = usePhoto();
@@ -915,55 +917,77 @@ function NewMessageSheet({ open, onClose, eventId, onSent }: { open: boolean; on
         const f = find.trim().toLowerCase();
         return (people.data ?? []).filter((p) => !f || p.name.toLowerCase().includes(f));
     }, [people.data, find]);
-    const chosen = people.data?.find((p) => p.client_id === who) ?? null;
-    const close = () => { setWho(null); setFind(""); setText(""); setPhoto(null); onClose(); };
+    const chosen = (people.data ?? []).filter((p) => who.includes(p.client_id));
+    const allShown = list.length > 0 && list.every((p) => who.includes(p.client_id));
+    const toggle = (id: number) => setWho((w) => (w.includes(id) ? w.filter((x) => x !== id) : [...w, id]));
+    const toggleShown = () => setWho((w) => {
+        const ids = list.map((p) => p.client_id);
+        return allShown ? w.filter((x) => !ids.includes(x)) : [...new Set([...w, ...ids])];
+    });
+    const close = () => { setWho([]); setFind(""); setText(""); setPhoto(null); onClose(); };
+    const label = who.length > 1 ? `Send to ${who.length}` : "Send Message";
     return (
-        <ActionSheet large open={open} onClose={close} width={460} title="New Message" subtitle="Write to a participant of this event. It appears in their Contact conversation in the app."
+        <ActionSheet open={open} onClose={close} width={460} title="New Message" subtitle="Write to one or more participants of this event. Each gets it in their own Contact conversation in the app."
             footer={(
                 <>
-                    <Button variant="outline" onClick={close}>Cancel</Button>
-                    <Button disabled={!who || (!text.trim() && !photo) || start.isPending}
-                        onClick={() => who && start.mutate({ participantId: who, body: text.trim(), photo: photo?.file ?? null }, {
-                            onSuccess: (r) => { close(); onSent(r.chat.id); },
+                    <Button variant="outline" disabled={start.isPending} onClick={close}>Cancel</Button>
+                    <Button disabled={!who.length || (!text.trim() && !photo) || start.isPending}
+                        onClick={() => start.mutate({ participantIds: who, body: text.trim(), photo: photo?.file ?? null }, {
+                            onSuccess: (r) => { close(); onSent(r.chatIds[0]); },
                         })}>
-                        <Busy on={start.isPending} /> Send Message
+                        <Busy on={start.isPending} /> {label}
                     </Button>
                 </>
             )}>
             <FormField label="To" required>
-                {chosen ? (
-                    <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-2.5">
-                        <ChatAvatar name={chosen.name} photo={chosen.photo} size={34} />
-                        <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13px] font-bold">{chosen.name}</span>
-                            <span className="block truncate text-[11px] text-muted-foreground">{[chosen.side ? SIDE_LABEL[chosen.side] : null, chosen.relationship].filter(Boolean).join(" · ") || "Participant"}</span>
-                        </span>
-                        <Button size="sm" variant="ghost" onClick={() => setWho(null)}>Change</Button>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        <SearchBox value={find} onChange={setFind} placeholder="Search participant..." />
-                        <div className="max-h-64 overflow-y-auto rounded-xl border border-border">
-                            {people.isLoading ? <PanelLoading /> : people.isError ? (
-                                <p className="p-4 text-center text-[12px] text-muted-foreground">Could not load the participants.</p>
-                            ) : list.length === 0 ? (
-                                <p className="p-4 text-center text-[12px] text-muted-foreground">
-                                    {people.data?.length ? "No participants match." : "No participants use the app for this event yet."}
-                                </p>
-                            ) : list.map((p) => (
-                                <button key={p.client_id} type="button" onClick={() => setWho(p.client_id)}
-                                    className="flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left last:border-0 hover:bg-muted/50">
-                                    <ChatAvatar name={p.name} photo={p.photo} size={30} />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-[12.5px] font-semibold">{p.name}</span>
-                                        <span className="block truncate text-[11px] text-muted-foreground">{[p.side ? SIDE_LABEL[p.side] : null, p.relationship].filter(Boolean).join(" · ") || "Participant"}</span>
-                                    </span>
-                                    {p.chat_id && <StatusPill tone="muted">Has chat</StatusPill>}
-                                </button>
+                <div className="flex flex-col gap-2">
+                    {chosen.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                            {chosen.map((p) => (
+                                <span key={p.client_id} className="inline-flex max-w-[200px] items-center gap-1.5 rounded-md border border-primary/40 bg-primary/5 py-0.5 pr-1 pl-1 text-[12px] font-semibold">
+                                    <ChatAvatar name={p.name} photo={p.photo} size={20} />
+                                    <span className="truncate">{p.name}</span>
+                                    <button type="button" onClick={() => toggle(p.client_id)} className="grid size-4 place-items-center rounded-sm text-muted-foreground hover:text-destructive" aria-label={`Remove ${p.name}`}>
+                                        <X className="size-3" />
+                                    </button>
+                                </span>
                             ))}
                         </div>
+                    )}
+                    <SearchBox value={find} onChange={setFind} placeholder="Search participant..." />
+                    <div className="max-h-64 overflow-y-auto rounded-lg border border-border">
+                        {people.isLoading ? <PanelLoading /> : people.isError ? (
+                            <p className="p-4 text-center text-[12px] text-muted-foreground">Could not load the participants.</p>
+                        ) : list.length === 0 ? (
+                            <p className="p-4 text-center text-[12px] text-muted-foreground">
+                                {people.data?.length ? "No participants match." : "No participants use the app for this event yet."}
+                            </p>
+                        ) : (
+                            <>
+                                <label className="sticky top-0 z-10 flex cursor-pointer items-center gap-3 border-b border-border bg-muted px-3 py-2 text-[12px] font-semibold">
+                                    <Checkbox checked={allShown} onCheckedChange={toggleShown} aria-label="Select all participants" />
+                                    <span className="flex-1">{find.trim() ? "Select all shown" : "Select all"} ({list.length})</span>
+                                    <span className="text-[11px] font-medium text-primary">{who.length} selected</span>
+                                </label>
+                                {list.map((p) => {
+                                    const on = who.includes(p.client_id);
+                                    return (
+                                        <label key={p.client_id}
+                                            className={cn("flex w-full cursor-pointer items-center gap-3 border-b border-border/60 px-3 py-2 text-left last:border-0 hover:bg-muted/50", on && "bg-primary/5")}>
+                                            <Checkbox checked={on} onCheckedChange={() => toggle(p.client_id)} aria-label={p.name} />
+                                            <ChatAvatar name={p.name} photo={p.photo} size={30} />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-[12.5px] font-semibold">{p.name}</span>
+                                                <span className="block truncate text-[11px] text-muted-foreground">{[p.side ? SIDE_LABEL[p.side] : null, p.relationship].filter(Boolean).join(" · ") || "Participant"}</span>
+                                            </span>
+                                            {p.chat_id && <StatusPill tone="muted">Has chat</StatusPill>}
+                                        </label>
+                                    );
+                                })}
+                            </>
+                        )}
                     </div>
-                )}
+                </div>
             </FormField>
             <FormField label="Message" required>
                 <Textarea value={text} rows={6} maxLength={2000} placeholder="Type your message..." onChange={(e) => setText(e.target.value)} />

@@ -63,7 +63,7 @@ export function ActionSheet({
                         </div>
                         <Button size="icon" variant="outline" className="size-8 shrink-0 rounded-lg" onClick={onClose} aria-label="Close"><X className="size-4" /></Button>
                     </div>
-                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 text-[12.5px]">{children}</div>
+                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [&>*]:shrink-0 px-5 py-4 text-[12.5px]">{children}</div>
                     {footer && <div className="grid grid-cols-2 gap-2.5 border-t border-border px-5 py-3 [&>*]:h-9 [&>*]:text-[13px]">{footer}</div>}
                 </SheetContent>
             </Sheet>
@@ -101,7 +101,7 @@ export function ActionSheet({
                     <SheetTitle className="text-[16px] leading-tight font-bold">{title}</SheetTitle>,
                     <SheetDescription className={cn("mt-0.5 text-[12px]", !subtitle && "sr-only")}>{subtitle || title}</SheetDescription>,
                 )}
-                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 text-[12.5px]">{children}</div>
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [&>*]:shrink-0 p-4 text-[12.5px]">{children}</div>
                 {footer && <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-border px-4 py-3 [&>*]:h-9 [&>*]:text-[13px]">{footer}</div>}
             </SheetContent>
         </Sheet>

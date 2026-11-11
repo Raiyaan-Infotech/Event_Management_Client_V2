@@ -75,8 +75,17 @@ module.exports = async (k) => {
     });
 
     await step('4. add (New Message)', async () => {
-        await panel().getByRole('button', { name: new RegExp(who.name) }).first().click();
+        // Multi-select: Select all → "Send to N", then back to just the test participant.
+        const people = (await api(`${base}/recipients`)).body?.data?.participants || [];
         await panel().getByPlaceholder('Type your message...').fill(TEXT);
+        if (people.length > 1) {
+            await panel().getByRole('checkbox', { name: 'Select all participants' }).click();
+            await panel().getByRole('button', { name: `Send to ${people.length}` }).waitFor();
+            await k.shot('new-message-multi');
+            await panel().getByRole('checkbox', { name: 'Select all participants' }).click();
+        }
+        await panel().getByRole('checkbox', { name: who.name, exact: true }).click();
+        expect(await panel().getByRole('button', { name: /^Send Message$/ }).isEnabled(), 'Send stays off after picking a participant');
         await k.saveAndWatch(/Send Message/i, 'saving');
         await k.toast(/Message sent/i);
         await k.panelClosed();
