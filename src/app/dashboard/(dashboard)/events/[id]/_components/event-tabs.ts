@@ -17,7 +17,7 @@ export const EVENT_TABS = [
     { value: "overview", label: "Dashboard" },
     // "Event Information" -> "Event Info" (Jamal, 2026-11-06).
     { value: "information", label: "Event Info" },
-    // Participants' messages to the contact person, chat like Wed Wishes (Jamal, 2026-11-10; sample data until the backend).
+    // Contact Messages: participants' messages to the contact person (Jamal's 8 screens, 2026-11-11; real backend).
     { value: "contact", label: "Contact" },
     { value: "agenda", label: "Agenda" },
     { value: "venue", label: "Venue" },

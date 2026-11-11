@@ -787,3 +787,158 @@ export function useReorderNearbyPlaces(eventId: number) {
         onError: (e) => report(e, 'Could not change the order'),
     });
 }
+
+/* ── Contact Messages (Jamal's 8 screens, 2026-11-11) ────────────────────────
+ * Participants write to the event's contact person from the app (contact_chat_repository);
+ * the owner answers here. Same endpoints as the app. */
+
+export type ContactChatStatus = 'open' | 'resolved' | 'blocked' | 'removed';
+export interface ContactBlock { reason: string | null; note: string | null; duration: 'event_end' | 'permanent'; at: string | null }
+export interface ContactChatRow {
+    id: number;
+    participant: {
+        client_id: number; name: string; photo: string | null; side: 'bride' | 'groom' | null;
+        relationship: string | null; online: boolean; last_seen_at: string | null;
+    };
+    status: ContactChatStatus;
+    last_message: string | null;
+    last_message_at: string | null;
+    unread: number;
+    awaiting: boolean;
+    awaiting_since: string | null;
+    inquiries: number;
+    block: ContactBlock | null;
+}
+export interface ContactInbox {
+    event: { id: number; name: string };
+    chats: ContactChatRow[];
+    counts: { all: number; open: number; unread: number; awaiting: number; resolved: number; blocked: number };
+    stats: { total_inquiries: number; open: number; awaiting: number; resolved: number; blocked: number };
+    contact: { name: string | null; photo: string | null; designation: string | null; phone: string | null; email: string | null; online: boolean };
+    performance: { total_inquiries: number; resolved: number; awaiting: number; avg_reply_minutes: number | null };
+    options: { resolution_types: string[]; block_reasons: string[] };
+}
+export interface ContactMessage {
+    id: number; side: 'participant' | 'team'; mine: boolean; sender_name: string | null;
+    body: string; photo: string | null; is_auto: boolean; created_at: string;
+}
+export interface ContactChatSummary { id: number; status: ContactChatStatus; awaiting: boolean; block: ContactBlock | null }
+export interface ContactDetails {
+    chat: ContactChatSummary;
+    participant: {
+        client_id: number; name: string; photo: string | null; mobile: string | null; email: string | null;
+        side: 'bride' | 'groom' | null; relationship: string | null; invitation_status: string | null; rsvp: string | null;
+        online: boolean; last_seen_at: string | null;
+    };
+    summary: { total_messages: number; inquiries: number; last_contacted: string | null; assigned_contact: string | null };
+    inquiries: { id: number; first_message: string | null; opened_at: string; resolved_at: string | null; resolution_type: string | null; resolution_note: string | null }[];
+    activity: { at: string; kind: 'opened' | 'resolved' | 'removed' | 'blocked'; text: string }[];
+}
+export interface ContactRecipient {
+    client_id: number; name: string; photo: string | null; side: 'bride' | 'groom' | null;
+    relationship: string | null; chat_id: number | null; chat_status: ContactChatStatus | null;
+}
+
+const contactBase = (eventId: number) => `/client/events/${eventId}/contact-chats`;
+
+/** A message body, with the optional photo as multipart. */
+function messageBody(body: string, photo?: File | null, extra: Record<string, string | number> = {}) {
+    if (!photo) return { body, ...extra };
+    const form = new FormData();
+    form.append('body', body);
+    form.append('photo', photo);
+    Object.entries(extra).forEach(([k, v]) => form.append(k, String(v)));
+    return form;
+}
+
+export function useContactInbox(eventId: number) {
+    return useQuery({
+        queryKey: key(eventId, 'contact-chats'),
+        queryFn: () => api.get<ContactInbox>(contactBase(eventId)),
+        refetchInterval: 15_000,
+        retry: false,
+    });
+}
+
+export function useContactMessages(eventId: number, chatId: number | null) {
+    const refreshInbox = useRefresh(eventId, 'contact-chats');
+    return useQuery({
+        queryKey: key(eventId, 'contact-messages', chatId ?? 0),
+        // Reading clears the unread badge — refresh the inbox after.
+        queryFn: () => api.get<{ chat: ContactChatSummary; messages: ContactMessage[] }>(`${contactBase(eventId)}/${chatId}/messages`)
+            .then((r) => { refreshInbox(); return r; }),
+        enabled: !!chatId,
+        refetchInterval: 5_000,
+        retry: false,
+    });
+}
+
+export function useContactDetails(eventId: number, chatId: number | null) {
+    return useQuery({
+        queryKey: key(eventId, 'contact-details', chatId ?? 0),
+        queryFn: () => api.get<ContactDetails>(`${contactBase(eventId)}/${chatId}/details`),
+        enabled: !!chatId,
+        retry: false,
+    });
+}
+
+export function useContactRecipients(eventId: number, enabled: boolean) {
+    return useQuery({
+        queryKey: key(eventId, 'contact-recipients'),
+        queryFn: () => api.get<{ participants: ContactRecipient[] }>(`${contactBase(eventId)}/recipients`).then((r) => r.participants),
+        enabled,
+        retry: false,
+    });
+}
+
+/** Everything Contact shows changes together after a send / status change. */
+function useContactRefresh(eventId: number) {
+    const qc = useQueryClient();
+    return () => ['contact-chats', 'contact-messages', 'contact-details', 'contact-recipients'].forEach((part) =>
+        qc.invalidateQueries({ queryKey: key(eventId, part), refetchType: 'active' }));
+}
+
+/** Reply in a conversation (text and / or photo). */
+export function useSendContactMessage(eventId: number) {
+    const refresh = useContactRefresh(eventId);
+    return useMutation({
+        mutationFn: ({ chatId, body, photo }: { chatId: number; body: string; photo?: File | null; toast?: boolean }) =>
+            api.post<{ message: ContactMessage }>(`${contactBase(eventId)}/${chatId}/messages`, messageBody(body, photo)),
+        onSuccess: (_r, v) => { if (v.toast) toast.success('Reply sent'); refresh(); },
+        onError: (e) => report(e, 'Could not send the message'),
+    });
+}
+
+/** New Message: start (or continue) a chat with one participant. */
+export function useStartContactChat(eventId: number) {
+    const refresh = useContactRefresh(eventId);
+    return useMutation({
+        mutationFn: ({ participantId, body, photo }: { participantId: number; body: string; photo?: File | null }) =>
+            api.post<{ chat: ContactChatSummary; message: ContactMessage }>(contactBase(eventId), messageBody(body, photo, { participant_client_id: participantId })),
+        onSuccess: () => { toast.success('Message sent'); refresh(); },
+        onError: (e) => report(e, 'Could not send the message'),
+    });
+}
+
+export type ContactStatusInput =
+    | { status: 'resolved'; resolution_type: string; note?: string; notify: boolean }
+    | { status: 'blocked'; reason: string; note?: string; duration: 'event_end' | 'permanent' }
+    | { status: 'removed'; reason?: string; notify: boolean }
+    | { status: 'open' };
+
+const STATUS_DONE: Record<ContactStatusInput['status'], string> = {
+    resolved: 'Conversation marked as resolved',
+    blocked: 'Participant blocked',
+    removed: 'Conversation removed',
+    open: 'Conversation reopened',
+};
+
+export function useSetContactStatus(eventId: number) {
+    const refresh = useContactRefresh(eventId);
+    return useMutation({
+        mutationFn: ({ chatId, input }: { chatId: number; input: ContactStatusInput; done?: string }) =>
+            api.patch<{ chat: ContactChatSummary }>(`${contactBase(eventId)}/${chatId}`, input),
+        onSuccess: (_r, v) => { toast.success(v.done ?? STATUS_DONE[v.input.status]); refresh(); },
+        onError: (e) => report(e, 'Could not update this conversation'),
+    });
+}
