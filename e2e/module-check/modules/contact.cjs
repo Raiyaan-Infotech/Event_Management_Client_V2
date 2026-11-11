@@ -30,6 +30,40 @@ module.exports = async (k) => {
     });
     await step('2. loading state', () => k.loadingCheck('contact', /New Message/i));
 
+    // Participants' own messages (seeded by Event_Management_Admin_Backend/src/database/seeders/contact-chats-demo.seeder.js).
+    await step('2b. inbox from participants (tiles, unread, awaiting, blocked)', async () => {
+        const inbox = (await api(base)).body?.data;
+        const unread = inbox?.chats.find((c) => c.unread > 0 && c.status === 'open');
+        if (!inbox || !unread) {
+            k.note('2b. seeded participant messages present', false, 'no participant messages on this event — run contact-chats-demo.seeder.js first');
+            return;
+        }
+        const tile = async (label) => Number((await page.locator('button').filter({ hasText: label }).first().innerText()).match(/\d+/)?.[0]);
+        expect(await tile('Total Inquiries') === inbox.stats.total_inquiries, 'Total Inquiries tile differs from the API');
+        expect(await tile('Awaiting Reply') === inbox.stats.awaiting, 'Awaiting Reply tile differs from the API');
+        expect(await tile('Blocked') === inbox.stats.blocked, 'Blocked tile differs from the API');
+        // Opening an unread conversation reads it.
+        await page.locator('section button').filter({ hasText: unread.participant.name }).first().click();
+        await page.getByText(unread.last_message.slice(0, 30)).first().waitFor();
+        await k.shot('inbox-unread-opened');
+        await page.waitForTimeout(1500);
+        const after = (await api(base)).body.data.chats.find((c) => c.id === unread.id);
+        expect(after.unread === 0, 'opening the conversation did not clear its unread count');
+        // Awaiting Reply tile → only conversations waiting for an answer.
+        await page.locator('button').filter({ hasText: 'Awaiting Reply' }).first().click();
+        await page.getByText('Awaiting reply', { exact: true }).first().waitFor();
+        await k.shot('inbox-awaiting');
+        // Blocked tile → the blocked conversation and its banner.
+        const blocked = inbox.chats.find((c) => c.status === 'blocked');
+        if (blocked) {
+            await page.locator('button').filter({ hasText: 'Blocked' }).first().click();
+            await page.locator('section button').filter({ hasText: blocked.participant.name }).first().click();
+            await page.getByText(/They cannot send new messages/).first().waitFor();
+            await k.shot('inbox-blocked');
+        }
+        await k.openTab('contact', /New Message/i);
+    });
+
     await step('3. error message (Send stays off until To + Message)', async () => {
         const people = (await api(`${base}/recipients`)).body?.data?.participants || [];
         who = people.find((p) => !p.chat_id) || people[0];
