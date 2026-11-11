@@ -410,11 +410,13 @@ function PhotoPreview({ url, onClear }: { url: string; onClear: () => void }) {
     );
 }
 
-const pickImage = (input: HTMLInputElement | null, set: (f: File) => void) => {
-    if (!input) return;
-    input.onchange = () => { const f = input.files?.[0]; if (f) set(f); input.value = ""; };
-    input.click();
-};
+/** The hidden image input behind "Add photo" (JPG / PNG / WEBP). */
+function PhotoInput({ inputRef, onPick }: { inputRef: React.RefObject<HTMLInputElement | null>; onPick: (f: File) => void }) {
+    return (
+        <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" data-testid="contact-photo-input"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }} />
+    );
+}
 
 function Composer({ eventId, chatId }: { eventId: number; chatId: number }) {
     const send = useSendContactMessage(eventId);
@@ -431,7 +433,7 @@ function Composer({ eventId, chatId }: { eventId: number; chatId: number }) {
         <div className="flex flex-col gap-2 border-t border-border px-3 py-2.5">
             {photo && <PhotoPreview url={photo.url} onClear={() => setPhoto(null)} />}
             <div className="flex items-end gap-2">
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" />
+                <PhotoInput inputRef={fileRef} onPick={setPhoto} />
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button size="icon" variant="outline" className="size-9 shrink-0 rounded-full text-primary" aria-label="Quick replies and emoji"><Plus className="size-4.5" /></Button>
@@ -454,7 +456,7 @@ function Composer({ eventId, chatId }: { eventId: number; chatId: number }) {
                     className="max-h-28 min-h-9 flex-1 resize-none py-2 text-[12.5px]"
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} />
-                <Button size="icon" variant="ghost" className="size-9 shrink-0" onClick={() => pickImage(fileRef.current, setPhoto)} aria-label="Add photo"><ImagePlus className="size-4.5" /></Button>
+                <Button size="icon" variant="ghost" className="size-9 shrink-0" onClick={() => fileRef.current?.click()} aria-label="Add photo"><ImagePlus className="size-4.5" /></Button>
                 <Button size="icon" className="size-9 shrink-0 rounded-full" disabled={(!text.trim() && !photo) || send.isPending} onClick={() => submit()} aria-label="Send">
                     {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </Button>
@@ -551,8 +553,8 @@ function ReplySheet({ open, onClose, eventId, chat }: { open: boolean; onClose: 
                 <Textarea value={text} rows={6} maxLength={2000} placeholder={`Hi ${first},`} onChange={(e) => setText(e.target.value)} />
             </FormField>
             <div className="flex items-center gap-2">
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" />
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => pickImage(fileRef.current, setPhoto)}><ImagePlus className="size-4" /> Add Photo</Button>
+                <PhotoInput inputRef={fileRef} onPick={setPhoto} />
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()}><ImagePlus className="size-4" /> Add Photo</Button>
                 {photo && <PhotoPreview url={photo.url} onClear={() => setPhoto(null)} />}
             </div>
             <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
@@ -944,8 +946,8 @@ function NewMessageSheet({ open, onClose, eventId, onSent }: { open: boolean; on
                 <Textarea value={text} rows={6} maxLength={2000} placeholder="Type your message..." onChange={(e) => setText(e.target.value)} />
             </FormField>
             <div className="flex items-center gap-2">
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" />
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => pickImage(fileRef.current, setPhoto)}><ImagePlus className="size-4" /> Add Photo</Button>
+                <PhotoInput inputRef={fileRef} onPick={setPhoto} />
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()}><ImagePlus className="size-4" /> Add Photo</Button>
                 {photo && <PhotoPreview url={photo.url} onClear={() => setPhoto(null)} />}
             </div>
             <Note>Sent as an in-app message from the event&apos;s designated Contact Person.</Note>
