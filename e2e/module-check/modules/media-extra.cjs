@@ -345,6 +345,17 @@ module.exports = async (k) => {
         expect((await albums())[0]?.name === ALBUM2, 'album rename not saved in the API');
     });
 
+    await step('E12b. Delete the cover photo from Media → album cover still loads', async () => {
+        const a = (await albums())[0];
+        const coverItem = (await filesIn(A)).find((i) => i.url === a.cover_image);
+        expect(!!coverItem, 'the album cover is not one of the folder photos (test set-up)');
+        await api(`/client/gallery/${coverItem.id}`, { method: 'DELETE' });
+        const after = (await albums())[0];
+        expect(after.slide_count === 1, `the deleted photo should drop out of the slides (${after.slide_count})`);
+        const r = await page.context().request.get(after.cover_url).catch(() => null);
+        expect(r && r.ok(), `album cover is broken after its photo was deleted (${r ? r.status() : 'no answer'})`);
+    });
+
     await step('E13. Delete the album', async () => {
         await albumCard(ALBUM2).getByRole('button', { name: 'Album actions' }).click();
         await page.getByRole('menuitem', { name: /^Delete$/ }).click();
@@ -354,7 +365,7 @@ module.exports = async (k) => {
         await k.toast(/Album deleted/i);
         await k.panelClosed();
         expect((await albums()).length === 0, 'album still in the API');
-        expect((await filesIn(A)).filter((i) => i.type === 'image').length === 2, 'deleting the album removed its photos');
+        expect((await filesIn(A)).filter((i) => i.type === 'image').length === 1, 'deleting the album removed its photos');
     });
 
     await step('E14. clean up', async () => {

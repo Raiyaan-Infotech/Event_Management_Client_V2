@@ -530,7 +530,7 @@ export function AlbumBuilder({
                         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                             <span className="flex items-center gap-1.5"><ImageIcon className="size-3.5 text-muted-foreground" /> {slides.length} Slides</span>
                             <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /> Intro: {hasIntro ? `${one(introSeconds)} s` : introOn ? "No text yet" : "Off"}</span>
-                            <span className="flex items-center gap-1.5"><Type className="size-3.5 text-muted-foreground" /> Intro Text {introOn ? "(Animated)" : "(Off)"}</span>
+                            <span className="flex items-center gap-1.5"><Type className="size-3.5 text-muted-foreground" /> Intro Text {hasIntro ? "(Animated)" : introOn ? "(Not added)" : "(Off)"}</span>
                             <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /> Slide: {one(slideSeconds)} s</span>
                             <span className="flex items-center gap-1.5"><Music className="size-3.5 text-muted-foreground" /> {musicOn && song ? "Background Song (MP3)" : "No music"}</span>
                             <span className="flex items-center gap-1.5 rounded bg-primary/10 px-1.5 font-semibold text-primary"><Film className="size-3.5" /> Total: {fmtTime(total)}</span>
