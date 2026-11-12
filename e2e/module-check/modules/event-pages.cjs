@@ -134,8 +134,29 @@ module.exports = async (k) => {
             await page.getByText('This field is required').first().waitFor({ timeout: 10000 });
             const n = await page.getByText('This field is required').count();
             expect((await loadEvent()).venue_name === originalVenue, 'an incomplete venue was saved anyway');
-            k.note(`V3a. saved venue is incomplete (city ${city ? 'ok' : 'missing'}, map link ${link ? 'ok' : 'missing'}, pin ${event.venue_lat ? 'ok' : 'missing'}) - Save refused with ${n} "required" messages; save not tried`, true);
-            return;
+            k.note(`V3a. incomplete venue refused with ${n} "required" messages`, true);
+            // Complete it once (Jamal OK'd, 2026-11-12): map search → pin (fills lat / lng / map link), City typed.
+            await page.getByPlaceholder('Search a venue, area or address').fill('Palayamkottai, Tirunelveli');
+            await page.getByRole('button', { name: 'Search', exact: true }).click();
+            const list = page.getByText('Nearest to you first');
+            if (await list.waitFor({ timeout: 15000 }).then(() => true).catch(() => false)) {
+                await list.locator('xpath=../..').getByRole('button').nth(1).click();
+            }
+            const lat = page.getByPlaceholder('13.0827');
+            await page.waitForFunction(() => { const el = document.querySelector('input[placeholder="13.0827"]'); return el && el.value; }, null, { timeout: 30000 });
+            if (!(await page.getByPlaceholder('e.g. Chennai').inputValue())) await page.getByPlaceholder('e.g. Chennai').fill('Tirunelveli');
+            expect((await venueName().inputValue()) === originalVenue, 'the map search overwrote the venue name');
+            await k.shot('venue-completed');
+            await page.getByRole('button', { name: 'Save', exact: true }).click();
+            await k.toast(/updated|saved/i, 60000);
+            await loadEvent();
+            expect(event.venue_lat && event.venue_lng && event.venue_map_link && !!event.venue_landmark && event.venue_name === originalVenue,
+                `venue not completed in the API: ${JSON.stringify({ lat: event.venue_lat, lng: event.venue_lng, link: event.venue_map_link, city: event.venue_landmark, name: event.venue_name })}`);
+            k.note(`V3b. venue completed: pin ${event.venue_lat}, ${event.venue_lng}, City ${event.venue_landmark}`, true);
+            void lat;
+            await go('venue');
+            await venueName().waitFor({ timeout: 60000 });
+            await page.waitForTimeout(800);
         }
         await venueName().fill(temp);
         await page.getByRole('button', { name: 'Save', exact: true }).click();
