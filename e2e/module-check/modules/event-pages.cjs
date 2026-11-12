@@ -172,6 +172,85 @@ module.exports = async (k) => {
         expect((await loadEvent()).venue_name === originalVenue, `venue name NOT restored (API: "${event.venue_name}")`);
     });
 
+    // The organizer's real flow (Jamal, 2026-11-12): Use My Current Location, then type the hall's name
+    // ("JK Mahal"), pick it from the nearest-first list → the pin goes there. Venue put back afterwards.
+    await step('V4. Venue: My Location → search "JK Mahal" → pick nearest → Save (then put back)', async () => {
+        const ME = { latitude: 8.7164, longitude: 77.7366, accuracy: 30 }; // Palayamkottai
+        const ctx = page.context();
+        await ctx.grantPermissions(['geolocation']);
+        await ctx.setGeolocation(ME);
+        const before = await loadEvent();
+        const keep = { venue_name: before.venue_name, venue_address: before.venue_address, venue_landmark: before.venue_landmark,
+            venue_lat: before.venue_lat, venue_lng: before.venue_lng, venue_map_link: before.venue_map_link };
+        const latBox = page.getByPlaceholder('13.0827');
+        const lngBox = page.getByPlaceholder('80.2707');
+        const cityBox = page.getByPlaceholder('e.g. Chennai');
+        const addrBox = page.getByPlaceholder('Please enter the venue address');
+        const km = (a, b) => { const R = 6371, r = Math.PI / 180; const dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+            return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2)); };
+        const pinNow = async () => ({ lat: Number(await latBox.inputValue()), lng: Number(await lngBox.inputValue()) });
+        let restored = false;
+        try {
+            await go('venue');
+            await venueName().waitFor({ timeout: 60000 });
+            await page.waitForTimeout(1500);
+            // A new event's empty venue.
+            await venueName().fill(''); await addrBox.fill(''); await cityBox.fill('');
+            await page.getByRole('button', { name: 'Use My Current Location' }).click();
+            await page.waitForFunction((want) => { const el = document.querySelector('input[placeholder="13.0827"]'); return el && Math.abs(Number(el.value) - want) < 0.001; }, ME.latitude, { timeout: 20000 });
+            await page.waitForTimeout(2500); // the address lookup for the pin
+            await k.shot('venue-my-location');
+            const mine = await pinNow();
+            k.note(`V4a. My Location pin ${mine.lat}, ${mine.lng}${(await venueName().inputValue()) ? ` · filled "${await venueName().inputValue()}"` : ''}`, true);
+
+            await page.getByPlaceholder('Search a venue, area or address').fill('JK Mahal');
+            await page.getByRole('button', { name: 'Search', exact: true }).click();
+            const list = page.getByText('Nearest to you first');
+            const noPlace = page.getByText(/No place found/);
+            const moved = page.waitForFunction((want) => { const el = document.querySelector('input[placeholder="13.0827"]'); return el && Math.abs(Number(el.value) - want) > 0.0005; }, mine.lat, { timeout: 30000 }).then(() => 'moved').catch(() => null);
+            const outcome = await Promise.race([
+                list.waitFor({ timeout: 30000 }).then(() => 'list').catch(() => null),
+                noPlace.waitFor({ timeout: 30000 }).then(() => 'none').catch(() => null),
+                moved,
+            ]);
+            expect(outcome && outcome !== 'none', 'searching "JK Mahal" found no place');
+            if (outcome === 'list') {
+                const rows = list.locator('xpath=../..').getByRole('button').filter({ hasNotText: /^$/ });
+                const n = await rows.count();
+                const texts = [];
+                for (let i = 1; i < n; i++) texts.push((await rows.nth(i).innerText()).replace(/\s+/g, ' ').trim());
+                await k.shot('venue-search-results');
+                const dists = texts.map((t) => { const m = t.match(/([\d.]+)\s*(km|m)\b/i); return m ? Number(m[1]) / (m[2].toLowerCase() === 'm' ? 1000 : 1) : null; }).filter((d) => d !== null);
+                k.note(`V4b. results (nearest first): ${texts.slice(0, 5).join(' | ')}`, true);
+                expect(dists.every((d, i) => i === 0 || d >= dists[i - 1]), `results are not nearest-first: ${dists.join(', ')}`);
+                await rows.nth(1).click();
+                await moved;
+            }
+            await page.waitForTimeout(2500);
+            const pin = await pinNow();
+            const name = await venueName().inputValue();
+            const addr = await addrBox.inputValue();
+            const city = await cityBox.inputValue();
+            await k.shot('venue-picked');
+            const away = km({ lat: mine.lat, lng: mine.lng }, pin);
+            k.note(`V4c. picked: pin ${pin.lat}, ${pin.lng} (${away.toFixed(1)} km from me) · name "${name}" · city "${city}"`, true);
+            expect(away < 50, `the picked place is ${away.toFixed(0)} km away - not near my location`);
+            expect(name && addr && city, `the pick did not fill the venue: name "${name}", address "${addr}", city "${city}"`);
+            await page.getByRole('button', { name: 'Save', exact: true }).click();
+            await k.toast(/updated|saved/i, 60000);
+            const saved = await loadEvent();
+            expect(Math.abs(Number(saved.venue_lat) - pin.lat) < 1e-5 && saved.venue_name === name && String(saved.venue_map_link || '').includes(String(pin.lat).slice(0, 6)),
+                `saved venue ≠ the pick: ${JSON.stringify({ lat: saved.venue_lat, name: saved.venue_name, link: saved.venue_map_link })}`);
+        } finally {
+            // Put the venue back exactly (API), then confirm.
+            await api(`/client/events/${EVENT}`, { method: 'PUT', body: JSON.stringify(keep) });
+            const back = await loadEvent();
+            restored = back.venue_name === keep.venue_name && String(back.venue_lat) === String(keep.venue_lat) && back.venue_landmark === keep.venue_landmark;
+            if (!restored) console.log('    !! venue NOT restored:', JSON.stringify({ was: keep, now: { name: back.venue_name, lat: back.venue_lat, city: back.venue_landmark } }));
+        }
+        expect(restored, 'the venue was NOT put back - see the log line above');
+    });
+
     /* ── App Menu (settings) ───────────────────────────────────────────────── */
     const flipAndBack = async (section, switchId, saveName, toastText) => {
         const sw = () => page.locator(`#${switchId}`);
