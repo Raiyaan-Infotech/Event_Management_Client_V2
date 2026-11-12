@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Eye, User } from "lucide-react";
+import { Camera, Eye, Loader2, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -279,7 +279,8 @@ function ParticipantsForm({ eventId, settings, inline, onClose }: {
 
 const LANGUAGES = ["English", "Tamil", "Hindi", "Malayalam", "Telugu", "Kannada", "Urdu", "Arabic", "Bengali", "Marathi", "Gujarati", "Punjabi"];
 
-function ContactCard({ eventId }: { eventId: number }) {
+/** Also the Contact page's "Contact Settings" panel (Jamal, 2026-11-12). */
+export function ContactCard({ eventId }: { eventId: number }) {
     const query = useOrganizerContact(eventId);
     if (query.isLoading) return <Section title="Contact Person"><PanelLoading /></Section>;
     if (query.isError || !query.data) {
@@ -435,7 +436,7 @@ function ContactForm({ eventId, contact }: { eventId: number; contact: Organizer
                 </div>
             </div>
             <div className="mt-4 flex justify-end">
-                <Button disabled={save.isPending || upload.isPending} onClick={submit}>Save Changes</Button>
+                <Button disabled={save.isPending || upload.isPending} onClick={submit}>{save.isPending && <Loader2 className="size-3.5 animate-spin" />} Save Changes</Button>
             </div>
         </Section>
     );

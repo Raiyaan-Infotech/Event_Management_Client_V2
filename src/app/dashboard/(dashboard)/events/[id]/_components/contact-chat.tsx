@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft, Ban, Bot, CheckCheck, CheckCircle2, Clock, Eye, Filter, ImagePlus, Info, Link2, Loader2, MessageCircle,
-    MessageSquare, MoreHorizontal, Plus, RotateCcw, Send, ShieldBan, Trash2, User, UserRound, X,
+    MessageSquare, MoreHorizontal, Plus, RotateCcw, Send, Settings, ShieldBan, Trash2, User, UserRound, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import { ChatAvatar, DayPill, Presence, dayStart, listTime, timeOf, useFitHeight } from "./wishes-chat";
 import { Empty, PanelLoading, Section } from "./module-ui";
+import { ContactCard } from "./settings-panel";
 
 /**
  * Contact Messages (Jamal's 8 screens, 2026-11-11: EventInvite_Contact_Person_All_8_Screens).
@@ -43,7 +44,7 @@ import { Empty, PanelLoading, Section } from "./module-ui";
 
 type Tab = "all" | "open" | "resolved" | "blocked";
 type Narrow = "all" | "awaiting" | "online" | "bride" | "groom";
-type Panel = "reply" | "resolve" | "block" | "remove" | "contact" | "participant" | "inquiries" | "new" | null;
+type Panel = "reply" | "resolve" | "block" | "remove" | "contact" | "participant" | "inquiries" | "new" | "settings" | null;
 
 const SIDE_LABEL = { bride: "Bride Side", groom: "Groom Side" } as const;
 const NARROW_LABEL: Record<Narrow, string> = {
@@ -102,6 +103,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setPanel("contact")}><UserRound className="size-4" /> Contact Person</Button>
+                        <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setPanel("settings")}><Settings className="size-4" /> Contact Settings</Button>
                         <Button size="sm" className="h-9 gap-1.5" onClick={() => setPanel("new")}><Send className="size-4" /> New Message</Button>
                     </>
                 )}
@@ -253,6 +255,10 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                 </>
             )}
             <ContactPersonSheet open={panel === "contact"} onClose={close} event={event} data={data} />
+            <ActionSheet open={panel === "settings"} onClose={close} width={560} icon={Settings} title="Contact Settings"
+                subtitle="The contact card participants see in the app's Contact Person section.">
+                <ContactCard eventId={event.id} />
+            </ActionSheet>
             <NewMessageSheet open={panel === "new"} onClose={close} eventId={event.id} onSent={(chatId) => { setTab("all"); setNarrow("all"); pick(chatId); }} />
         </div>
     );

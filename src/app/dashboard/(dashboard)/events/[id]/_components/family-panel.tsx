@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PhoneInput } from "@/components/common/phone-input";
 import { countryForDial, dialOf, mobileNumberError, nationalMobile } from "@/lib/phone";
@@ -289,14 +288,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                 actions={(
 <>
                     <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!ordered.length}><Download className="size-3.5" /> Export</Button>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button size="icon" variant="outline" className="size-8" aria-label="Family Settings" onClick={() => setSettingsOpen(true)}>
-                                <Settings className="size-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Family Settings</TooltipContent>
-                    </Tooltip>
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Family Settings</Button>
                     <Button size="sm" className="h-8" onClick={addNew}><UserPlus className="size-3.5" /> Add Family Member</Button>
                     </>
                 )}

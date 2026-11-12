@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, Settings, Users } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ParticipantSettingsDialog } from "../../events/[id]/_components/settings-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,15 +106,8 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Export</Button>
-                        {/* Participants Settings — the ⚙ button, same as Family (Jamal, 2026-11-07). */}
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button size="icon" variant="outline" className="size-8" aria-label="Participants Settings" onClick={() => setSettingsOpen(true)}>
-                                    <Settings className="size-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Participants Settings</TooltipContent>
-                        </Tooltip>
+                        {/* Participant Settings — a labelled button, same as Family (Jamal, 2026-11-12). */}
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Participant Settings</Button>
                         <Button size="sm" className="h-8" onClick={() => setAddSheet({ guestId: null })} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
                     </>
                 )}
