@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     ArrowLeft, Ban, Bot, CheckCheck, CheckCircle2, Clock, Eye, Filter, ImagePlus, Info, Link2, Loader2, MessageCircle,
-    MessageSquare, MoreHorizontal, Plus, RotateCcw, Send, Settings, ShieldBan, Trash2, User, UserRound, X,
+    MessageSquare, MoreHorizontal, Plus, RotateCcw, Send, Settings, Trash2, User, UserRound, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -317,10 +317,7 @@ function ConversationView({ eventId, chat, contactName, onBack, onPanel }: {
                         <Presence online={chat.participant.online} lastSeen={chat.participant.last_seen_at} />
                     </p>
                 </div>
-                <Button size="icon" variant="outline" className="size-9 rounded-full" aria-label="Participant details" onClick={() => onPanel("participant")}><Info className="size-4" /></Button>
-                <Button size="icon" variant="outline" className={cn("size-9 rounded-full", blocked ? "text-destructive" : "text-primary")} aria-label={blocked ? "Unblock participant" : "Block participant"} onClick={() => onPanel("block")}>
-                    <ShieldBan className="size-4" />
-                </Button>
+                {/* Participant details / Block live in the ⋯ menu only (Jamal, 2026-11-12: no duplicate icons). */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button size="icon" variant="outline" className="size-9 rounded-full" aria-label="Conversation actions"><MoreHorizontal className="size-4" /></Button>
