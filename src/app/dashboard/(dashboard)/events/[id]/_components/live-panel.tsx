@@ -117,7 +117,8 @@ function VisibilityLabel({ visibility }: { visibility: string }) {
     return <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><I className="size-3.5 shrink-0 text-muted-foreground" /> {v.label.replace(" / Organizer Only", "")}</span>;
 }
 function StatusBadge({ status }: { status: LiveStatus }) {
-    const s = STATUS[status];
+    // An older backend (or a bad row) can send no status — show Scheduled instead of crashing the page.
+    const s = STATUS[status] ?? STATUS.scheduled;
     return (
         <StatusPill tone={s.tone} icon={status === "live" ? undefined : s.icon}>
             {status === "live" && <span className="size-1.5 animate-pulse rounded-full bg-success" />} {s.label}
