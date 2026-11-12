@@ -292,10 +292,11 @@ export function AlbumBuilder({
     const [drag, setDrag] = useState<number | null>(null);
     const [tried, setTried] = useState(false);
 
-    const total = (introOn ? introSeconds : 0) + slides.reduce((t, s) => t + s.seconds, 0);
-    // The intro shows the Intro Text, or the Album Name when that is empty (Jamal, 2026-11-05:
-    // the name typed in did not show in the video, and the timeline claimed an intro that was skipped).
-    const introShown = introText.trim() || name.trim();
+    // The intro shows ONLY the Intro Text typed in (Jamal, 2026-11-12: the album name must not appear
+    // there by itself). No text = no intro in the preview, timeline or total; Save asks for the text.
+    const introShown = introText.trim();
+    const hasIntro = introOn && !!introShown;
+    const total = (hasIntro ? introSeconds : 0) + slides.reduce((t, s) => t + s.seconds, 0);
     const player: PlayerAlbum = {
         name, intro_enabled: introOn, intro_text: introShown, intro_animation: animation, intro_seconds: introSeconds,
         music_enabled: musicOn, music_url: song?.url ?? null, slides: slides.map((s) => ({ url: s.url, seconds: s.seconds })),
@@ -317,12 +318,13 @@ export function AlbumBuilder({
         if (!name.trim()) return toast.error("Please enter the album name.");
         if (!slides.length) return toast.error("Please add at least one image.");
         if (!coverImage) return toast.error("Please add a cover image.");
+        if (introOn && !introShown) return toast.error("Please enter the intro text, or switch the intro off.");
         if (musicOn && !song) return toast.error("Please upload the background song, or switch the music off.");
         save.mutate({
             id: album?.id,
             data: {
                 name: name.trim(), description: description.trim() || null, cover_image: coverImage,
-                intro_enabled: introOn, intro_text: introOn ? introShown : introText.trim() || null, intro_animation: animation, intro_seconds: introSeconds, intro_style: introStyle,
+                intro_enabled: introOn, intro_text: introShown || null, intro_animation: animation, intro_seconds: introSeconds, intro_style: introStyle,
                 music_enabled: musicOn, music_url: song?.url ?? null, music_name: song?.name ?? null,
                 slide_seconds: slideSeconds, slides: slides.map((s) => ({ item_id: s.item_id, seconds: s.seconds })),
             },
@@ -401,7 +403,8 @@ export function AlbumBuilder({
                     {introOn && (
                         <>
                             <FormField label="Intro Text">
-                                <Textarea value={introText} maxLength={120} rows={2} placeholder={name.trim() ? `${name.trim()} (the album name is used when this is empty)` : "QA Test Wedding\nA Journey of Love & Togetherness"} onChange={(e) => setIntroText(e.target.value)} />
+                                <Textarea value={introText} maxLength={120} rows={2} placeholder={"QA Test Wedding\nA Journey of Love & Togetherness"} onChange={(e) => setIntroText(e.target.value)}
+                                    className={cn(tried && introOn && !introShown && "border-destructive")} />
                                 <CharCount value={introText} max={120} />
                             </FormField>
                             <FormField label="Text Animation">
@@ -498,7 +501,7 @@ export function AlbumBuilder({
                         <div className="flex flex-col justify-center rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
                             <p className="text-[11px] font-semibold">Total Album Duration</p>
                             <p className="text-[20px] leading-6 font-bold text-primary">{fmtTime(total)}</p>
-                            <p className="text-[10px] text-muted-foreground">{introOn ? `${one(introSeconds)} s intro + ` : ""}{slides.length} slides</p>
+                            <p className="text-[10px] text-muted-foreground">{hasIntro ? `${one(introSeconds)} s intro + ` : ""}{slides.length} slides</p>
                         </div>
                     </div>
                 </div>
@@ -511,9 +514,9 @@ export function AlbumBuilder({
                     </div>
                     <SlideshowPlayer album={player} className="aspect-video w-full" />
                     <div>
-                        <p className="mb-1.5 flex items-center justify-between text-[12px] font-semibold">Preview Timeline <span className="font-normal text-muted-foreground">{introOn ? `Intro (0:00 – ${fmtTime(introSeconds)}) | ` : ""}{slides.length} slides</span></p>
+                        <p className="mb-1.5 flex items-center justify-between text-[12px] font-semibold">Preview Timeline <span className="font-normal text-muted-foreground">{hasIntro ? `Intro (0:00 – ${fmtTime(introSeconds)}) | ` : ""}{slides.length} slides</span></p>
                         <div className="flex gap-2 overflow-x-auto pb-1">
-                            {introOn && <span className="grid h-14 w-16 shrink-0 place-items-center rounded-lg border border-primary bg-primary/5 text-center text-[10.5px] text-primary"><Type className="size-4" />Intro<br />({one(introSeconds)}s)</span>}
+                            {hasIntro && <span className="grid h-14 w-16 shrink-0 place-items-center rounded-lg border border-primary bg-primary/5 text-center text-[10.5px] text-primary"><Type className="size-4" />Intro<br />({one(introSeconds)}s)</span>}
                             {slides.map((s, i) => (
                                 <span key={`${s.item_id}-${i}`} className="w-16 shrink-0 text-center text-[10.5px] text-muted-foreground">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -526,7 +529,7 @@ export function AlbumBuilder({
                         <p className="mb-1.5 flex items-center gap-1.5 font-bold"><Images className="size-3.5 text-primary" /> Album Summary</p>
                         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                             <span className="flex items-center gap-1.5"><ImageIcon className="size-3.5 text-muted-foreground" /> {slides.length} Slides</span>
-                            <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /> Intro: {introOn ? `${one(introSeconds)} s` : "Off"}</span>
+                            <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /> Intro: {hasIntro ? `${one(introSeconds)} s` : introOn ? "No text yet" : "Off"}</span>
                             <span className="flex items-center gap-1.5"><Type className="size-3.5 text-muted-foreground" /> Intro Text {introOn ? "(Animated)" : "(Off)"}</span>
                             <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /> Slide: {one(slideSeconds)} s</span>
                             <span className="flex items-center gap-1.5"><Music className="size-3.5 text-muted-foreground" /> {musicOn && song ? "Background Song (MP3)" : "No music"}</span>
