@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
     ArrowLeft, CalendarClock, CalendarDays, CheckCircle2, ChevronDown, CircleStop, ClipboardCopy, Clock, Copy, Download, ExternalLink,
-    Eye, EyeOff, FileText, FolderPlus, Globe, Image as ImageIcon, Info, Layers, Link2, Loader2, Lock, Mail, Pencil, Play, PlayCircle,
+    Eye, FileText, FolderPlus, Globe, Image as ImageIcon, Info, Layers, Link2, Loader2, Mail, Pencil, Play, PlayCircle,
     Plus, QrCode, Radio, Share2, Tag, Trash2, Type, UserCheck, Users, type LucideIcon,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -47,7 +47,7 @@ const PLATFORM_ICON = {
     custom_rtmp: faTowerBroadcast, embedded: faCode, other: faEllipsis,
 } as const;
 const VISIBILITY_ICON: Record<LiveVisibility, LucideIcon> = {
-    public: Globe, participants: Users, guests: Mail, invite_link: Link2, unlisted: EyeOff, private: Lock,
+    public: Globe, participants: Users,
 };
 const STATUS: Record<LiveStatus, { label: string; tone: Tone; icon: LucideIcon }> = {
     live: { label: "Live", tone: "success", icon: Radio },
@@ -58,6 +58,8 @@ type StatusFilter = "all" | LiveStatus;
 
 const platformOf = (key: string) => LIVE_PLATFORMS.find((p) => p.key === key) ?? LIVE_PLATFORMS[LIVE_PLATFORMS.length - 1];
 const visibilityOf = (key: string) => LIVE_VISIBILITIES.find((v) => v.key === key) ?? LIVE_VISIBILITIES[0];
+/** An old saved value (guests, unlisted, private…) opens as Participants Only, never Public. */
+const asVisibility = (key?: string | null): LiveVisibility => (!key ? "public" : LIVE_VISIBILITIES.some((v) => v.key === key) ? (key as LiveVisibility) : "participants");
 const STREAM_LINK = /^(https?|rtmps?):\/\/\S+$/i;
 const isWebLink = (url: string) => /^https?:\/\//i.test(url);
 
@@ -114,7 +116,7 @@ export function PlatformBadge({ platform }: { platform: string }) {
 function VisibilityLabel({ visibility }: { visibility: string }) {
     const v = visibilityOf(visibility);
     const I = VISIBILITY_ICON[v.key];
-    return <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><I className="size-3.5 shrink-0 text-muted-foreground" /> {v.label.replace(" / Organizer Only", "")}</span>;
+    return <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><I className="size-3.5 shrink-0 text-muted-foreground" /> {v.label}</span>;
 }
 function StatusBadge({ status }: { status: LiveStatus }) {
     // An older backend (or a bad row) can send no status — show Scheduled instead of crashing the page.
@@ -364,7 +366,7 @@ function CategorySheet({ eventId, types, type, onClose }: { eventId: number; typ
     const [description, setDescription] = useState(type?.description ?? "");
     const [order, setOrder] = useState(position);
     const [active, setActive] = useState(type ? isTypeActive(type) : true);
-    const [visibility, setVisibility] = useState<LiveVisibility>(type?.default_visibility ?? "public");
+    const [visibility, setVisibility] = useState<LiveVisibility>(asVisibility(type?.default_visibility));
     const [notes, setNotes] = useState(type?.notes ?? "");
     const [tried, setTried] = useState(false);
 
@@ -418,7 +420,7 @@ function CategorySheet({ eventId, types, type, onClose }: { eventId: number; typ
 
 /* ── 3 + 4. Create Live Stream → Review & Create ─────────────────────────── */
 
-/** 3B: the six visibility choices, each with its one-line meaning. */
+/** 3B: the visibility choices (Public / Participants Only), each with its one-line meaning. */
 function VisibilitySelect({ value, onChange, label }: { value: LiveVisibility; onChange: (v: LiveVisibility) => void; label: string }) {
     const cur = visibilityOf(value);
     const CurIcon = VISIBILITY_ICON[cur.key];
@@ -459,7 +461,7 @@ function StreamSheet({
     const [platform, setPlatform] = useState<LivePlatform | "">(stream?.platform ?? "");
     const [url, setUrl] = useState(stream?.stream_url ?? "");
     const [rtmp, setRtmp] = useState(stream?.rtmp_url ?? "");
-    const [visibility, setVisibility] = useState<LiveVisibility>(stream?.visibility ?? firstType?.default_visibility ?? "public");
+    const [visibility, setVisibility] = useState<LiveVisibility>(asVisibility(stream?.visibility ?? firstType?.default_visibility));
     const [date, setDate] = useState(stream?.stream_date ?? minDate ?? "");
     const [time, setTime] = useState(stream?.stream_time?.slice(0, 5) ?? "");
     const [endTime, setEndTime] = useState(stream?.end_time?.slice(0, 5) ?? "");
@@ -623,7 +625,6 @@ function StreamSheet({
                             <SwitchField id="live-shown" icon={Link2} label="Show Stream in Event Page" hint="Display the live stream in the event app for eligible participants." checked={shown} onChange={setShown} />
                         </div>
                     </div>
-                    {visibility === "private" && <Notice tone="warning">Private: only organizers see this stream. Participants are not notified.</Notice>}
                 </>
             )}
         </ActionSheet>
@@ -783,7 +784,7 @@ function ShareSheet({ stream, eventName, whenText, canEdit, onClose }: { stream:
                     <p className="break-words text-[14px] font-bold">{stream.title}</p>
                 </div>
             </div>
-            <Notice tone={stream.visibility === "private" ? "warning" : "success"} icon={VIcon} title={`Visibility: ${v.label}`}>{v.hint}.</Notice>
+            <Notice tone="success" icon={VIcon} title={`Visibility: ${v.label}`}>{v.hint}.</Notice>
             <FormField label="Stream Link">
                 <div className="flex gap-2">
                     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border px-2.5 text-[12.5px]">

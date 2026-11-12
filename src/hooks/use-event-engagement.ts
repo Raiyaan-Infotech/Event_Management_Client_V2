@@ -387,14 +387,10 @@ export const LIVE_PLATFORMS = [
 ] as const;
 export type LivePlatform = (typeof LIVE_PLATFORMS)[number]['key'];
 
-/** Who can watch a stream (Jamal's Visibility dropdown, 2026-11-11). */
+/** Who can watch a stream. Jamal (2026-11-12): only Public and Participants Only. */
 export const LIVE_VISIBILITIES = [
     { key: 'public', label: 'Public', hint: 'Visible to everyone (including non-invited users)' },
     { key: 'participants', label: 'Participants Only', hint: 'Visible only to event participants' },
-    { key: 'guests', label: 'Guests Only', hint: 'Visible only to invited guests (RSVPed or not)' },
-    { key: 'invite_link', label: 'Invite Link Only', hint: 'Visible only to people with the stream link' },
-    { key: 'unlisted', label: 'Unlisted', hint: 'Hidden from listings, accessible via direct link' },
-    { key: 'private', label: 'Private / Organizer Only', hint: 'Visible only to event organizers and co-organizers' },
 ] as const;
 export type LiveVisibility = (typeof LIVE_VISIBILITIES)[number]['key'];
 export type LiveStatus = 'scheduled' | 'live' | 'ended';

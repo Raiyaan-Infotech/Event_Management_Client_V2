@@ -64,9 +64,9 @@ module.exports = async (k) => {
         await k.shot('platform-dropdown');
         await page.getByRole('option', { name: /YouTube Live/ }).click();
         await panel().getByPlaceholder(/youtube\.com\/live\/abc123/).fill(URL);
-        // The category's default visibility was applied; the dropdown lists all six.
+        // The category's default visibility was applied; the dropdown lists Public + Participants Only.
         await panel().getByRole('combobox', { name: 'Visibility', exact: true }).click();
-        expect((await page.getByRole('option').count()) === 6, 'the visibility dropdown does not list 6 choices');
+        expect((await page.getByRole('option').count()) === 2, 'the visibility dropdown does not list 2 choices');
         await k.shot('visibility-dropdown');
         await page.getByRole('option', { name: /^Public/ }).click();
         await panel().locator('input[type="date"]').fill(day);
