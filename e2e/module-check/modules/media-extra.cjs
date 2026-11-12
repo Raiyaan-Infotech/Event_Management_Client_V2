@@ -298,11 +298,17 @@ module.exports = async (k) => {
         await dlg.getByRole('button', { name: /Add 2 Images/ }).click();
         await k.panelClosed();
         await page.getByText('Album Slides (2)').waitFor();
+        // Automatic cover = the first slide, with the hint; it follows the order (Jamal, 2026-11-12).
+        await page.getByText('First photo used as cover').waitFor();
+        await page.getByRole('button', { name: 'Slide actions' }).first().click();
+        await page.getByRole('menuitem', { name: /Move Down/ }).click();
+        await page.waitForTimeout(400);
         await page.getByPlaceholder(/QA Test Wedding – Highlights|e\.g\./).first().fill(ALBUM);
         // Intro on, Intro Text empty: the album NAME must not play as the intro (Jamal, 2026-11-12).
         await page.waitForTimeout(600);
         expect((await page.getByText(ALBUM, { exact: true }).count()) === 0, 'the album name shows in the preview as the intro while Intro Text is empty');
         expect((await page.getByText('No text yet').count()) === 1, 'the summary does not say the intro has no text');
+        expect((await page.getByText('Intro Text (Not added)').count()) === 1, 'the summary still calls the empty intro "Animated"');
         await k.shot('album-intro-empty');
         await page.getByRole('button', { name: /Save Album/ }).click();
         await k.toast(/enter the intro text/i);
@@ -319,6 +325,7 @@ module.exports = async (k) => {
         await page.getByText('Media Overview').first().waitFor();
         const list = await albums();
         expect(list.length === 1 && list[0].name === ALBUM, `album not in the API: ${JSON.stringify(list.map((a) => a.name))}`);
+        expect(/qa-3/.test(list[0].cover_image || ''), `the automatic cover did not follow the new first slide: ${list[0].cover_image}`);
         expect(list[0].intro_text === INTRO, `intro text saved wrong: ${JSON.stringify(list[0].intro_text)}`);
         expect(list[0].slide_count === 2 && list[0].music_enabled, `album saved wrong: ${list[0].slide_count} slides, music ${list[0].music_enabled}`);
     });
@@ -326,6 +333,8 @@ module.exports = async (k) => {
     const albumCard = (t) => page.locator('div.rounded-xl').filter({ hasText: t }).filter({ has: page.getByRole('button', { name: 'Album actions' }) }).last();
 
     await step('E11. Play the album', async () => {
+        // No description = no made-up subtitle on the card.
+        expect((await page.getByText('Slideshow album', { exact: true }).count()) === 0, 'the album card shows "Slideshow album" with no description');
         await page.getByRole('button', { name: `Play ${ALBUM}` }).click();
         await page.getByRole('dialog').waitFor();
         await page.waitForTimeout(2500);

@@ -226,7 +226,7 @@ export function AlbumCards({ eventId, albums, onEdit }: { eventId: number; album
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <p className="truncate text-[11.5px] text-muted-foreground">{a.description || "Slideshow album"}</p>
+                            {a.description && <p className="truncate text-[11.5px] text-muted-foreground">{a.description}</p>}
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 <StatusPill tone="primary" icon={ImageIcon}>{a.slide_count} slides</StatusPill>
                                 <StatusPill tone="violet" icon={Clock}>{fmtTime(a.total_seconds)}</StatusPill>
@@ -276,7 +276,10 @@ export function AlbumBuilder({
 
     const [name, setName] = useState(album?.name ?? "");
     const [description, setDescription] = useState(album?.description ?? "");
-    const [coverImage, setCoverImage] = useState<string | null>(album?.cover_image ?? null);
+    // A new album's cover is the FIRST slide until the organizer picks one (Change Photo / Use as Cover);
+    // it follows the slides when they are removed or reordered. A saved album keeps its cover.
+    const [pickedCover, setPickedCover] = useState<string | null>(album?.cover_image ?? null);
+    const [coverAuto, setCoverAuto] = useState(!album?.cover_image);
     const [introOn, setIntroOn] = useState(album?.intro_enabled ?? true);
     const [introText, setIntroText] = useState(album?.intro_text ?? "");
     const [animation, setAnimation] = useState<IntroAnimation>(album?.intro_animation ?? "fade_slide_up");
@@ -287,6 +290,8 @@ export function AlbumBuilder({
     const [song, setSong] = useState<{ url: string; name: string; size?: number } | null>(album?.music_url ? { url: album.music_url, name: album.music_name ?? "song.mp3" } : null);
     const [slideSeconds, setSlideSeconds] = useState(album?.slide_seconds ?? 5);
     const [slides, setSlides] = useState<Slide[]>(album?.slides ?? []);
+    const coverImage = coverAuto ? slides[0]?.url ?? null : pickedCover;
+    const pickCover = (url: string | null) => { setCoverAuto(false); setPickedCover(url); };
     const [picking, setPicking] = useState(false);
     const [preview, setPreview] = useState(false);
     const [drag, setDrag] = useState<number | null>(null);
@@ -371,7 +376,7 @@ export function AlbumBuilder({
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="gap-2 text-[13px]" disabled={i === 0} onClick={() => move(i, i - 1)}><ArrowUp className="size-4" /> Move Up</DropdownMenuItem>
                                         <DropdownMenuItem className="gap-2 text-[13px]" disabled={i === slides.length - 1} onClick={() => move(i, i + 1)}><ArrowDown className="size-4" /> Move Down</DropdownMenuItem>
-                                        <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => setCoverImage(s.url)}><ImageIcon className="size-4" /> Use as Cover</DropdownMenuItem>
+                                        <DropdownMenuItem className="gap-2 text-[13px]" onClick={() => pickCover(s.url)}><ImageIcon className="size-4" /> Use as Cover</DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem className="gap-2 text-[13px] text-destructive focus:text-destructive" onClick={() => setSlides((l) => l.filter((_, j) => j !== i))}><Trash2 className="size-4" /> Remove</DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -393,8 +398,9 @@ export function AlbumBuilder({
                         <CharCount value={description} max={300} />
                     </FormField>
                     <FormField label="Cover Image" required>
-                        <PhotoDropzone value={coverImage} onChange={setCoverImage} aspect={16 / 9} outputSize={1280} recommend={null}
+                        <PhotoDropzone value={coverImage} onChange={pickCover} aspect={16 / 9} outputSize={1280} recommend={null}
                             uploader={(f) => cover.mutateAsync(f).then((r) => r.url)} />
+                        {coverAuto && coverImage && <p className="mt-1 text-[11px] text-muted-foreground">First photo used as cover — change it any time.</p>}
                     </FormField>
                     <div className="flex items-start gap-3 border-t border-border pt-3">
                         <Switch checked={introOn} onCheckedChange={setIntroOn} id="album-intro" />
@@ -540,7 +546,7 @@ export function AlbumBuilder({
             </div>
 
             {picking && <PickImages images={images} folders={folders} chosen={slides.map((s) => s.item_id)} onClose={() => setPicking(false)}
-                onAdd={(list) => { setSlides((l) => [...l, ...list.map((i) => ({ item_id: i.id, url: i.url, thumbnail_url: i.thumbnail_url, file_name: i.file_name, seconds: slideSeconds }))]); if (!coverImage && list[0]) setCoverImage(list[0].url); setPicking(false); }} />}
+                onAdd={(list) => { setSlides((l) => [...l, ...list.map((i) => ({ item_id: i.id, url: i.url, thumbnail_url: i.thumbnail_url, file_name: i.file_name, seconds: slideSeconds }))]); setPicking(false); }} />}
             {preview && <PlayAlbumDialog album={player} onClose={() => setPreview(false)} />}
         </div>
     );
