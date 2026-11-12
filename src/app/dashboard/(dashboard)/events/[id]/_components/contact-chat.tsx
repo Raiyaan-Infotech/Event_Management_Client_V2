@@ -248,7 +248,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                         : <ResolveSheet open={panel === "resolve"} onClose={close} eventId={event.id} chat={selected} types={data.options.resolution_types} />}
                     {selected.status === "blocked"
                         ? <UnblockSheet open={panel === "block"} onClose={close} eventId={event.id} chat={selected} />
-                        : <BlockSheet open={panel === "block"} onClose={close} eventId={event.id} chat={selected} reasons={data.options.block_reasons} />}
+                        : <BlockSheet open={panel === "block"} onClose={close} eventId={event.id} chat={selected} reasons={data.options.block_reasons} ended={event.derived_status === "past"} />}
                     <RemoveSheet open={panel === "remove"} onClose={close} eventId={event.id} chat={selected} onDone={() => { setPicked(null); setPhoneThread(false); }} />
                     <ParticipantSheet open={panel === "participant" || panel === "inquiries"} startTab={panel === "inquiries" ? "inquiries" : "profile"}
                         onClose={close} eventId={event.id} chat={selected} onReply={() => setPanel("reply")} />
@@ -645,12 +645,14 @@ function ReopenSheet({ open, onClose, eventId, chat }: { open: boolean; onClose:
     );
 }
 
-function BlockSheet({ open, onClose, eventId, chat, reasons }: { open: boolean; onClose: () => void; eventId: number; chat: ContactChatRow; reasons: string[] }) {
+function BlockSheet({ open, onClose, eventId, chat, reasons, ended }: { open: boolean; onClose: () => void; eventId: number; chat: ContactChatRow; reasons: string[]; ended: boolean }) {
     const set = useSetContactStatus(eventId);
     const [reason, setReason] = useState("");
     const [note, setNote] = useState("");
-    const [duration, setDuration] = useState<"event_end" | "permanent">("event_end");
-    const close = () => { setReason(""); setNote(""); setDuration("event_end"); onClose(); };
+    // A finished event: "Until Event Ends" would lift at once, so only Permanent is offered (2026-11-12).
+    const first = ended ? "permanent" : "event_end";
+    const [duration, setDuration] = useState<"event_end" | "permanent">(first);
+    const close = () => { setReason(""); setNote(""); setDuration(first); onClose(); };
     return (
         <ActionSheet open={open} onClose={close} width={460} title="Block Participant" subtitle="Restrict this participant from contacting the event team."
             footer={(
@@ -677,7 +679,9 @@ function BlockSheet({ open, onClose, eventId, chat, reasons }: { open: boolean; 
             </FormField>
             <FormField label="Block Duration">
                 <div className="flex flex-col gap-2">
-                    <OptionCard checked={duration === "event_end"} onClick={() => setDuration("event_end")} title="Until Event Ends" hint="Access restriction ends when the event closes." />
+                    {ended
+                        ? <Note icon={Info}>This event has ended, so the block is permanent. Unblock any time.</Note>
+                        : <OptionCard checked={duration === "event_end"} onClick={() => setDuration("event_end")} title="Until Event Ends" hint="Access restriction ends when the event closes." />}
                     <OptionCard checked={duration === "permanent"} onClick={() => setDuration("permanent")} title="Permanent" hint="Block this participant for this event indefinitely." />
                 </div>
             </FormField>

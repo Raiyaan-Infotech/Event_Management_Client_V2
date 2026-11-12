@@ -185,7 +185,7 @@ module.exports = async (k) => {
         await blockBtn.click();
         await k.toast(/Participant blocked/i);
         await k.panelClosed();
-        await page.getByText(/Blocked until the event ends/).first().waitFor();
+        await page.getByText(/Blocked (until the event ends|permanently)/).first().waitFor();
         expect((await chat())?.status === 'blocked', 'not blocked in the API');
         await menu(/Unblock Participant/);
         await panel().getByRole('button', { name: /^Unblock$/ }).click();
