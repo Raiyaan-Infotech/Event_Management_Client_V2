@@ -136,6 +136,10 @@ export interface ClientEvent {
     guest_count?: number;
     confirmed_count?: number;
     pending_count?: number;
+    /** List rows only: answered No, invitations sent, and file downloads (dashboard table). */
+    declined_count?: number;
+    messages_count?: number;
+    downloads_count?: number;
     qr_version: number;
     qr_issued_at: string | null;
     /** How the QR is drawn: 0 classic, 1 rounded, 2 heart. Set from the app. */
@@ -196,6 +200,9 @@ export interface EventListParams {
     /** A key from the server's SORT_ORDERS table, never a column name. */
     sort?: string;
     search?: string;
+    /** YYYY-MM-DD: events whose days touch this range (dashboard Events Overview). */
+    from?: string;
+    to?: string;
     page?: number;
     limit?: number;
 }
@@ -222,6 +229,12 @@ export interface DashboardStats {
     rsvp_pending: number;
     rsvp_declined: number;
     guests_available: boolean;
+    /** Invitations sent across all events, and file downloads across all events. */
+    total_messages?: number;
+    total_downloads?: number;
+    /** The year `events_by_month` counts (by each event's start date). */
+    year?: number;
+    events_by_month?: { month: number; events: number; guests: number }[];
 }
 
 export function useClientEvents(params: EventListParams = {}) {
@@ -234,6 +247,8 @@ export function useClientEvents(params: EventListParams = {}) {
                 privacy: params.privacy,
                 sort: params.sort,
                 search: params.search,
+                from: params.from || undefined,
+                to: params.to || undefined,
                 page: params.page ?? 1,
                 limit: params.limit ?? 6,
             }),
@@ -357,10 +372,10 @@ export function useEventAnalytics(days = 31) {
     });
 }
 
-export function useDashboardStats() {
+export function useDashboardStats(year?: number) {
     return useQuery({
-        queryKey: [...KEY, 'stats'],
-        queryFn: () => api.get<DashboardStats>(`${ENDPOINT}/stats`),
+        queryKey: [...KEY, 'stats', year ?? null],
+        queryFn: () => api.get<DashboardStats>(`${ENDPOINT}/stats${year ? `?year=${year}` : ''}`),
         retry: false,
     });
 }

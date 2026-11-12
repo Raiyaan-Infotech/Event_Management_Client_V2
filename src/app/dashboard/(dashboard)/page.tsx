@@ -2,552 +2,428 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useRouter } from "next/navigation";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
-    faCalendarDays,
-    faUsers,
-    faSquareCheck,
-    faClock,
-    faPlus,
-    faSearch,
-    faLocationDot,
-    faEllipsisVertical,
-    faChevronLeft,
-    faChevronRight,
-    faTriangleExclamation,
-} from "@fortawesome/free-solid-svg-icons";
+    AlertTriangle, BarChart3, CalendarCheck, CalendarDays, CalendarRange, CheckCircle2, Clock, Copy, Download, Eye,
+    Hourglass, Mail, MessageCircle, MoreVertical, Pencil, PlayCircle, QrCode, Search, Share2, Trash2, Users,
+    UserCog, XCircle, ListChecks, Rocket,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { EventThumbnail } from "@/components/common/event-thumbnail";
-import { eventCustomImage } from "@/lib/event-templates";
+import { EventQr } from "@/components/common/event-qr";
 import { useClientProfile } from "@/hooks/use-client-portal";
 import {
-    useClientEvents,
-    useDashboardStats,
-    useDeleteEvent,
-    type ClientEvent,
-    type DerivedStatus,
+    useClientEvents, useDashboardStats, useDeleteEvent, useDuplicateEvent, useUpdateEvent,
+    type ClientEvent, type DerivedStatus,
 } from "@/hooks/use-client-events";
 import { ApiError } from "@/lib/api-client";
-import { SignInPrompt } from '@/components/common/sign-in-prompt';
+import { SignInPrompt } from "@/components/common/sign-in-prompt";
 
 /**
- * Client dashboard — every number and every card on this page comes from the
- * API. Nothing here is a constant any more.
+ * Organizer dashboard — the client portal's first page (Jamal's design, 2026-11-13).
  *
- *   greeting   GET /client/me            the signed-in client's own name
- *   tiles      GET /client/events/stats  counts derived server-side
- *   grid       GET /client/events        paginated, tab-filtered, searchable
+ *   header   GET /client/me                         the signed-in client's name + photo
+ *   tiles    GET /client/events/stats?year=          totals, status split, events by month
+ *   table    GET /client/events?from&to&status&search  one row per event with its counts
  *
- * This is the summary view. The full list, with the five-state tabs and the
- * category filter, is /dashboard/events.
- *
- * TWO THINGS THAT LOOK LIKE PLACEHOLDERS AND ARE NOT:
- *
- *  1. Guests and RSVPs really are 0. There is no guest module in this system
- *     yet, so the API reports 0 with `guests_available: false` beside it — and
- *     the tiles say "Not available yet" rather than implying nobody has
- *     replied. A tile silently showing 0 cannot be told apart from a tile whose
- *     honest answer is 0; the flag is what makes the difference visible.
- *
- *  2. The card artwork is a theme gradient, not a missing image. Events carry a
- *     `theme_id` chosen in the wizard and no artwork upload exists yet.
- *
- * FILTERING AND PAGING ARE SERVER-SIDE. The old version filtered a six-row
- * constant in the browser; doing that against a paginated endpoint would filter
- * only the page you happen to be on.
+ * Every figure comes from the API. "Messages" = invitations that actually left (same meaning as
+ * the event rows); "Downloads" = file downloads from the Downloads menu.
  */
 
-const TABS = [
-    { label: "All Events", value: "all" },
-    { label: "Upcoming", value: "upcoming" },
-    // An event that has started is `live`, not `upcoming`. Without this tab it
-    // would show under "All Events" and nowhere else.
-    { label: "Live", value: "live" },
-    { label: "Past", value: "past" },
-    { label: "Drafts", value: "draft" },
-] as const;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const PAGE_SIZE = 10;
 
-type TabValue = (typeof TABS)[number]["value"];
-
-const STATUS_STYLES: Record<DerivedStatus, string> = {
-    live: "bg-destructive/10 text-destructive",
-    upcoming: "bg-success/15 text-success",
-    past: "bg-foreground/70 text-background",
-    draft: "bg-warning/20 text-warning",
-    cancelled: "bg-destructive/15 text-destructive",
+const STATUS: Record<DerivedStatus, { label: string; cls: string; Icon: typeof PlayCircle }> = {
+    live: { label: "Current", cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: PlayCircle },
+    upcoming: { label: "Upcoming", cls: "bg-sky-50 text-sky-700 border-sky-200", Icon: Clock },
+    past: { label: "Completed", cls: "bg-muted text-muted-foreground border-border", Icon: CheckCircle2 },
+    draft: { label: "Draft", cls: "bg-amber-50 text-amber-700 border-amber-200", Icon: Pencil },
+    cancelled: { label: "Cancelled", cls: "bg-red-50 text-red-600 border-red-200", Icon: XCircle },
 };
 
-const STATUS_LABELS: Record<DerivedStatus, string> = {
-    live: "Live",
-    upcoming: "Upcoming",
-    past: "Past",
-    draft: "Draft",
-    cancelled: "Cancelled",
+const FILTERS: { value: "all" | DerivedStatus; label: string }[] = [
+    { value: "all", label: "All Statuses" },
+    { value: "live", label: "Current" },
+    { value: "upcoming", label: "Upcoming" },
+    { value: "past", label: "Completed" },
+    { value: "draft", label: "Draft" },
+];
+
+const pretty = (d: string | null) => {
+    if (!d) return "Date not set";
+    const [y, m, day] = d.split("-").map(Number);
+    return `${String(day).padStart(2, "0")} ${MONTHS[(m || 1) - 1]} ${y}`;
 };
-
-const PAGE_SIZE = 6;
-
-/** "25 May 2025, 07:00 PM" from the stored DATE + TIME pair. */
-function formatWhen(date: string | null, time: string | null): string {
-    if (!date) return "Date not set";
-
-    const [y, m, d] = date.split("-").map(Number);
-    // Built from parts, never `new Date("2026-05-25")` — that parses as UTC and
-    // shows the previous day for anyone behind it.
-    const local = new Date(y, (m || 1) - 1, d || 1);
-    const day = String(local.getDate()).padStart(2, "0");
-    const month = local.toLocaleString("en", { month: "short" });
-    const stamp = `${day} ${month} ${local.getFullYear()}`;
-
-    if (!time) return stamp;
-
-    const [hh, mm] = time.split(":").map(Number);
-    const suffix = hh >= 12 ? "PM" : "AM";
-    const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-    return `${stamp}, ${String(hour12).padStart(2, "0")}:${String(mm ?? 0).padStart(2, "0")} ${suffix}`;
-}
+const pct = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0);
+const fmt = (n: number | undefined) => (n ?? 0).toLocaleString();
 
 export default function DashboardPage() {
-    const [tab, setTab] = useState<TabValue>("all");
+    const router = useRouter();
+    const thisYear = new Date().getFullYear();
+    const [range, setRange] = useState<string>(String(thisYear));
+    const [filter, setFilter] = useState<"all" | DerivedStatus>("all");
     const [search, setSearch] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [debounced, setDebounced] = useState("");
     const [page, setPage] = useState(1);
+    const [chartMode, setChartMode] = useState<"events" | "guests">("events");
 
-    // The search box hits the server, so it is debounced — a request per
-    // keystroke would put six in flight for one word and let them race.
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
-        return () => clearTimeout(timer);
-    }, [search]);
+    useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 350); return () => clearTimeout(t); }, [search]);
 
-    // Changing the filter must reset to page 1, or filtering while on page 3 of
-    // a longer list lands on an empty page that reads as "no events".
-    useEffect(() => { setPage(1); }, [tab, debouncedSearch]);
-
+    const chartYear = range === "all" ? thisYear : Number(range);
     const profile = useClientProfile();
-    const stats = useDashboardStats();
+    const stats = useDashboardStats(chartYear);
     const events = useClientEvents({
-        status: tab,
-        search: debouncedSearch || undefined,
+        status: filter,
+        search: debounced || undefined,
+        from: range === "all" ? undefined : `${range}-01-01`,
+        to: range === "all" ? undefined : `${range}-12-31`,
         page,
         limit: PAGE_SIZE,
     });
 
     const remove = useDeleteEvent();
-    // Never delete straight from a menu click. Same pattern as the
-    // event-categories module, and the reason is the same: the dropdown item is
-    // two pixels from "View details".
+    const duplicate = useDuplicateEvent();
+    const publish = useUpdateEvent();
     const [pendingDelete, setPendingDelete] = useState<ClientEvent | null>(null);
+    const [shareFor, setShareFor] = useState<ClientEvent | null>(null);
 
+    const s = stats.data;
     const rows = events.data?.data ?? [];
     const pagination = events.data?.pagination;
-    const totalPages = pagination?.totalPages ?? 1;
-    const totalItems = pagination?.totalItems ?? 0;
+    const authError = (events.error instanceof ApiError && events.error.isAuthError) || (stats.error instanceof ApiError && stats.error.isAuthError);
 
-    const authError =
-        (events.error instanceof ApiError && events.error.isAuthError) ||
-        (stats.error instanceof ApiError && stats.error.isAuthError);
+    const tiles = [
+        { label: "Total Events", value: s?.total_events, Icon: CalendarDays, cls: "bg-pink-50 text-pink-600" },
+        { label: "Total Guests", value: s?.total_guests, Icon: Users, cls: "bg-indigo-50 text-indigo-600" },
+        { label: "Confirmed", value: s?.rsvp_going, Icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600" },
+        { label: "Pending", value: s?.rsvp_pending, Icon: Hourglass, cls: "bg-amber-50 text-amber-600" },
+        { label: "Declined", value: s?.rsvp_declined, Icon: XCircle, cls: "bg-rose-50 text-rose-600" },
+        { label: "Messages", value: s?.total_messages, Icon: MessageCircle, cls: "bg-violet-50 text-violet-600" },
+        { label: "Downloads", value: s?.total_downloads, Icon: Download, cls: "bg-sky-50 text-sky-600" },
+    ];
 
-    const firstName = profile.data?.name?.trim().split(/\s+/)[0];
-
-    const tiles = useMemo(() => {
-        const s = stats.data;
-        return [
-            {
-                label: "Total Events",
-                value: s?.total_events ?? 0,
-                caption: "All time",
-                icon: faCalendarDays,
-                tint: "text-primary",
-                bg: "bg-primary/10",
-                unavailable: false,
-            },
-            {
-                label: "Total Guests",
-                value: s?.total_guests ?? 0,
-                // Says which kind of zero this is. See the header comment.
-                caption: s && !s.guests_available ? "Not available yet" : "All events",
-                icon: faUsers,
-                tint: "text-accent",
-                bg: "bg-accent/10",
-                unavailable: !!s && !s.guests_available,
-            },
-            {
-                label: "RSVPs Received",
-                value: s?.rsvps_received ?? 0,
-                // Received = every Yes and No answer; the caption says how many were Yes.
-                caption: s && !s.guests_available ? "Not available yet" : `${(s?.rsvp_going ?? 0).toLocaleString()} accepted`,
-                icon: faSquareCheck,
-                tint: "text-info",
-                bg: "bg-info/10",
-                unavailable: !!s && !s.guests_available,
-            },
-            {
-                label: "Upcoming Events",
-                value: s?.upcoming_next_30_days ?? 0,
-                caption: "Next 30 days",
-                icon: faClock,
-                tint: "text-warning",
-                bg: "bg-warning/10",
-                unavailable: false,
-            },
-        ];
-    }, [stats.data]);
+    const guestSlices = [
+        { key: "Confirmed", value: s?.rsvp_going ?? 0, color: "#16A34A" },
+        { key: "Pending", value: s?.rsvp_pending ?? 0, color: "#EAB308" },
+        { key: "Declined", value: s?.rsvp_declined ?? 0, color: "#F43F5E" },
+    ];
+    const statusSlices = [
+        { key: "Current", value: s?.live_events ?? 0, color: "#3B82F6" },
+        { key: "Upcoming", value: s?.upcoming_events ?? 0, color: "#A855F7" },
+        { key: "Completed", value: s?.past_events ?? 0, color: "#E5E7EB" },
+        ...(s?.draft_events ? [{ key: "Draft", value: s.draft_events, color: "#F59E0B" }] : []),
+    ];
+    const monthData = useMemo(
+        () => (s?.events_by_month ?? Array.from({ length: 12 }, (_, i) => ({ month: i + 1, events: 0, guests: 0 })))
+            .map((m) => ({ name: MONTHS[m.month - 1], value: chartMode === "events" ? m.events : m.guests })),
+        [s?.events_by_month, chartMode],
+    );
+    const firstName = profile.data?.name?.trim();
+    const yearOptions = [thisYear - 1, thisYear, thisYear + 1];
 
     return (
-        <div className="flex flex-col gap-6">
-            {/* Greeting */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                    <h1 className="text-[26px] font-bold leading-tight tracking-tight text-foreground">
-                        {profile.isLoading ? (
-                            <Skeleton className="h-7 w-[260px]" />
-                        ) : (
-                            <>
-                                Welcome back{firstName ? `, ${firstName}` : ""}! <span aria-hidden>👋</span>
-                            </>
-                        )}
-                    </h1>
-                    <p className="mt-1 text-[13.5px] text-muted-foreground">
-                        Here&rsquo;s what&rsquo;s happening with your events.
-                    </p>
+        <div className="flex flex-col gap-5">
+            {/* Header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                    {profile.data?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={profile.data.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                    ) : (
+                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-base font-bold text-primary">
+                            {(firstName || "?").slice(0, 2).toUpperCase()}
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <h1 className="text-[22px] font-bold leading-tight text-foreground">
+                            {profile.isLoading ? <Skeleton className="h-6 w-[240px]" /> : <>Welcome Back{firstName ? `, ${firstName}` : ""} <span aria-hidden>👋</span></>}
+                        </h1>
+                        <p className="text-[13px] text-muted-foreground">Organizer Dashboard · All Events Overview</p>
+                    </div>
                 </div>
-                <Button asChild className="h-10 shrink-0 rounded-md px-4 text-[13px] font-semibold">
-                    <Link href="/dashboard/events/create">
-                        <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[12px]" />
-                        Create New Event
-                    </Link>
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                    <Button asChild variant="outline" className="h-11 rounded-lg px-4 text-[13px] font-semibold">
+                        <Link href="/dashboard/events/create">Create New Event</Link>
+                    </Button>
+                    {/* The organizer calendar is the next build; the button is here so the layout matches. */}
+                    <Button className="h-11 rounded-lg px-5 text-[14px] font-semibold" disabled title="Event Availability calendar — coming next">
+                        <CalendarRange className="mr-2 h-5 w-5" />Event Availability
+                    </Button>
+                </div>
             </div>
 
-            {/* A 401 is the likely failure here: this panel has no login of its
-                own and relies on a cookie set elsewhere. Naming it beats showing
-                four empty tiles. */}
             {authError && (
                 <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning/10 px-4 py-3">
-                    <FontAwesomeIcon icon={faTriangleExclamation} className="mt-0.5 !size-[13px] shrink-0 text-warning" />
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                     <div>
                         <p className="text-[12.5px] font-semibold text-foreground">You are not signed in</p>
-                        <p className="mt-0.5 text-[12px] text-muted-foreground">
-                            Your session has ended. Sign in again to carry on.
-                        </p>
+                        <p className="mt-0.5 text-[12px] text-muted-foreground">Your session has ended. Sign in again to carry on.</p>
                         <SignInPrompt className="mt-2.5" />
                     </div>
                 </div>
             )}
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {tiles.map((tile) => (
-                    <Card key={tile.label} className="border border-border shadow-none py-0">
-                        <CardContent className="flex items-center gap-4 p-5">
-                            <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-md", tile.bg)}>
-                                <FontAwesomeIcon icon={tile.icon} className={cn("!size-[16px]", tile.tint)} />
-                            </span>
-                            <div className="min-w-0">
-                                {stats.isLoading ? (
-                                    <Skeleton className="h-6 w-12" />
-                                ) : (
-                                    // tabular-nums so the four figures align down the row
-                                    <p
-                                        className={cn(
-                                            "text-[24px] font-bold leading-none tabular-nums",
-                                            tile.unavailable ? "text-muted-foreground/50" : "text-foreground"
-                                        )}
-                                    >
-                                        {tile.value}
-                                    </p>
-                                )}
-                                <p className="mt-1.5 text-[13px] font-medium text-foreground">{tile.label}</p>
-                                <p className="text-[11.5px] text-muted-foreground">{tile.caption}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+            {/* 7 tiles */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+                {tiles.map((t) => (
+                    <div key={t.label} className={cn("flex items-center gap-3 rounded-xl px-4 py-3.5", t.cls.split(" ")[0])}>
+                        <t.Icon className={cn("h-8 w-8 shrink-0", t.cls.split(" ")[1])} strokeWidth={1.8} />
+                        <div className="min-w-0">
+                            {stats.isLoading ? <Skeleton className="h-6 w-12" /> : <p className="text-[22px] font-bold leading-none tabular-nums text-foreground">{fmt(t.value)}</p>}
+                            <p className="mt-1 truncate text-[12.5px] text-muted-foreground">{t.label}</p>
+                        </div>
+                    </div>
                 ))}
             </div>
 
-            {/* Tabs + search */}
-            <div className="flex flex-col gap-3 border-b border-border pb-0 lg:flex-row lg:items-center lg:justify-between">
-                {/* The shared Tabs primitive, not hand-rolled <button>s. The
-                    first cut re-implemented the underline and the active colour
-                    inline, which drifts from the rest of the app the moment a
-                    token changes. */}
-                <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="-mb-px overflow-x-auto">
-                    <TabsList variant="line" className="h-auto gap-0 p-0">
-                        {TABS.map((t) => (
-                            <TabsTrigger
-                                key={t.value}
-                                value={t.value}
-                                className="h-auto rounded-none px-4 py-2.5 text-[13px] data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:after:bg-primary data-[state=active]:after:opacity-100"
-                            >
-                                {t.label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
-
-                <div className="flex items-center gap-2 pb-3">
-                    <div className="relative min-w-0 flex-1 lg:w-[240px] lg:flex-none">
-                        <FontAwesomeIcon
-                            icon={faSearch}
-                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 !size-[12px] text-muted-foreground"
-                        />
-                        <Input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search events..."
-                            className="h-10 rounded-md pl-9 text-[13px]"
-                        />
+            {/* Charts */}
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_1.3fr]">
+                <ChartCard title="Guest Responses (All Events)">
+                    <Donut slices={guestSlices} centre={fmt(s?.total_guests)} sub="Guests" loading={stats.isLoading} />
+                    <Legend slices={guestSlices} total={s?.total_guests ?? 0} />
+                </ChartCard>
+                <ChartCard title="Event Status">
+                    <Donut slices={statusSlices} centre={fmt(s?.total_events)} sub="Events" loading={stats.isLoading} />
+                    <Legend slices={statusSlices} total={s?.total_events ?? 0} />
+                </ChartCard>
+                <Card className="gap-0 rounded-xl border p-5 shadow-none lg:col-span-2 xl:col-span-1">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                        <h2 className="text-[16px] font-bold text-foreground">Events by Month <span className="text-[12px] font-normal text-muted-foreground">({chartYear})</span></h2>
+                        <Select value={chartMode} onValueChange={(v) => setChartMode(v as "events" | "guests")}>
+                            <SelectTrigger className="h-9 w-[150px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="events">Events Count</SelectItem>
+                                <SelectItem value="guests">Guests Count</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
-                </div>
+                    <div className="h-[170px]">
+                        {stats.isLoading ? <Skeleton className="h-full w-full" /> : (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={monthData} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
+                                    <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border" />
+                                    <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
+                                    <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={11} />
+                                    <Tooltip cursor={{ fill: "rgba(168,85,247,0.08)" }} formatter={(v: number) => [v, chartMode === "events" ? "Events" : "Guests"]} />
+                                    <Bar dataKey="value" fill="#C084FC" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </Card>
             </div>
 
-            {/* Event grid */}
-            {events.isLoading ? (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <Card key={i} className="overflow-hidden border border-border p-0 shadow-none">
-                            <Skeleton className="aspect-[16/10] w-full rounded-none" />
-                            <div className="flex flex-col gap-2.5 p-4">
-                                <Skeleton className="h-4 w-3/4" />
-                                <Skeleton className="h-3 w-1/2" />
-                                <Skeleton className="h-3 w-2/3" />
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            ) : events.isError && !authError ? (
-                <Card className="border border-border shadow-none py-0">
-                    <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
-                        <FontAwesomeIcon icon={faTriangleExclamation} className="!size-[26px] text-warning/60" />
-                        <p className="text-[14px] font-semibold text-foreground">Could not load your events</p>
-                        <p className="text-[13px] text-muted-foreground">
-                            {events.error instanceof Error ? events.error.message : "Unknown error."}
-                        </p>
-                        <Button variant="outline" size="sm" className="mt-2 h-8 text-[12px]" onClick={() => events.refetch()}>
-                            Try again
-                        </Button>
-                    </CardContent>
-                </Card>
-            ) : rows.length === 0 ? (
-                <Card className="border border-border shadow-none py-0">
-                    <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
-                        <FontAwesomeIcon icon={faCalendarDays} className="!size-[26px] text-muted-foreground/40" />
-                        <p className="text-[14px] font-semibold text-foreground">No events here</p>
-                        <p className="text-[13px] text-muted-foreground">
-                            {debouncedSearch
-                                ? "Try a different search term."
-                                : tab === "all"
-                                    ? "Create your first event to get started."
-                                    : "Nothing in this tab yet."}
-                        </p>
-                        {!debouncedSearch && tab === "all" && (
-                            <Button asChild size="sm" className="mt-2 h-8 text-[12px]">
-                                <Link href="/dashboard/events/create">Create New Event</Link>
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {rows.map((event: ClientEvent) => (
-                        <Card
-                            key={event.id}
-                            className="overflow-hidden border border-border p-0 shadow-none transition-shadow hover:shadow-md"
-                        >
-                            {/* The event's own invitation artwork, drawn from its
-                                theme. Shared with the My Events rows, so the two
-                                screens cannot disagree about what an event looks
-                                like — and the component picks light or dark ink,
-                                which is what stopped the dark themes rendering as
-                                blank rectangles. */}
-                            <div className="relative">
-                                <EventThumbnail
-                                    themeId={event.theme_id}
-                                    customImage={eventCustomImage(event)}
-                                    name={event.name}
-                                    primaryColor={event.primary_color}
-                                    className="aspect-[16/10] w-full rounded-none border-0"
-                                />
-                                <Badge
-                                    variant="ghost"
-                                    className={cn(
-                                        "absolute left-3 top-3 rounded px-2 py-1 text-[10.5px] font-semibold",
-                                        STATUS_STYLES[event.derived_status]
-                                    )}
-                                >
-                                    {STATUS_LABELS[event.derived_status]}
-                                </Badge>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button
-                                            aria-label={`Actions for ${event.name}`}
-                                            className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
-                                        >
-                                            <FontAwesomeIcon icon={faEllipsisVertical} className="!size-[12px]" />
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[160px]">
-                                        <DropdownMenuItem asChild className="text-[12.5px]">
-                                            <Link href={`/event/${event.id}`} target="_blank" rel="noopener">View details</Link>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            className="text-[12.5px] text-destructive focus:text-destructive"
-                                            onClick={() => setPendingDelete(event)}
-                                        >
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            <div className="flex flex-col gap-2.5 p-4">
-                                {/* break-words, never truncate — a long event name must
-                                    wrap rather than clip mid-word. */}
-                                <h3 className="text-[14.5px] font-bold leading-snug text-foreground break-words">
-                                    {event.name}
-                                </h3>
-
-                                <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                                    <FontAwesomeIcon icon={faCalendarDays} className="!size-[11px] shrink-0" />
-                                    <span className="break-words">
-                                        {formatWhen(event.start_date, event.start_time)}
-                                    </span>
-                                </div>
-
-                                {/* The wizard does not collect a venue yet, so the
-                                    row is hidden rather than printing a dash. */}
-                                {event.venue_name && (
-                                    <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                                        <FontAwesomeIcon icon={faLocationDot} className="!size-[11px] shrink-0" />
-                                        <span className="break-words">{event.venue_name}</span>
-                                    </div>
-                                )}
-
-                                <div className="mt-1 flex items-center justify-between gap-3 border-t border-border pt-3">
-                                    <div className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
-                                        {event.category?.name && (
-                                            <Badge variant="secondary" className="max-w-[100px] truncate rounded text-[11px]">
-                                                {event.category.name}
-                                            </Badge>
-                                        )}
-                                    </div>
-                                    <Button
-                                        asChild
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 shrink-0 rounded-md border-primary/40 px-3 text-[12px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
-                                    >
-                                        <Link href={`/event/${event.id}`} target="_blank" rel="noopener">
-                                            {event.status === "draft" ? "Continue Editing" : "View Details"}
-                                        </Link>
-                                    </Button>
-                                </div>
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            )}
-
-            {/* Pagination — server-driven, so the page buttons come from the
-                response rather than from a hardcoded pair. */}
-            {totalItems > 0 && (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-[12.5px] text-muted-foreground">
-                        Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, totalItems)} of{" "}
-                        {totalItems} events
-                    </p>
-                    <div className="flex items-center gap-1.5">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label="Previous page"
-                            className="h-8 w-8 rounded-md"
-                            disabled={page <= 1}
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                            <FontAwesomeIcon icon={faChevronLeft} className="!size-[11px]" />
-                        </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                            <Button
-                                key={n}
-                                variant={n === page ? "default" : "outline"}
-                                size="icon"
-                                aria-label={`Page ${n}`}
-                                aria-current={n === page ? "page" : undefined}
-                                className="h-8 w-8 rounded-md text-[12px]"
-                                onClick={() => setPage(n)}
-                            >
-                                {n}
-                            </Button>
-                        ))}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            aria-label="Next page"
-                            className="h-8 w-8 rounded-md"
-                            disabled={page >= totalPages}
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        >
-                            <FontAwesomeIcon icon={faChevronRight} className="!size-[11px]" />
-                        </Button>
+            {/* Events overview */}
+            <Card className="gap-0 rounded-xl border p-5 shadow-none">
+                <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary"><CalendarDays className="h-5 w-5" /></span>
+                        <h2 className="text-[18px] font-bold text-foreground">Events Overview (All Events)</h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Select value={range} onValueChange={(v) => { setRange(v); setPage(1); }}>
+                            <SelectTrigger className="h-10 w-[230px] text-[13px]">
+                                <CalendarDays className="mr-1 h-4 w-4 text-muted-foreground" />
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {yearOptions.map((y) => <SelectItem key={y} value={String(y)}>01 Jan {y} – 31 Dec {y}</SelectItem>)}
+                                <SelectItem value="all">All Dates</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search event by name..." className="h-10 w-[260px] pl-9 text-[13px]" />
+                        </div>
+                        <Select value={filter} onValueChange={(v) => { setFilter(v as "all" | DerivedStatus); setPage(1); }}>
+                            <SelectTrigger className="h-10 w-[150px] text-[13px]"><SelectValue placeholder="Filter" /></SelectTrigger>
+                            <SelectContent>{FILTERS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+                        </Select>
                     </div>
                 </div>
-            )}
 
-            {/* Delete confirm. The QR code already issued for this event stops
-                resolving once the row is gone, so this is worth a second look
-                even though the delete is soft. */}
+                <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-[13px]">
+                        <thead className="bg-muted/40 text-left text-[12px] font-semibold text-muted-foreground">
+                            <tr>
+                                <th className="px-3 py-3">#</th>
+                                <th className="px-3 py-3">Event Name</th>
+                                <th className="px-3 py-3">Event Date</th>
+                                <th className="px-3 py-3">Status</th>
+                                <th className="px-3 py-3">Guests</th>
+                                <th className="px-3 py-3 whitespace-nowrap">RSVPs <span className="font-normal">(Confirmed | Pending | Declined)</span></th>
+                                <th className="px-3 py-3">Messages</th>
+                                <th className="px-3 py-3">Downloads</th>
+                                <th className="px-3 py-3">Response Rate</th>
+                                <th className="px-3 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {events.isLoading ? (
+                                Array.from({ length: 4 }).map((_, i) => (
+                                    <tr key={i} className="border-t"><td colSpan={10} className="px-3 py-3"><Skeleton className="h-5 w-full" /></td></tr>
+                                ))
+                            ) : events.isError && !authError ? (
+                                <tr><td colSpan={10} className="py-14 text-center text-muted-foreground">
+                                    Could not load your events. <button className="font-semibold text-primary hover:underline" onClick={() => events.refetch()}>Try again</button>
+                                </td></tr>
+                            ) : !rows.length ? (
+                                <tr><td colSpan={10} className="py-14 text-center text-muted-foreground">
+                                    {debounced || filter !== "all" ? "No events match these filters." : <>No events in this period. <Link href="/dashboard/events/create" className="font-semibold text-primary hover:underline">Create an event</Link></>}
+                                </td></tr>
+                            ) : rows.map((e, i) => {
+                                const st = STATUS[e.derived_status] ?? STATUS.upcoming;
+                                const guests = e.guest_count ?? 0;
+                                const confirmed = e.confirmed_count ?? 0;
+                                const declined = e.declined_count ?? 0;
+                                const rate = pct(confirmed + declined, guests);
+                                return (
+                                    <tr key={e.id} className="border-t hover:bg-muted/20">
+                                        <td className="px-3 py-3 font-semibold">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                                        <td className="max-w-[220px] px-3 py-3 font-semibold text-foreground break-words">{e.name}</td>
+                                        <td className="whitespace-nowrap px-3 py-3"><span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-muted-foreground" />{pretty(e.start_date)}</span></td>
+                                        <td className="px-3 py-3"><span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-medium whitespace-nowrap", st.cls)}><st.Icon className="h-3.5 w-3.5" />{st.label}</span></td>
+                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1.5 font-semibold"><Users className="h-4 w-4 text-muted-foreground" />{fmt(guests)}</span></td>
+                                        <td className="whitespace-nowrap px-3 py-3">
+                                            <span className="inline-flex items-center gap-3">
+                                                <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-4 w-4 text-emerald-600" />{fmt(confirmed)}</span>
+                                                <span className="inline-flex items-center gap-1"><Hourglass className="h-4 w-4 text-amber-500" />{fmt(e.pending_count)}</span>
+                                                <span className="inline-flex items-center gap-1"><XCircle className="h-4 w-4 text-rose-500" />{fmt(declined)}</span>
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1"><MessageCircle className="h-4 w-4 text-violet-500" />{fmt(e.messages_count)}</span></td>
+                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1"><Download className="h-4 w-4 text-sky-600" />{fmt(e.downloads_count)}</span></td>
+                                        <td className="px-3 py-3">
+                                            <span className="inline-flex items-center gap-2">
+                                                <span className="w-9 text-right font-semibold tabular-nums">{rate}%</span>
+                                                <span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} /></span>
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-3 text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${e.name}`}><MoreVertical className="h-4 w-4" /></Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-[190px]">
+                                                    <DropdownMenuItem asChild><Link href={`/event/${e.id}`} target="_blank" rel="noopener"><Eye />View Details</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href={`/dashboard/events/${e.id}/edit`}><Pencil />Edit Event</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=guests`} target="_blank" rel="noopener"><UserCog />Manage Guests</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=rsvps`} target="_blank" rel="noopener"><ListChecks />View RSVPs</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=messages`} target="_blank" rel="noopener"><Mail />Send Message</Link></DropdownMenuItem>
+                                                    <DropdownMenuItem disabled title="Coming next"><CalendarCheck />Event Availability</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => router.push("/dashboard/analytics")}><BarChart3 />Analytics</DropdownMenuItem>
+                                                    <DropdownMenuItem disabled={duplicate.isPending} onClick={() => duplicate.mutate(e.id)}><Copy />Duplicate Event</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setShareFor(e)}><QrCode />Download QR</DropdownMenuItem>
+                                                    {e.status === "draft" && (
+                                                        <DropdownMenuItem disabled={publish.isPending} onClick={() => publish.mutate({ id: e.id, data: { status: "upcoming" } })}><Rocket />Publish Event</DropdownMenuItem>
+                                                    )}
+                                                    <DropdownMenuItem onClick={() => setShareFor(e)}><Share2 />Share Event</DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setPendingDelete(e)}><Trash2 className="text-destructive" />Delete Event</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                {pagination && pagination.totalItems > 0 && (
+                    <div className="mt-4 flex flex-col gap-3 text-[12.5px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <span>Showing {(page - 1) * PAGE_SIZE + 1} – {Math.min(page * PAGE_SIZE, pagination.totalItems)} of {pagination.totalItems} events</span>
+                        {pagination.totalPages > 1 && (
+                            <div className="flex items-center gap-1.5">
+                                <Button variant="outline" size="sm" className="h-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+                                <span className="px-2">Page {page} of {pagination.totalPages}</span>
+                                <Button variant="outline" size="sm" className="h-8" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Card>
+
+            {/* Share / Download QR */}
+            <Dialog open={!!shareFor} onOpenChange={(v) => { if (!v) setShareFor(null); }}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><QrCode className="h-4 w-4 text-primary" />Share Event</DialogTitle>
+                        <DialogDescription className="break-words">
+                            Guests scan this code in the Event Invite app to open &ldquo;{shareFor?.name}&rdquo;. It stays the same when you edit the event.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-center py-2">
+                        <EventQr token={shareFor?.qr_token} qrStyle={shareFor?.qr_style} eventName={shareFor?.name} size={200} />
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete confirm (centre popup) */}
             <Dialog open={!!pendingDelete} onOpenChange={(v) => { if (!v && !remove.isPending) setPendingDelete(null); }}>
                 <DialogContent className="sm:max-w-[460px]">
                     <DialogHeader>
                         <DialogTitle>Delete event?</DialogTitle>
-                        <DialogDescription>
-                            &ldquo;{pendingDelete?.name}&rdquo; will be removed from your events, and its
-                            QR code will stop working.
-                        </DialogDescription>
+                        <DialogDescription>&ldquo;{pendingDelete?.name}&rdquo; will be removed from your events, and its QR code will stop working.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
-                        <Button
-                            variant="outline"
-                            className="h-10 rounded-md text-[13px] font-medium"
-                            disabled={remove.isPending}
-                            onClick={() => setPendingDelete(null)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            className="h-10 rounded-md text-[13px] font-semibold"
-                            disabled={remove.isPending}
-                            onClick={() => {
-                                if (!pendingDelete) return;
-                                // onSettled, not onSuccess — a failed delete must
-                                // close the dialog too, or the error toast lands
-                                // behind a modal that will not go away.
-                                remove.mutate(pendingDelete.id, { onSettled: () => setPendingDelete(null) });
-                            }}
-                        >
+                        <Button variant="outline" className="h-10" disabled={remove.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
+                        <Button variant="destructive" className="h-10" disabled={remove.isPending}
+                            onClick={() => pendingDelete && remove.mutate(pendingDelete.id, { onSettled: () => setPendingDelete(null) })}>
                             {remove.isPending ? "Deleting..." : "Delete"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <Card className="gap-0 rounded-xl border p-5 shadow-none">
+            <h2 className="mb-3 text-[16px] font-bold text-foreground">{title}</h2>
+            <div className="flex items-center gap-5">{children}</div>
+        </Card>
+    );
+}
+
+function Donut({ slices, centre, sub, loading }: { slices: { key: string; value: number; color: string }[]; centre: string; sub: string; loading: boolean }) {
+    const any = slices.some((x) => x.value > 0);
+    return (
+        <div className="relative h-[150px] w-[150px] shrink-0">
+            {loading ? <Skeleton className="h-full w-full rounded-full" /> : (
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie data={any ? slices : [{ key: "none", value: 1, color: "#E5E7EB" }]} dataKey="value" innerRadius={52} outerRadius={72} paddingAngle={any ? 1 : 0} stroke="none" startAngle={90} endAngle={-270}>
+                            {(any ? slices : [{ color: "#E5E7EB" }]).map((x, i) => <Cell key={i} fill={x.color} />)}
+                        </Pie>
+                    </PieChart>
+                </ResponsiveContainer>
+            )}
+            <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+                <div><p className="text-[22px] font-bold leading-none text-foreground">{centre}</p><p className="mt-1 text-[12px] text-muted-foreground">{sub}</p></div>
+            </div>
+        </div>
+    );
+}
+
+function Legend({ slices, total }: { slices: { key: string; value: number; color: string }[]; total: number }) {
+    return (
+        <ul className="flex flex-1 flex-col gap-3 text-[13px]">
+            {slices.map((x) => (
+                <li key={x.key} className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: x.color }} />{x.key}</span>
+                    <span className="tabular-nums text-foreground">{fmt(x.value)} ({pct(x.value, total)}%)</span>
+                </li>
+            ))}
+        </ul>
     );
 }
