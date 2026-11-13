@@ -44,7 +44,7 @@ export function ContactSupportSheet({
     // Mounted fresh each time the panel opens (the page renders it only while open), so the form
     // starts from the profile and the selected dates without an effect.
     const p = profile.data;
-    const blocked = unavailable.map((u) => u.label).join(", ");
+    const blocked = unavailable.map((u) => u.label.split(" — ")[0]).join(", ");
     const what = bookingType === "multiple" ? `a multi-date event from ${rangeLabel}` : `an event on ${rangeLabel}`;
     const are = unavailable.length > 1 ? "are" : "is";
     const [tab, setTab] = useState<"call" | "email">("call");
