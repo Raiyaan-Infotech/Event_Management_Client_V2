@@ -245,20 +245,20 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-[12.5px]">
+                <div className="overflow-x-auto rounded-lg border xl:overflow-x-visible">
+                    <table className="w-full whitespace-nowrap text-[12px]">
                         <thead className="bg-muted/40 text-left text-[11.5px] font-semibold text-muted-foreground">
                             <tr>
-                                <th className="px-3 py-2.5">#</th>
-                                <th className="px-3 py-2.5">Event Name</th>
-                                <th className="px-3 py-2.5">Event Date</th>
-                                <th className="px-3 py-2.5">Status</th>
-                                <th className="px-3 py-2.5">Guests</th>
-                                <th className="px-3 py-2.5 whitespace-nowrap">RSVPs <span className="font-normal">(Confirmed | Pending | Declined)</span></th>
-                                <th className="px-3 py-2.5">Messages</th>
-                                <th className="px-3 py-2.5">Downloads</th>
-                                <th className="px-3 py-2.5">Response Rate</th>
-                                <th className="px-3 py-2.5 text-right">Actions</th>
+                                <th className="px-2.5 py-2.5">#</th>
+                                <th className="px-2.5 py-2.5">Event Name</th>
+                                <th className="px-2.5 py-2.5">Event Date</th>
+                                <th className="px-2.5 py-2.5">Status</th>
+                                <th className="px-2.5 py-2.5">Guests</th>
+                                <th className="px-2.5 py-2.5 whitespace-nowrap">RSVPs <span className="text-[10px] font-normal">(Confirmed | Pending | Declined)</span></th>
+                                <th className="px-2.5 py-2.5">Messages</th>
+                                <th className="px-2.5 py-2.5">Downloads</th>
+                                <th className="px-2.5 py-2.5">Response Rate</th>
+                                <th className="px-2.5 py-2.5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -282,27 +282,27 @@ export default function DashboardPage() {
                                 const rate = pct(confirmed + declined, guests);
                                 return (
                                     <tr key={e.id} className="border-t hover:bg-muted/20">
-                                        <td className="px-3 py-2 font-semibold">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                                        <td className="max-w-[220px] px-3 py-2 font-semibold text-foreground break-words">{e.name}</td>
-                                        <td className="whitespace-nowrap px-3 py-2"><span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-muted-foreground" />{pretty(e.start_date)}</span></td>
-                                        <td className="px-3 py-2"><span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap", st.cls)}><st.Icon className="h-3.5 w-3.5" />{st.label}</span></td>
-                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1.5 font-semibold"><Users className="h-4 w-4 text-muted-foreground" />{fmt(guests)}</span></td>
-                                        <td className="whitespace-nowrap px-3 py-2">
-                                            <span className="inline-flex items-center gap-3">
+                                        <td className="px-2.5 py-2 font-semibold">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                                        <td className="px-2.5 py-2 font-semibold text-foreground"><span className="block max-w-[200px] truncate" title={e.name}>{e.name}</span></td>
+                                        <td className="whitespace-nowrap px-2.5 py-2"><span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{pretty(e.start_date)}</span></td>
+                                        <td className="px-2.5 py-2"><span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap", st.cls)}><st.Icon className="h-3.5 w-3.5" />{st.label}</span></td>
+                                        <td className="px-2.5 py-2"><span className="inline-flex items-center gap-1.5 font-semibold"><Users className="h-3.5 w-3.5 text-muted-foreground" />{fmt(guests)}</span></td>
+                                        <td className="whitespace-nowrap px-2.5 py-2">
+                                            <span className="inline-flex items-center gap-2.5">
                                                 <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />{fmt(confirmed)}</span>
                                                 <span className="inline-flex items-center gap-1"><Hourglass className="h-3.5 w-3.5 text-amber-500" />{fmt(e.pending_count)}</span>
                                                 <span className="inline-flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-rose-500" />{fmt(declined)}</span>
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5 text-violet-500" />{fmt(e.messages_count)}</span></td>
-                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><Download className="h-3.5 w-3.5 text-sky-600" />{fmt(e.downloads_count)}</span></td>
-                                        <td className="px-3 py-2">
+                                        <td className="px-2.5 py-2"><span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5 text-violet-500" />{fmt(e.messages_count)}</span></td>
+                                        <td className="px-2.5 py-2"><span className="inline-flex items-center gap-1"><Download className="h-3.5 w-3.5 text-sky-600" />{fmt(e.downloads_count)}</span></td>
+                                        <td className="px-2.5 py-2">
                                             <span className="inline-flex items-center gap-2">
-                                                <span className="w-9 text-right font-semibold tabular-nums">{rate}%</span>
-                                                <span className="h-1.5 w-20 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} /></span>
+                                                <span className="w-8 text-right font-semibold tabular-nums">{rate}%</span>
+                                                <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} /></span>
                                             </span>
                                         </td>
-                                        <td className="px-3 py-2 text-right">
+                                        <td className="px-2.5 py-2 text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${e.name}`}><MoreVertical className="h-4 w-4" /></Button>
