@@ -129,32 +129,32 @@ export default function DashboardPage() {
     const yearOptions = [thisYear - 1, thisYear, thisYear + 1];
 
     return (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
                     {profile.data?.avatar_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={profile.data.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                        <img src={profile.data.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                     ) : (
-                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-base font-bold text-primary">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
                             {(firstName || "?").slice(0, 2).toUpperCase()}
                         </span>
                     )}
                     <div className="min-w-0">
-                        <h1 className="text-[22px] font-bold leading-tight text-foreground">
+                        <h1 className="text-[18px] font-bold leading-tight text-foreground">
                             {profile.isLoading ? <Skeleton className="h-6 w-[240px]" /> : <>Welcome Back{firstName ? `, ${firstName}` : ""} <span aria-hidden>👋</span></>}
                         </h1>
-                        <p className="text-[13px] text-muted-foreground">Organizer Dashboard · All Events Overview</p>
+                        <p className="text-[12px] text-muted-foreground">Organizer Dashboard · All Events Overview</p>
                     </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                    <Button asChild variant="outline" className="h-11 rounded-lg px-4 text-[13px] font-semibold">
+                    <Button asChild variant="outline" className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
                         <Link href="/dashboard/events/create">Create New Event</Link>
                     </Button>
                     {/* The organizer calendar is the next build; the button is here so the layout matches. */}
-                    <Button className="h-11 rounded-lg px-5 text-[14px] font-semibold" disabled title="Event Availability calendar — coming next">
-                        <CalendarRange className="mr-2 h-5 w-5" />Event Availability
+                    <Button className="h-9 rounded-md px-4 text-[12.5px] font-semibold" disabled title="Event Availability calendar — coming next">
+                        <CalendarRange className="mr-1.5 h-4 w-4" />Event Availability
                     </Button>
                 </div>
             </div>
@@ -173,11 +173,11 @@ export default function DashboardPage() {
             {/* 7 tiles */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
                 {tiles.map((t) => (
-                    <div key={t.label} className={cn("flex items-center gap-3 rounded-xl px-4 py-3.5", t.cls.split(" ")[0])}>
-                        <t.Icon className={cn("h-8 w-8 shrink-0", t.cls.split(" ")[1])} strokeWidth={1.8} />
+                    <div key={t.label} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2.5", t.cls.split(" ")[0])}>
+                        <t.Icon className={cn("h-6 w-6 shrink-0", t.cls.split(" ")[1])} strokeWidth={1.8} />
                         <div className="min-w-0">
-                            {stats.isLoading ? <Skeleton className="h-6 w-12" /> : <p className="text-[22px] font-bold leading-none tabular-nums text-foreground">{fmt(t.value)}</p>}
-                            <p className="mt-1 truncate text-[12.5px] text-muted-foreground">{t.label}</p>
+                            {stats.isLoading ? <Skeleton className="h-5 w-10" /> : <p className="text-[18px] font-bold leading-none tabular-nums text-foreground">{fmt(t.value)}</p>}
+                            <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{t.label}</p>
                         </div>
                     </div>
                 ))}
@@ -193,18 +193,18 @@ export default function DashboardPage() {
                     <Donut slices={statusSlices} centre={fmt(s?.total_events)} sub="Events" loading={stats.isLoading} />
                     <Legend slices={statusSlices} total={s?.total_events ?? 0} />
                 </ChartCard>
-                <Card className="gap-0 rounded-xl border p-5 shadow-none lg:col-span-2 xl:col-span-1">
+                <Card className="gap-0 rounded-lg border p-4 shadow-none lg:col-span-2 xl:col-span-1">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                        <h2 className="text-[16px] font-bold text-foreground">Events by Month <span className="text-[12px] font-normal text-muted-foreground">({chartYear})</span></h2>
+                        <h2 className="text-[14px] font-semibold text-foreground">Events by Month <span className="text-[11.5px] font-normal text-muted-foreground">({chartYear})</span></h2>
                         <Select value={chartMode} onValueChange={(v) => setChartMode(v as "events" | "guests")}>
-                            <SelectTrigger className="h-9 w-[150px] text-[12.5px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[130px] text-[12px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="events">Events Count</SelectItem>
                                 <SelectItem value="guests">Guests Count</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="h-[170px]">
+                    <div className="h-[130px]">
                         {stats.isLoading ? <Skeleton className="h-full w-full" /> : (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={monthData} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
@@ -221,15 +221,15 @@ export default function DashboardPage() {
             </div>
 
             {/* Events overview */}
-            <Card className="gap-0 rounded-xl border p-5 shadow-none">
-                <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <Card className="gap-0 rounded-lg border p-4 shadow-none">
+                <div className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                     <div className="flex items-center gap-3">
-                        <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary"><CalendarDays className="h-5 w-5" /></span>
-                        <h2 className="text-[18px] font-bold text-foreground">Events Overview (All Events)</h2>
+                        <span className="grid h-8 w-8 place-items-center rounded-md bg-primary/10 text-primary"><CalendarDays className="h-4 w-4" /></span>
+                        <h2 className="text-[14px] font-semibold text-foreground">Events Overview (All Events)</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <Select value={range} onValueChange={(v) => { setRange(v); setPage(1); }}>
-                            <SelectTrigger className="h-10 w-[260px] text-[13px]">
+                            <SelectTrigger className="h-9 w-[230px] text-[12px]">
                                 <CalendarDays className="mr-1 h-4 w-4 text-muted-foreground" />
                                 <SelectValue />
                             </SelectTrigger>
@@ -240,35 +240,35 @@ export default function DashboardPage() {
                         </Select>
                         <div className="relative">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search event by name..." className="h-10 w-[260px] pl-9 text-[13px]" />
+                            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search event by name..." className="h-9 w-[220px] pl-9 text-[12px]" />
                         </div>
                         <Select value={filter} onValueChange={(v) => { setFilter(v as "all" | DerivedStatus); setPage(1); }}>
-                            <SelectTrigger className="h-10 w-[150px] text-[13px]"><SelectValue placeholder="Filter" /></SelectTrigger>
+                            <SelectTrigger className="h-9 w-[130px] text-[12px]"><SelectValue placeholder="Filter" /></SelectTrigger>
                             <SelectContent>{FILTERS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-[13px]">
-                        <thead className="bg-muted/40 text-left text-[12px] font-semibold text-muted-foreground">
+                    <table className="w-full text-[12.5px]">
+                        <thead className="bg-muted/40 text-left text-[11.5px] font-semibold text-muted-foreground">
                             <tr>
-                                <th className="px-3 py-3">#</th>
-                                <th className="px-3 py-3">Event Name</th>
-                                <th className="px-3 py-3">Event Date</th>
-                                <th className="px-3 py-3">Status</th>
-                                <th className="px-3 py-3">Guests</th>
-                                <th className="px-3 py-3 whitespace-nowrap">RSVPs <span className="font-normal">(Confirmed | Pending | Declined)</span></th>
-                                <th className="px-3 py-3">Messages</th>
-                                <th className="px-3 py-3">Downloads</th>
-                                <th className="px-3 py-3">Response Rate</th>
-                                <th className="px-3 py-3 text-right">Actions</th>
+                                <th className="px-3 py-2.5">#</th>
+                                <th className="px-3 py-2.5">Event Name</th>
+                                <th className="px-3 py-2.5">Event Date</th>
+                                <th className="px-3 py-2.5">Status</th>
+                                <th className="px-3 py-2.5">Guests</th>
+                                <th className="px-3 py-2.5 whitespace-nowrap">RSVPs <span className="font-normal">(Confirmed | Pending | Declined)</span></th>
+                                <th className="px-3 py-2.5">Messages</th>
+                                <th className="px-3 py-2.5">Downloads</th>
+                                <th className="px-3 py-2.5">Response Rate</th>
+                                <th className="px-3 py-2.5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {events.isLoading ? (
                                 Array.from({ length: 4 }).map((_, i) => (
-                                    <tr key={i} className="border-t"><td colSpan={10} className="px-3 py-3"><Skeleton className="h-5 w-full" /></td></tr>
+                                    <tr key={i} className="border-t"><td colSpan={10} className="px-3 py-2"><Skeleton className="h-5 w-full" /></td></tr>
                                 ))
                             ) : events.isError && !authError ? (
                                 <tr><td colSpan={10} className="py-14 text-center text-muted-foreground">
@@ -286,27 +286,27 @@ export default function DashboardPage() {
                                 const rate = pct(confirmed + declined, guests);
                                 return (
                                     <tr key={e.id} className="border-t hover:bg-muted/20">
-                                        <td className="px-3 py-3 font-semibold">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                                        <td className="max-w-[220px] px-3 py-3 font-semibold text-foreground break-words">{e.name}</td>
-                                        <td className="whitespace-nowrap px-3 py-3"><span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-muted-foreground" />{pretty(e.start_date)}</span></td>
-                                        <td className="px-3 py-3"><span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-medium whitespace-nowrap", st.cls)}><st.Icon className="h-3.5 w-3.5" />{st.label}</span></td>
-                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1.5 font-semibold"><Users className="h-4 w-4 text-muted-foreground" />{fmt(guests)}</span></td>
-                                        <td className="whitespace-nowrap px-3 py-3">
+                                        <td className="px-3 py-2 font-semibold">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                                        <td className="max-w-[220px] px-3 py-2 font-semibold text-foreground break-words">{e.name}</td>
+                                        <td className="whitespace-nowrap px-3 py-2"><span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4 text-muted-foreground" />{pretty(e.start_date)}</span></td>
+                                        <td className="px-3 py-2"><span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap", st.cls)}><st.Icon className="h-3.5 w-3.5" />{st.label}</span></td>
+                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1.5 font-semibold"><Users className="h-4 w-4 text-muted-foreground" />{fmt(guests)}</span></td>
+                                        <td className="whitespace-nowrap px-3 py-2">
                                             <span className="inline-flex items-center gap-3">
-                                                <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-4 w-4 text-emerald-600" />{fmt(confirmed)}</span>
-                                                <span className="inline-flex items-center gap-1"><Hourglass className="h-4 w-4 text-amber-500" />{fmt(e.pending_count)}</span>
-                                                <span className="inline-flex items-center gap-1"><XCircle className="h-4 w-4 text-rose-500" />{fmt(declined)}</span>
+                                                <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />{fmt(confirmed)}</span>
+                                                <span className="inline-flex items-center gap-1"><Hourglass className="h-3.5 w-3.5 text-amber-500" />{fmt(e.pending_count)}</span>
+                                                <span className="inline-flex items-center gap-1"><XCircle className="h-3.5 w-3.5 text-rose-500" />{fmt(declined)}</span>
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1"><MessageCircle className="h-4 w-4 text-violet-500" />{fmt(e.messages_count)}</span></td>
-                                        <td className="px-3 py-3"><span className="inline-flex items-center gap-1"><Download className="h-4 w-4 text-sky-600" />{fmt(e.downloads_count)}</span></td>
-                                        <td className="px-3 py-3">
+                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5 text-violet-500" />{fmt(e.messages_count)}</span></td>
+                                        <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><Download className="h-3.5 w-3.5 text-sky-600" />{fmt(e.downloads_count)}</span></td>
+                                        <td className="px-3 py-2">
                                             <span className="inline-flex items-center gap-2">
                                                 <span className="w-9 text-right font-semibold tabular-nums">{rate}%</span>
-                                                <span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} /></span>
+                                                <span className="h-1.5 w-20 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-emerald-500" style={{ width: `${rate}%` }} /></span>
                                             </span>
                                         </td>
-                                        <td className="px-3 py-3 text-right">
+                                        <td className="px-3 py-2 text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${e.name}`}><MoreVertical className="h-4 w-4" /></Button>
@@ -388,9 +388,9 @@ export default function DashboardPage() {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
-        <Card className="gap-0 rounded-xl border p-5 shadow-none">
-            <h2 className="mb-3 text-[16px] font-bold text-foreground">{title}</h2>
-            <div className="flex items-center gap-5">{children}</div>
+        <Card className="gap-0 rounded-lg border p-4 shadow-none">
+            <h2 className="mb-2 text-[14px] font-semibold text-foreground">{title}</h2>
+            <div className="flex items-center gap-4">{children}</div>
         </Card>
     );
 }
@@ -398,18 +398,18 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 function Donut({ slices, centre, sub, loading }: { slices: { key: string; value: number; color: string }[]; centre: string; sub: string; loading: boolean }) {
     const any = slices.some((x) => x.value > 0);
     return (
-        <div className="relative h-[150px] w-[150px] shrink-0">
+        <div className="relative h-[120px] w-[120px] shrink-0">
             {loading ? <Skeleton className="h-full w-full rounded-full" /> : (
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                        <Pie data={any ? slices : [{ key: "none", value: 1, color: "#E5E7EB" }]} dataKey="value" innerRadius={52} outerRadius={72} paddingAngle={any ? 1 : 0} stroke="none" startAngle={90} endAngle={-270}>
+                        <Pie data={any ? slices : [{ key: "none", value: 1, color: "#E5E7EB" }]} dataKey="value" innerRadius={42} outerRadius={58} paddingAngle={any ? 1 : 0} stroke="none" startAngle={90} endAngle={-270}>
                             {(any ? slices : [{ color: "#E5E7EB" }]).map((x, i) => <Cell key={i} fill={x.color} />)}
                         </Pie>
                     </PieChart>
                 </ResponsiveContainer>
             )}
             <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
-                <div><p className="text-[22px] font-bold leading-none text-foreground">{centre}</p><p className="mt-1 text-[12px] text-muted-foreground">{sub}</p></div>
+                <div><p className="text-[17px] font-bold leading-none text-foreground">{centre}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p></div>
             </div>
         </div>
     );
@@ -417,10 +417,10 @@ function Donut({ slices, centre, sub, loading }: { slices: { key: string; value:
 
 function Legend({ slices, total }: { slices: { key: string; value: number; color: string }[]; total: number }) {
     return (
-        <ul className="flex flex-1 flex-col gap-3 text-[13px]">
+        <ul className="flex flex-1 flex-col gap-2 text-[12px]">
             {slices.map((x) => (
                 <li key={x.key} className="flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: x.color }} />{x.key}</span>
+                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: x.color }} />{x.key}</span>
                     <span className="tabular-nums text-foreground">{fmt(x.value)} ({pct(x.value, total)}%)</span>
                 </li>
             ))}
