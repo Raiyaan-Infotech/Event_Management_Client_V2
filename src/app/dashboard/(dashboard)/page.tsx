@@ -25,6 +25,7 @@ import {
 } from "@/hooks/use-client-events";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
+import { PageLoader } from "@/components/common/page-loader";
 
 /**
  * Organizer dashboard — the client portal's first page (Jamal's design, 2026-11-13).
@@ -130,6 +131,9 @@ export default function DashboardPage() {
 
     return (
         <div className="flex flex-col gap-4">
+            {/* Saving loader for the row actions (duplicate / publish / delete). */}
+            <PageLoader open={duplicate.isPending || publish.isPending || remove.isPending}
+                text={remove.isPending ? "Deleting..." : duplicate.isPending ? "Duplicating..." : "Publishing..."} />
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
