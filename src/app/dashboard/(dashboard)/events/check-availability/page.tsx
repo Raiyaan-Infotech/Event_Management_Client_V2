@@ -289,7 +289,10 @@ export default function CheckAvailabilityPage() {
                                     <p key={u.date} className="rounded bg-white/70 px-2 py-1">{pretty(u.date)} — <span className="font-semibold text-red-600">{STATUS_TEXT[u.status] ?? "Not Available"}</span></p>
                                 ))}
                             </div>
-                            <Button asChild variant="outline" className="mt-3 h-9 w-full"><Link href="/dashboard">Back to Dashboard</Link></Button>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                <Button asChild variant="outline" className="h-9 text-[12.5px]"><Link href="/dashboard">Back to Dashboard</Link></Button>
+                                <Button asChild className="h-9 text-[12.5px]"><Link href={`/dashboard/allocation-requests/${submitted.id}`}>View Support Request</Link></Button>
+                            </div>
                             <p className="mt-2 flex items-start gap-1.5 text-[11.5px] text-muted-foreground"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />Event creation cannot continue until support assistance is completed.</p>
                         </div>
                     ) : start ? (

@@ -45,3 +45,38 @@ export function useCreateAvailabilityRequest() {
         mutationFn: (form: FormData) => api.post<AvailabilityRequest>('/client/availability/requests', form),
     });
 }
+
+/** The full request, as the Allocation Requests pages read it. */
+export interface AllocationRequest extends AvailabilityRequest {
+    contact_name: string;
+    contact_mobile: string | null;
+    contact_email: string | null;
+    preferred_call_time: string | null;
+    subject: string | null;
+    message: string;
+    attachment_name: string | null;
+    decision_reason: string | null;
+    decision: {
+        dates?: string[]; exception_slots?: number; expiry_hours?: number; expires_at?: string;
+        category?: string; used_event_id?: number; used_at?: string;
+    } | null;
+    decided_at: string | null;
+    days?: { date: string; day: string; status: CalendarStatus; daily_max: number; booked: number; balance: number }[];
+}
+
+export function useMyAllocationRequests() {
+    return useQuery({
+        queryKey: ['client', 'availability', 'requests'],
+        queryFn: () => api.get<AllocationRequest[]>('/client/availability/requests'),
+        retry: false,
+    });
+}
+
+export function useMyAllocationRequest(id: number | null) {
+    return useQuery({
+        queryKey: ['client', 'availability', 'requests', id],
+        queryFn: () => api.get<AllocationRequest>(`/client/availability/requests/${id}`),
+        enabled: !!id,
+        retry: false,
+    });
+}

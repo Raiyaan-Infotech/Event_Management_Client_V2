@@ -1,5 +1,6 @@
 import {
     faHouse,
+    faInbox,
     faCalendarDays,
     faLayerGroup,
     faUserPlus,
@@ -66,6 +67,8 @@ import {
 export const navMain = [
     { title: "Dashboard", url: "/dashboard", icon: faHouse, items: [] },
     { title: "My Events", url: "/dashboard/events", icon: faCalendarDays, items: [] },
+    // Requests the client sent from Check Event Availability → Contact Support (2026-11-14).
+    { title: "Allocation Requests", url: "/dashboard/allocation-requests", icon: faInbox, items: [] },
     { title: "Templates", url: "/dashboard/templates", icon: faLayerGroup, items: [] },
     // Splash Screens removed from the web (2026-10-31) — it lives in the mobile app only.
     {
