@@ -217,10 +217,10 @@ export default function CheckAvailabilityPage() {
                                 </Button>
                             ) : (
                                 <Button disabled className="mt-4 h-10 w-full bg-muted text-[13.5px] font-semibold text-muted-foreground">
-                                    <CalendarPlus className="mr-1.5 h-4 w-4" />{mode === "multiple" && !end && !blocked ? "Select Last Date" : "Date Not Available"}
+                                    {loadingSel ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CalendarPlus className="mr-1.5 h-4 w-4" />}{loadingSel ? "Checking dates..." : mode === "multiple" && !end && !blocked ? "Select Last Date" : "Date Not Available"}
                                 </Button>
                             )}
-                            {reason && <p className="mt-2 flex items-start gap-1.5 rounded-md bg-red-50 px-2.5 py-2 text-[12px] text-red-600"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{reason}</p>}
+                            {reason && !loadingSel && <p className="mt-2 flex items-start gap-1.5 rounded-md bg-red-50 px-2.5 py-2 text-[12px] text-red-600"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{reason}</p>}
                         </>
                     )}
                     <p className="mt-3 flex items-start gap-1.5 rounded-md bg-primary/5 px-2.5 py-2 text-[11.5px] text-muted-foreground"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />Availability is based on limits configured in the Super Admin portal.</p>
