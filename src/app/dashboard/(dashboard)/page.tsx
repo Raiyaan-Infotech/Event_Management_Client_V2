@@ -149,9 +149,8 @@ export default function DashboardPage() {
                     </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                    {/* The organizer calendar is the next build; the button is here so the layout matches. */}
-                    <Button className="h-9 rounded-md px-4 text-[12.5px] font-semibold" disabled title="Event Availability calendar — coming next">
-                        <CalendarRange className="mr-1.5 h-4 w-4" />Event Availability
+                    <Button asChild className="h-9 rounded-md px-4 text-[12.5px] font-semibold">
+                        <Link href="/dashboard/events/check-availability"><CalendarRange className="mr-1.5 h-4 w-4" />Event Availability</Link>
                     </Button>
                 </div>
             </div>
@@ -314,7 +313,7 @@ export default function DashboardPage() {
                                                     <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=guests`} target="_blank" rel="noopener"><UserCog />Manage Guests</Link></DropdownMenuItem>
                                                     <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=rsvps`} target="_blank" rel="noopener"><ListChecks />View RSVPs</Link></DropdownMenuItem>
                                                     <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=messages`} target="_blank" rel="noopener"><Mail />Send Message</Link></DropdownMenuItem>
-                                                    <DropdownMenuItem disabled title="Coming next"><CalendarCheck />Event Availability</DropdownMenuItem>
+                                                    <DropdownMenuItem asChild><Link href="/dashboard/events/check-availability"><CalendarCheck />Event Availability</Link></DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => router.push("/dashboard/analytics")}><BarChart3 />Analytics</DropdownMenuItem>
                                                     <DropdownMenuItem disabled={duplicate.isPending} onClick={() => duplicate.mutate(e.id)}><Copy />Duplicate Event</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => setShareFor(e)}><QrCode />Download QR</DropdownMenuItem>

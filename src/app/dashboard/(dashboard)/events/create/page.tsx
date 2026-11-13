@@ -16,8 +16,12 @@ import { EventLimitGate } from "../_components/event-limit-gate";
 export default async function CreateEventPage({
     searchParams,
 }: {
-    searchParams: Promise<{ theme?: string }>;
+    searchParams: Promise<{ theme?: string; start?: string; end?: string }>;
 }) {
-    const { theme } = await searchParams;
-    return <EventLimitGate initialThemeId={theme} />;
+    const { theme, start, end } = await searchParams;
+    // ?start= / ?end= come from the Event Availability calendar's Book Event.
+    const day = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+    const startDate = day(start);
+    const endDate = startDate ? day(end) : undefined;
+    return <EventLimitGate initialThemeId={theme} initialStartDate={startDate} initialEndDate={endDate && endDate >= (startDate as string) ? endDate : startDate} />;
 }

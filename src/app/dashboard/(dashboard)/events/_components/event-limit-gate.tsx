@@ -25,7 +25,7 @@ import { EventWizard } from "./event-wizard";
  * neither) the wizard opens. A reporting gap should not stop somebody creating
  * an event they are entitled to — the backend still has the last word.
  */
-export function EventLimitGate({ initialThemeId }: { initialThemeId?: string }) {
+export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string }) {
     const options = useEventOptions();
 
     const limit = options.data?.plan?.max_events ?? null;
@@ -33,7 +33,7 @@ export function EventLimitGate({ initialThemeId }: { initialThemeId?: string }) 
     const limitReached =
         !options.isLoading && limit !== null && used !== null && used >= limit;
 
-    if (!limitReached) return <EventWizard initialThemeId={initialThemeId} />;
+    if (!limitReached) return <EventWizard initialThemeId={initialThemeId} initialStartDate={initialStartDate} initialEndDate={initialEndDate} />;
 
     return (
         <Card className="mx-auto mt-6 max-w-lg">

@@ -324,6 +324,8 @@ const COMPONENT_SWITCHES: { label: string; keys: ComponentKey[] }[] = [
 export function EventWizard({
     eventId,
     initialThemeId,
+    initialStartDate,
+    initialEndDate,
     section,
     embedded = false,
 }: {
@@ -342,6 +344,9 @@ export function EventWizard({
      * as-is and checked against the real catalogue by the effect below.
      */
     initialThemeId?: string;
+    /** Dates picked on the Event Availability calendar (Book Event) — filled into Date & Time. */
+    initialStartDate?: string;
+    initialEndDate?: string;
 }) {
     const wsHref = useEventHref();
     const isEdit = !!eventId;
@@ -356,7 +361,9 @@ export function EventWizard({
     const [step, setStep] = useState(sectionPages ? sectionPages[0] : 1);
     const pageIndex = sectionPages ? sectionPages.indexOf(step) : -1;
     const hubHref = wsHref(eventId ? `/dashboard/events/${eventId}/edit` : "/dashboard/events");
-    const [form, setForm] = useState<FormState>(EMPTY);
+    const [form, setForm] = useState<FormState>(() => (initialStartDate
+        ? { ...EMPTY, start_date: initialStartDate, end_date: initialEndDate || initialStartDate }
+        : EMPTY));
     /** What the venue map last wrote into each field (see the Venue step). */
     const mapFilled = useRef<Partial<Record<"venue_name" | "venue_address" | "venue_landmark", string>>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
