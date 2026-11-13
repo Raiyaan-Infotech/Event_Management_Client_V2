@@ -149,9 +149,6 @@ export default function DashboardPage() {
                     </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                    <Button asChild variant="outline" className="h-9 rounded-md px-3.5 text-[12.5px] font-semibold">
-                        <Link href="/dashboard/events/create">Create New Event</Link>
-                    </Button>
                     {/* The organizer calendar is the next build; the button is here so the layout matches. */}
                     <Button className="h-9 rounded-md px-4 text-[12.5px] font-semibold" disabled title="Event Availability calendar — coming next">
                         <CalendarRange className="mr-1.5 h-4 w-4" />Event Availability
