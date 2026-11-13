@@ -1,7 +1,8 @@
 // Organizer home dashboard (Jamal's design 2026-11-13, /dashboard): 7 tiles, 3 charts, Events Overview
 // table + ⋯ menu. Every figure is compared with the API. Read-only — nothing is changed.
 module.exports = async (k) => {
-    const { page, step, expect, api, PORTAL } = k;
+    const { page, step, expect, api } = k;
+    const PORTAL = k.PORTAL || 'https://eventmanagementclientv2.vercel.app';
     const year = new Date().getFullYear();
     let stats = {};
     let list = { rows: [], total: 0 };
@@ -11,7 +12,8 @@ module.exports = async (k) => {
         const s = await api(`/client/events/stats?year=${year}`);
         stats = s.body?.data || {};
         expect(typeof stats.total_events === 'number', 'stats not readable');
-        expect(Array.isArray(stats.events_by_month) && stats.events_by_month.length === 12, 'events_by_month missing (backend not deployed?)');
+        expect(Array.isArray(stats.events_by_month) && stats.events_by_month.length === 12,
+            `events_by_month missing (backend not deployed?) keys: ${Object.keys(stats).join(',')}`);
         const l = await api(`/client/events?from=${year}-01-01&to=${year}-12-31&page=1&limit=10`);
         list = { rows: l.body?.data || [], total: l.body?.pagination?.totalItems ?? 0 };
         return `events ${stats.total_events}, guests ${stats.total_guests}, messages ${stats.total_messages}, downloads ${stats.total_downloads}, this year ${list.total}`;
@@ -24,12 +26,15 @@ module.exports = async (k) => {
         for (const t of ['Total Events', 'Total Guests', 'Confirmed', 'Pending', 'Declined', 'Messages', 'Downloads']) {
             await page.getByText(t, { exact: true }).first().waitFor({ timeout: 20000 });
         }
+        // wait for the page-wide "Loading..." overlay and the tile skeletons to finish
+        await page.locator('[role="status"]').filter({ hasText: 'Loading...' }).first().waitFor({ state: 'hidden', timeout: 60000 }).catch(() => {});
+        await page.getByText('Total Events', { exact: true }).first().locator('xpath=..').locator('p').first().waitFor({ timeout: 30000 });
         await page.waitForTimeout(1500);
         await k.shot('home-dashboard');
     });
 
     await step('H2. tile values = API', async () => {
-        const tile = async (label) => (await page.getByText(label, { exact: true }).first().locator('xpath=..').innerText()).split('\n')[0].replace(/,/g, '').trim();
+        const tile = async (label) => (await page.locator('main, #main-content').first().getByText(label, { exact: true }).first().locator('xpath=..').innerText()).split('\n')[0].replace(/,/g, '').trim();
         const want = {
             'Total Events': stats.total_events, 'Total Guests': stats.total_guests, Confirmed: stats.rsvp_going,
             Pending: stats.rsvp_pending, Declined: stats.rsvp_declined, Messages: stats.total_messages, Downloads: stats.total_downloads,

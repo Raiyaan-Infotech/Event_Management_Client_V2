@@ -229,7 +229,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <Select value={range} onValueChange={(v) => { setRange(v); setPage(1); }}>
-                            <SelectTrigger className="h-10 w-[230px] text-[13px]">
+                            <SelectTrigger className="h-10 w-[260px] text-[13px]">
                                 <CalendarDays className="mr-1 h-4 w-4 text-muted-foreground" />
                                 <SelectValue />
                             </SelectTrigger>
