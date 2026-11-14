@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, ApiError } from '@/lib/api-client';
 
 /**
  * Event Availability calendar (client portal, Jamal 2026-11-13).
@@ -35,14 +35,41 @@ export interface AvailabilityRequest {
     end_date: string;
     unavailable_dates: { date: string; status: CalendarStatus }[];
     contact_method: 'call' | 'email';
-    status: 'pending' | 'approved' | 'rejected';
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
     created_at: string;
 }
 
 /** POST /client/availability/requests — FormData (attachment optional, email only). */
 export function useCreateAvailabilityRequest() {
+    const qc = useQueryClient();
     return useMutation({
         mutationFn: (form: FormData) => api.post<AvailabilityRequest>('/client/availability/requests', form),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['client', 'availability', 'requests'] }),
+    });
+}
+
+/**
+ * 409 from the create call: a pending request already covers one of these unavailable dates.
+ * The client must cancel it first ("Existing Support Request Found").
+ */
+export interface ExistingRequestConflict {
+    code: 'EXISTING_REQUEST';
+    existing: AllocationRequest;
+    conflict_dates: string[];
+}
+export function existingRequestConflict(e: unknown): ExistingRequestConflict | null {
+    if (!(e instanceof ApiError) || e.status !== 409) return null;
+    const errs = (e.payload as { errors?: unknown[] } | null)?.errors;
+    const hit = Array.isArray(errs) ? errs.find((x) => (x as { code?: string })?.code === 'EXISTING_REQUEST') : null;
+    return (hit as ExistingRequestConflict) ?? null;
+}
+
+/** POST /client/availability/requests/:id/cancel — the client withdraws a pending request. */
+export function useCancelAvailabilityRequest() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id: number) => api.post<AllocationRequest>(`/client/availability/requests/${id}/cancel`, {}),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['client', 'availability', 'requests'] }),
     });
 }
 

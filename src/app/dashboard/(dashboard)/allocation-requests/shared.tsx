@@ -1,4 +1,4 @@
-import { Ban, CheckCircle2, Hourglass } from "lucide-react";
+import { Ban, CheckCircle2, Hourglass, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Small shared bits of the Allocation Requests pages. */
@@ -27,9 +27,10 @@ const STATUS = {
     pending: { label: "Pending Review", cls: "border-amber-200 bg-amber-50 text-amber-700", Icon: Hourglass },
     approved: { label: "Approved", cls: "border-emerald-200 bg-emerald-50 text-emerald-700", Icon: CheckCircle2 },
     rejected: { label: "Rejected", cls: "border-red-200 bg-red-50 text-red-600", Icon: Ban },
+    cancelled: { label: "Cancelled", cls: "border-slate-200 bg-slate-100 text-slate-600", Icon: XCircle },
 } as const;
 
-export function RequestStatusChip({ status, big }: { status: "pending" | "approved" | "rejected"; big?: boolean }) {
+export function RequestStatusChip({ status, big }: { status: "pending" | "approved" | "rejected" | "cancelled"; big?: boolean }) {
     const s = STATUS[status] ?? STATUS.pending;
     return (
         <span className={cn("inline-flex items-center gap-1 rounded-md border font-semibold whitespace-nowrap", big ? "px-2.5 py-1 text-[13px]" : "px-1.5 py-0.5 text-[11px]", s.cls)}>

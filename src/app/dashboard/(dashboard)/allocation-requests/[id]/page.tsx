@@ -45,8 +45,7 @@ export default function AllocationRequestPage({ params }: { params: Promise<{ id
     const expired = !!r.decision?.expires_at && Date.parse(r.decision.expires_at) < now;
     const used = !!r.decision?.used_event_id;
     const createHref = `/dashboard/events/create?start=${r.start_date}${r.end_date !== r.start_date ? `&end=${r.end_date}` : ""}`;
-    const title = r.status === "pending" ? "Event Allocation Request – Tracking" : r.status === "approved" ? "Event Allocation Request" : "Event Allocation Request Details";
-    const subtitle = r.status === "pending" ? "Track the status of your event booking allocation request."
+    const title = r.status === "pending" ? "Event Allocation Request – Tracking" : r.status === "approved" ? "Event Allocation Request" : "Event Allocation Request Details";    const subtitle = r.status === "pending" ? "Track the status of your event booking allocation request."
         : r.status === "approved" ? "Track the status of your event availability request and continue creating your event after approval."
             : "Track the status of your event date allocation request and take the next action.";
 
@@ -82,13 +81,20 @@ export default function AllocationRequestPage({ params }: { params: Promise<{ id
                     <span className="mt-1 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">{total} {total === 1 ? "Day" : "Days"}</span></div>
                 <div><RequestStatusChip status={r.status} big />
                     <p className="mt-1 text-[12px] text-muted-foreground">
-                        {r.status === "pending" ? "Your request is under review by the Super Admin." : `Decision on ${prettyDateTime(r.decided_at)}`}
+                        {r.status === "pending" ? "Your request is under review by the Super Admin." : `${r.status === "cancelled" ? "Cancelled" : "Decision"} on ${prettyDateTime(r.decided_at)}`}
                     </p></div>
             </Card>
 
             {r.status === "pending" && <Pending r={r} days={days} />}
             {r.status === "approved" && <Approved r={r} days={days} exDates={exDates} slots={slots} expired={expired} used={used} createHref={createHref} />}
             {r.status === "rejected" && <Rejected r={r} days={days} total={total} />}
+            {r.status === "cancelled" && (
+                <Section icon={<XCircle />} title="Request Cancelled">
+                    <p>You cancelled this request on <b>{prettyDateTime(r.decided_at)}</b>. It is no longer in the support queue.</p>
+                    <div className="mt-3"><Button asChild variant="outline" className="h-9 border-primary/50 text-[12.5px] font-semibold text-primary hover:bg-primary/5 hover:text-primary">
+                        <Link href="/dashboard/events/check-availability"><CalendarRange className="mr-1.5 h-4 w-4" />Check Other Dates</Link></Button></div>
+                </Section>
+            )}
         </div>
     );
 }

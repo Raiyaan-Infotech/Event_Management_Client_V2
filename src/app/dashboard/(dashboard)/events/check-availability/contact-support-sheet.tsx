@@ -9,7 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageLoader } from "@/components/common/page-loader";
 import { cn } from "@/lib/utils";
 import { useClientProfile } from "@/hooks/use-client-portal";
-import { useCreateAvailabilityRequest, type AvailabilityRequest } from "@/hooks/use-event-availability";
+import { toast } from "sonner";
+import {
+    existingRequestConflict, useCancelAvailabilityRequest, useCreateAvailabilityRequest,
+    type AvailabilityRequest, type ExistingRequestConflict,
+} from "@/hooks/use-event-availability";
+import { ExistingRequestDialog, type ExistingStep } from "./existing-request-dialog";
 
 /**
  * Contact Support Team (Jamal's designs: Call Support + Email Support, 2026-11-13).
@@ -57,6 +62,9 @@ export function ContactSupportSheet({
     const [mailMsg, setMailMsg] = useState(() => `I would like to create ${what}, but ${blocked} ${are} not available. Please assist me with event allocation.`.slice(0, MAX_MSG));
     const [file, setFile] = useState<File | null>(null);
     const [error, setError] = useState("");
+    const cancel = useCancelAvailabilityRequest();
+    const [conflict, setConflict] = useState<ExistingRequestConflict | null>(null);
+    const [step, setStep] = useState<ExistingStep | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const submit = () => {
@@ -88,9 +96,22 @@ export function ContactSupportSheet({
         }
         create.mutate(form, {
             onSuccess: (r) => onSubmitted(r),
-            onError: (e) => setError(e instanceof Error ? e.message : "The request could not be sent. Please try again."),
+            onError: (e) => {
+                const c = existingRequestConflict(e);
+                if (c) { setConflict(c); setStep("found"); return; }
+                setError(e instanceof Error ? e.message : "The request could not be sent. Please try again.");
+            },
         });
     };
+
+    const confirmCancel = () => {
+        if (!conflict) return;
+        cancel.mutate(conflict.existing.id, {
+            onSuccess: () => { setStep("cancelled"); toast.success("Support request canceled"); },
+            onError: (e) => { setStep(null); setError(e instanceof Error ? e.message : "The request could not be cancelled."); },
+        });
+    };
+    const closeExisting = () => { setStep(null); setConflict(null); };
 
     const pickFile = (f: File | undefined) => {
         if (!f) return;
@@ -101,8 +122,13 @@ export function ContactSupportSheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={(v) => !v && !create.isPending && onClose()}>
+        <Sheet open={open} onOpenChange={(v) => !v && !create.isPending && !step && onClose()}>
             <PageLoader open={create.isPending} text="Submitting..." />
+            <ExistingRequestDialog
+                step={step} conflict={conflict} start={start} end={end} cancelling={cancel.isPending}
+                onClose={closeExisting} onAskCancel={() => setStep("confirm")} onKeep={() => setStep("found")}
+                onConfirmCancel={confirmCancel} onCreateNew={() => { closeExisting(); submit(); }}
+            />
             <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-[440px]">
                 <SheetHeader className="border-b p-4">
                     <SheetTitle className="flex items-center gap-2 text-[16px]">
