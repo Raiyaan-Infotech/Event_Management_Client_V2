@@ -132,7 +132,7 @@ export default function Header({ left, exit }: { left?: React.ReactNode; exit?: 
                     asChild
                     className="hidden h-9 rounded-md px-4 text-[12.5px] font-semibold sm:inline-flex"
                 >
-                    <Link href="/dashboard/events/create">
+                    <Link href="/dashboard/events/check-availability">
                         <FontAwesomeIcon icon={faPlus} className="mr-2 !size-[12px]" />
                         New Event
                     </Link>

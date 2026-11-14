@@ -64,7 +64,7 @@ export default function AgendaPage() {
                     <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                         <p className="text-[13px] text-muted-foreground">An agenda belongs to an event. Create an event first.</p>
                         <Button asChild size="sm" className="h-8 text-[12px]">
-                            <Link href="/dashboard/events/create">Create Event</Link>
+                            <Link href="/dashboard/events/check-availability">Create Event</Link>
                         </Button>
                     </CardContent>
                 </Card>

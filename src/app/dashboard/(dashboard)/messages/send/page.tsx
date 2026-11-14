@@ -440,7 +440,7 @@ function SendMessageComposer() {
                         </Link>
                     </Button>
                     <Button asChild size="sm">
-                        <Link href={wsHref("/dashboard/events/create")}>Create an event</Link>
+                        <Link href={wsHref("/dashboard/events/check-availability")}>Create an event</Link>
                     </Button>
                 </div>
             </div>

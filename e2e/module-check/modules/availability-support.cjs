@@ -42,9 +42,8 @@ module.exports = async (k) => {
             await page.getByText('Contact Support Team').waitFor();
             await page.getByText('10 Dec 2026 — Fully Booked').first().waitFor();
             await k.shot('support-call');
-            const mobile = page.locator('input').filter({ has: page.locator('xpath=self::*') }).nth(0);
-            void mobile;
-            const mob = page.getByText('Mobile Number').locator('xpath=../..').locator('input');
+            // Field = <div><p>label</p><IconInput/></div> — one level up is the field's own wrapper.
+            const mob = page.getByText('Mobile Number', { exact: false }).first().locator('xpath=..').locator('input');
             if (!(await mob.inputValue())) await mob.fill('+91 90000 00000');
             const msg = page.locator('textarea').first();
             await msg.fill(`QA TEST — please ignore. ${await msg.inputValue()}`.slice(0, 500));

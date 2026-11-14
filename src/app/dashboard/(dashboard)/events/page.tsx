@@ -395,7 +395,7 @@ function MyEventsContent() {
                         </p>
                         {!debouncedSearch && category === "all" && tab === "all" && (
                             <Button asChild size="sm" className="mt-2 h-8 text-[12px]">
-                                <Link href="/dashboard/events/create">Create New Event</Link>
+                                <Link href="/dashboard/events/check-availability">Create New Event</Link>
                             </Button>
                         )}
                     </CardContent>

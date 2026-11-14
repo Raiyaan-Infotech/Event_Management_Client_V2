@@ -102,7 +102,7 @@ export default function TemplatesPage() {
                                 ?? "Your subscription plan doesn’t include any invitation templates yet. Please contact us to have them added to your plan."}
                         </p>
                         <Button asChild variant="outline" size="sm" className="mt-2 h-9 text-[12.5px]">
-                            <Link href="/dashboard/events/create">Create an event anyway</Link>
+                            <Link href="/dashboard/events/check-availability">Create an event anyway</Link>
                         </Button>
                     </CardContent>
                 </Card>
@@ -495,7 +495,7 @@ function DbTemplates({
                                 after selecting one, and switch template at any time by editing the event.
                             </p>
                             <Link
-                                href="/dashboard/events/create"
+                                href="/dashboard/events/check-availability"
                                 className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-primary hover:underline"
                             >
                                 Start an event
