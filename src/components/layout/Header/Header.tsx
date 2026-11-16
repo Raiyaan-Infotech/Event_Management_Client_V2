@@ -77,8 +77,11 @@ function initialsOf(name: string | undefined): string {
 export default function Header({ left, exit }: { left?: React.ReactNode; exit?: React.ReactNode } = {}) {
 
     const pathname = usePathname();
-    /** Create / Edit Event wizard open: no "New Event" while one is in progress. */
-    const inWizard = /^\/dashboard\/events\/(create|\d+\/edit)(\/|$)/.test(pathname ?? "");
+    /**
+     * No "New Event" on the pages that ARE the new-event flow: Check Event Availability
+     * (Jamal, 2026-11-16), the Create wizard, and Edit Event.
+     */
+    const inWizard = /^\/dashboard\/events\/(create|check-availability|\d+\/edit)(\/|$)/.test(pathname ?? "");
     // resolvedTheme, not theme: with "system" stored, `theme` is "system" on a
     // dark OS — the icon showed a moon and the first click set "dark" again.
     const { resolvedTheme, setTheme } = useTheme();

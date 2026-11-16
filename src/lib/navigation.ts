@@ -1,22 +1,14 @@
 import {
     faHouse,
-    faInbox,
     faCalendarDays,
     faLayerGroup,
     faUserPlus,
     faFileImport,
     faPeopleGroup,
-    faBell,
     faPaperPlane,
-    faEnvelope,
     faChartColumn,
-    faCreditCard,
     faGear,
-    faListUl,
-    faWandMagicSparkles,
-    faClockRotateLeft,
-    faSliders,
-    faListCheck,
+    faUser,
 } from "@fortawesome/free-solid-svg-icons"
 
 /**
@@ -65,54 +57,19 @@ import {
  * `apply-portal-section-menus.js`. Rename one here and there together.
  */
 export const navMain = [
+    /*
+      Jamal's sidebar (2026-11-16): exactly these six, in this order. Everything else
+      (Allocation Requests, Templates, Messages, Agenda, Notifications, Notification
+      Templates) stays reachable from the pages and links that open it, not from the nav.
+      Reports = the Analytics page; Subscription = the Billing page.
+    */
     { title: "Dashboard", url: "/dashboard", icon: faHouse, items: [] },
     { title: "My Events", url: "/dashboard/events", icon: faCalendarDays, items: [] },
-    // Requests the client sent from Check Event Availability → Contact Support (2026-11-14).
-    { title: "Allocation Requests", url: "/dashboard/allocation-requests", icon: faInbox, items: [] },
-    { title: "Templates", url: "/dashboard/templates", icon: faLayerGroup, items: [] },
-    // Splash Screens removed from the web (2026-10-31) — it lives in the mobile app only.
-    {
-        title: "Messages",
-        url: "/dashboard/messages",
-        icon: faEnvelope,
-        section: "messages",
-        items: [
-            { title: "All Messages", url: "/dashboard/messages", icon: faListUl, ready: true },
-            { title: "Send Message", url: "/dashboard/messages/send", icon: faPaperPlane, ready: true },
-            /*
-              Push lives under Messages rather than beside the top-level
-              "Notifications" entry, which is a different thing entirely: that
-              one is the client's OWN inbox, this one sends to guests. Naming
-              them apart matters — "Notifications" and "Push Notifications" are
-              two screens a person will otherwise open interchangeably.
-            */
-            { title: "Push Notifications", url: "/dashboard/messages/notifications", icon: faBell, ready: true },
-            { title: "Notification History", url: "/dashboard/messages/notifications/history", icon: faClockRotateLeft, ready: true },
-        ],
-    },
-    // Guests, RSVPs and Participants live INSIDE the event (Jamal, 2026-11-02):
-    // the event view's tabs open /dashboard/events/:id/{guests,rsvps,participants}.
-    // Their plan gate is kept below (EVENT_SECTIONS).
-    // Per event, as in the app (2026-10-31).
-    { title: "Agenda", url: "/dashboard/agenda", icon: faListCheck, items: [] },
-    { title: "Notifications", url: "/dashboard/notifications", icon: faBell, items: [] },
-    /*
-      Per-event on/off control over the ADMIN's notification templates — a
-      different thing from Messages > Push Notifications, which composes and
-      sends an ad-hoc message. This one toggles which of the catalogue's
-      templates apply to one specific event. Kept top-level rather than
-      nested under Messages: it was invisible three levels deep, and the
-      supplied mockups show it as its own destination.
-    */
-    // Always shown — not a plan menu.
-    { title: "Notification Templates", url: "/dashboard/messages/notification-templates", icon: faSliders, items: [] },
-    // Always shown — Analytics is not a plan menu.
-    { title: "Analytics", url: "/dashboard/analytics", icon: faChartColumn, items: [] },
-    // "Integrations" was removed: it linked to /dashboard/integrations, which
-    // has no page and fell through to the "coming soon" catch-all.
-    { title: "Billing", url: "/dashboard/billing", icon: faCreditCard, items: [] },
+    { title: "Reports", url: "/dashboard/analytics", icon: faChartColumn, items: [] },
+    { title: "Subscription", url: "/dashboard/billing", icon: faLayerGroup, items: [] },
+    { title: "Profile", url: "/dashboard/profile", icon: faUser, items: [] },
     { title: "Settings", url: "/dashboard/settings", icon: faGear, items: [] },
-]
+] as { title: string; url: string; icon: typeof faHouse; section?: string; items: { title: string; url: string; icon: typeof faHouse; ready?: boolean }[] }[]
 
 /**
  * Every section slug the plan grants on the website: event menu slugs (e.g.
