@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
-    AlertTriangle, BarChart3, CalendarCheck, CalendarDays, CheckCircle2, Clock, Copy, Download, Eye,
+    AlertTriangle, BarChart3, CalendarCheck, CalendarDays, CheckCircle2, Clock, Download, Eye,
     Hourglass, Mail, MessageCircle, MoreVertical, Pencil, PlayCircle, QrCode, Search, Share2, Trash2, Users,
     UserCog, XCircle, ListChecks, Rocket,
 } from "lucide-react";
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { EventQr } from "@/components/common/event-qr";
 import { useClientProfile } from "@/hooks/use-client-portal";
 import {
-    useClientEvents, useDashboardStats, useDeleteEvent, useDuplicateEvent, useUpdateEvent,
+    useClientEvents, useDashboardStats, useDeleteEvent, useUpdateEvent,
     type ClientEvent, type DerivedStatus,
 } from "@/hooks/use-client-events";
 import { ApiError } from "@/lib/api-client";
@@ -90,7 +90,6 @@ export default function DashboardPage() {
     });
 
     const remove = useDeleteEvent();
-    const duplicate = useDuplicateEvent();
     const publish = useUpdateEvent();
     const [pendingDelete, setPendingDelete] = useState<ClientEvent | null>(null);
     const [shareFor, setShareFor] = useState<ClientEvent | null>(null);
@@ -131,9 +130,9 @@ export default function DashboardPage() {
 
     return (
         <div className="flex flex-col gap-4">
-            {/* Saving loader for the row actions (duplicate / publish / delete). */}
-            <PageLoader open={duplicate.isPending || publish.isPending || remove.isPending}
-                text={remove.isPending ? "Deleting..." : duplicate.isPending ? "Duplicating..." : "Publishing..."} />
+            {/* Saving loader for the row actions (publish / delete). */}
+            <PageLoader open={publish.isPending || remove.isPending}
+                text={remove.isPending ? "Deleting..." : "Publishing..."} />
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
@@ -315,8 +314,7 @@ export default function DashboardPage() {
                                                     <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=rsvps`} target="_blank" rel="noopener"><ListChecks />View RSVPs</Link></DropdownMenuItem>
                                                     <DropdownMenuItem asChild><Link href={`/event/${e.id}?tab=messages`} target="_blank" rel="noopener"><Mail />Send Message</Link></DropdownMenuItem>
                                                     <DropdownMenuItem asChild><Link href="/dashboard/events/check-availability"><CalendarCheck />Event Availability</Link></DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => router.push("/dashboard/analytics")}><BarChart3 />Analytics</DropdownMenuItem>
-                                                    <DropdownMenuItem disabled={duplicate.isPending} onClick={() => duplicate.mutate(e.id)}><Copy />Duplicate Event</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${e.id}/analytics`)}><BarChart3 />Analytics</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => setShareFor(e)}><QrCode />Download QR</DropdownMenuItem>
                                                     {e.status === "draft" && (
                                                         <DropdownMenuItem disabled={publish.isPending} onClick={() => publish.mutate({ id: e.id, data: { status: "upcoming" } })}><Rocket />Publish Event</DropdownMenuItem>
