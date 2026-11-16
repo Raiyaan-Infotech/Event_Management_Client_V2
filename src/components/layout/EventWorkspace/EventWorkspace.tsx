@@ -98,7 +98,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                 <SidebarMenu className="gap-0.5">
                     {g.items.map((t) => {
                         const Icon = EVENT_TAB_ICONS[t.value];
-                        const on = tab === t.value;
+                        // QR Code stays lit on its children's pages (File Downloads has no item of its own).
+                        const on = tab === t.value || (t.value === "attendance" && tab === "file-downloads");
                         return (
                             <SidebarMenuItem key={t.value}>
                                 {/* Media (was Gallery) is a parent only — no page of its own; its children navigate
@@ -138,12 +139,14 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                     File Downloads etc. join it as they are built. */}
                                 {t.value === "attendance" && !collapsed && (
                                     <SidebarMenuSub>
-                                        <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton asChild isActive={on}
-                                                className={cn("h-8 text-[12.5px]", on && "bg-primary/10 font-semibold text-primary")}>
-                                                <Link href={`${base}?tab=attendance`} scroll={false}><span>Event Attendance</span></Link>
-                                            </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
+                                        {([["attendance", "Event Attendance"], ["file-downloads", "File Downloads"]] as const).map(([key, label]) => (
+                                            <SidebarMenuSubItem key={key}>
+                                                <SidebarMenuSubButton asChild isActive={tab === key}
+                                                    className={cn("h-8 text-[12.5px]", tab === key && "bg-primary/10 font-semibold text-primary")}>
+                                                    <Link href={`${base}?tab=${key}`} scroll={false}><span>{label}</span></Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                        ))}
                                     </SidebarMenuSub>
                                 )}
                                 {t.value === "settings" && !collapsed && (

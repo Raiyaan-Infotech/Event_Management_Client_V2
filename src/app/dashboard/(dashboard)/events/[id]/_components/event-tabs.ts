@@ -38,6 +38,8 @@ export const EVENT_TABS = [
     { value: "messages", label: "Messages" },
     // QR Code → Event Attendance (Jamal's design, 2026-11-16): the check-ins from the QR scans + Verify / Mark Attendance.
     { value: "attendance", label: "QR Code" },
+    // QR Code → File Downloads (2026-11-16): who downloaded which file. Shown under QR Code, not on its own.
+    { value: "file-downloads", label: "File Downloads" },
     { value: "activity", label: "Activity Log" },
 ] as const;
 
@@ -60,7 +62,7 @@ export type EventTab = (typeof EVENT_TABS)[number]["value"];
 export const EVENT_TAB_ICONS: Record<EventTab, LucideIcon> = {
     overview: LayoutDashboard, information: FileText, contact: MessagesSquare, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
     wishes: Heart, live: Radio, nearby: MapPinned, social: Share2, downloads: Download, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
-    settings: Settings, messages: Mail, attendance: QrCode, activity: History,
+    settings: Settings, messages: Mail, attendance: QrCode, "file-downloads": Download, activity: History,
 };
 
 export const EVENT_STATUS: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
