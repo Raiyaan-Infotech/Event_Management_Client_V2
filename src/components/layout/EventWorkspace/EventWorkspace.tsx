@@ -134,6 +134,18 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         })}
                                     </SidebarMenuSub>
                                 )}
+                                {/* QR Code's child menu (Jamal's design, 2026-11-16) — Event Attendance for now;
+                                    File Downloads etc. join it as they are built. */}
+                                {t.value === "attendance" && !collapsed && (
+                                    <SidebarMenuSub>
+                                        <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton asChild isActive={on}
+                                                className={cn("h-8 text-[12.5px]", on && "bg-primary/10 font-semibold text-primary")}>
+                                                <Link href={`${base}?tab=attendance`} scroll={false}><span>Event Attendance</span></Link>
+                                            </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
+                                    </SidebarMenuSub>
+                                )}
                                 {t.value === "settings" && !collapsed && (
                                     <>
                                         <SidebarMenuAction aria-label={settingsOpen ? "Hide settings list" : "Show settings list"}

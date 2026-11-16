@@ -37,6 +37,7 @@ import { LivePanel } from "./live-panel";
 import { SocialLinksPanel } from "./social-links-panel";
 import { DownloadsPanel } from "./downloads-panel";
 import { NearbyPanel } from "./nearby-panel";
+import { AttendancePanel } from "./attendance-panel";
 import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { RsvpChannels, RsvpNotes, RsvpRecent, RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
@@ -326,6 +327,7 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {tab === "social" && <SocialLinksPanel event={event} />}
             {tab === "downloads" && <DownloadsPanel event={event} />}
             {tab === "nearby" && <NearbyPanel event={event} />}
+            {tab === "attendance" && <AttendancePanel event={event} />}
 
             {/* ── Settings ────────────────────────────────────────────────── */}
             {tab === "settings" && <SettingsPanel event={event} only={settingsPage} />}
