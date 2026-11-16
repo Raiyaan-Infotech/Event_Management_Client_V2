@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
-    AlertTriangle, BarChart3, CalendarCheck, CalendarDays, CalendarRange, CheckCircle2, Clock, Copy, Download, Eye,
+    AlertTriangle, BarChart3, CalendarCheck, CalendarDays, CheckCircle2, Clock, Copy, Download, Eye,
     Hourglass, Mail, MessageCircle, MoreVertical, Pencil, PlayCircle, QrCode, Search, Share2, Trash2, Users,
     UserCog, XCircle, ListChecks, Rocket,
 } from "lucide-react";
@@ -151,11 +151,6 @@ export default function DashboardPage() {
                         </h1>
                         <p className="text-[12px] text-muted-foreground">Organizer Dashboard · All Events Overview</p>
                     </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                    <Button asChild className="h-9 rounded-md px-4 text-[12.5px] font-semibold">
-                        <Link href="/dashboard/events/check-availability"><CalendarRange className="mr-1.5 h-4 w-4" />Event Availability</Link>
-                    </Button>
                 </div>
             </div>
 
