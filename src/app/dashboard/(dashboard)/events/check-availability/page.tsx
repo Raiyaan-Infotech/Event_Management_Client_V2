@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useAvailabilityCalendar, type AvailabilityRequest, type CalendarDay } from "@/hooks/use-event-availability";
 import { ContactSupportSheet } from "./contact-support-sheet";
+import { useEventLimit } from "../_components/event-limit-gate";
 
 /**
  * Check Event Availability (Jamal's designs, Create Event Updated v2, 2026-11-13).
@@ -20,6 +21,11 @@ import { ContactSupportSheet } from "./contact-support-sheet";
  * super admin has not configured are hidden on the calendar (and count as unavailable in a range).
  * Any unavailable day → Contact Support (call back / email) → saved as an allocation request with a
  * ticket number. Book / Continue opens the normal Create Event form with the dates filled.
+ *
+ * Plan limit (live test 2026-11-16): a client who has used every event on their plan can still look
+ * at the calendar, but Book / Continue and Contact Support are replaced by "Event Limit Reached" —
+ * before, Book Event led straight to the Create page's "Event limit reached" card, and a support
+ * ticket could be raised for dates the client could never book.
  */
 
 const WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -45,6 +51,8 @@ export default function CheckAvailabilityPage() {
     const [supportOpen, setSupportOpen] = useState(false);
     const [submitted, setSubmitted] = useState<AvailabilityRequest | null>(null);
     const today = todayIso();
+    const plan = useEventLimit();
+    const planText = `Your ${plan.planName ?? "current"} plan allows ${plan.limit} event${plan.limit === 1 ? "" : "s"} and you have created ${plan.used}.`;
 
     const lastDay = new Date(ym.y, ym.m + 1, 0).getDate();
     const from = iso(ym.y, ym.m, 1);
@@ -106,6 +114,16 @@ export default function CheckAvailabilityPage() {
                 <h1 className="text-[20px] font-bold leading-tight text-foreground">Check Event Availability</h1>
                 <p className="text-[12.5px] text-muted-foreground">Choose a date or date range to see whether event slots are available before creating a new event.</p>
             </div>
+
+            {plan.reached && (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="flex items-start gap-2 text-[12.5px] text-amber-800">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span><b>Event limit reached.</b> {planText} You can still check dates, but upgrade your plan to book a new event.</span>
+                    </p>
+                    <Button asChild size="sm" className="h-8 text-[12px]"><Link href="/dashboard/billing">View Plan &amp; Billing</Link></Button>
+                </div>
+            )}
 
             {/* Event booking type + dates */}
             <Card className="gap-0 rounded-lg border p-4 shadow-none">
@@ -295,6 +313,18 @@ export default function CheckAvailabilityPage() {
                             </div>
                             <p className="mt-2 flex items-start gap-1.5 text-[11.5px] text-muted-foreground"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />Event creation cannot continue until support assistance is completed.</p>
                         </div>
+                    ) : start && plan.reached && complete && !past ? (
+                        <>
+                            <Button disabled className="mt-4 h-10 w-full bg-muted text-[13.5px] font-semibold text-muted-foreground">
+                                <XCircle className="mr-1.5 h-4 w-4" />Event Limit Reached
+                            </Button>
+                            <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-2 text-[12px] text-amber-800">
+                                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{planText} Upgrade your plan to book {mode === "single" ? "this date" : "these dates"}.
+                            </p>
+                            <Button asChild variant="outline" className="mt-2 h-10 w-full border-primary/50 text-[13.5px] font-semibold text-primary hover:bg-primary/5 hover:text-primary">
+                                <Link href="/dashboard/billing">View Plan &amp; Billing</Link>
+                            </Button>
+                        </>
                     ) : start ? (
                         <>
                             {allOpen ? (

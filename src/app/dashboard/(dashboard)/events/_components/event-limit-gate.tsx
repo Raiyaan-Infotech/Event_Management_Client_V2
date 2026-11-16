@@ -25,13 +25,25 @@ import { EventWizard } from "./event-wizard";
  * neither) the wizard opens. A reporting gap should not stop somebody creating
  * an event they are entitled to — the backend still has the last word.
  */
-export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string }) {
+/**
+ * The plan's event limit, shared by the create wizard (this gate) and the Check Event Availability
+ * calendar (which must not offer Book Event / Contact Support to a client who cannot create an event).
+ * Fail-open, as described above: `reached` is false while loading or when the backend sends no numbers.
+ */
+export function useEventLimit() {
     const options = useEventOptions();
-
     const limit = options.data?.plan?.max_events ?? null;
     const used = options.data?.events_used ?? null;
-    const limitReached =
-        !options.isLoading && limit !== null && used !== null && used >= limit;
+    return {
+        limit,
+        used,
+        planName: options.data?.plan?.name ?? null,
+        reached: !options.isLoading && limit !== null && used !== null && used >= limit,
+    };
+}
+
+export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string }) {
+    const { limit, used, planName, reached: limitReached } = useEventLimit();
 
     if (!limitReached) return <EventWizard initialThemeId={initialThemeId} initialStartDate={initialStartDate} initialEndDate={initialEndDate} />;
 
@@ -41,7 +53,7 @@ export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDat
                 <FontAwesomeIcon icon={faCalendarXmark} className="!size-[26px] text-muted-foreground/40" />
                 <p className="text-[14px] font-semibold text-foreground">Event limit reached</p>
                 <p className="max-w-sm text-[13px] text-muted-foreground">
-                    Your {options.data?.plan?.name ?? "current"} plan allows {limit} event{limit === 1 ? "" : "s"} and
+                    Your {planName ?? "current"} plan allows {limit} event{limit === 1 ? "" : "s"} and
                     you have created {used}. Upgrade your plan to create more.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
