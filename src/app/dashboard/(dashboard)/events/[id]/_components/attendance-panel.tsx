@@ -27,13 +27,11 @@ import {
     type AttendanceQuery, type AttendanceRow, type CheckInSource,
 } from "@/hooks/use-event-attendance";
 import { ParticipantSheet } from "../../../participants/_components/participant-actions";
-import { AttendanceScanner, type ScanMode } from "./attendance-scanner";
 
 /**
  * QR Code → Event Attendance (Jamal's design, 2026-11-16). The check-ins happen on the mobile side
  * (QR scan); this page LISTS them, and the organizer can Verify a participant, Mark Attendance by
- * hand, edit, notify or remove — and scan the participant's My QR with the two scanners (Scan Attendance /
- * Scan Verification, attendance-scanner.tsx). Session QR is out; the red-lined menu items (Resend QR Code,
+ * hand, edit, notify or remove. Session QR is out; the red-lined menu items (Resend QR Code,
  * Download QR Code, Print ID Card) are not built.
  */
 
@@ -61,7 +59,6 @@ export function AttendancePanel({ event }: { event: ClientEvent }) {
     const [selected, setSelected] = useState<Set<number>>(new Set());
     const [sheet, setSheet] = useState<{ mode: Mode; rows: AttendanceRow[] } | null>(null);
     const [exporting, setExporting] = useState(false);
-    const [scan, setScan] = useState<ScanMode | null>(null);
 
     // Search waits until typing stops.
     useEffect(() => {
@@ -127,18 +124,9 @@ export function AttendancePanel({ event }: { event: ClientEvent }) {
                 title="Event Attendance"
                 subtitle="View and manage participant attendance for this event using QR code scan."
                 actions={(
-                    <>
-                        {/* Two separate scanners (Jamal, 2026-11-16): the organizer scans the participant's My QR. */}
-                        <Button size="sm" className="h-8" onClick={() => setScan("attendance")}>
-                            <QrCode className="size-3.5" /> Scan Attendance
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 border-success/40 text-success hover:bg-success/5 hover:text-success" onClick={() => setScan("verify")}>
-                            <ShieldCheck className="size-3.5" /> Scan Verification
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8" disabled={exporting || !total} onClick={exportList}>
-                            <Download className="size-3.5" /> {exporting ? "Exporting..." : "Export"}
-                        </Button>
-                    </>
+                    <Button variant="outline" size="sm" className="h-8" disabled={exporting || !total} onClick={exportList}>
+                        <Download className="size-3.5" /> {exporting ? "Exporting..." : "Export"}
+                    </Button>
                 )}
             />
 
@@ -267,7 +255,6 @@ export function AttendancePanel({ event }: { event: ClientEvent }) {
             {sheet?.mode === "verify" && <VerifySheet eventId={eventId} row={sheet.rows[0]} onClose={() => setSheet(null)} />}
             {sheet?.mode === "mark" && <MarkSheet eventId={eventId} row={sheet.rows[0]} onClose={() => setSheet(null)} />}
             {sheet?.mode === "notify" && <NotifySheet eventId={eventId} rows={sheet.rows} onClose={() => setSheet(null)} onSent={() => setSelected(new Set())} />}
-            {scan && <AttendanceScanner key={scan} eventId={eventId} mode={scan} onClose={() => setScan(null)} />}
             {(sheet?.mode === "edit" || sheet?.mode === "delete") && (
                 <ParticipantAction eventId={eventId} id={sheet.rows[0].id} action={sheet.mode} onClose={() => setSheet(null)} />
             )}

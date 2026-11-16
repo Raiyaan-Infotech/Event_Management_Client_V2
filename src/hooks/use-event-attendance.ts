@@ -149,46 +149,6 @@ export function useBulkAttendance(eventId: number, onDone?: () => void) {
     });
 }
 
-/* ── The two scanners (organizer scans the participant's personal QR — V1's organizer scan) ── */
-
-export interface ScannedParticipant {
-    id: number;
-    participant_code: string;
-    name: string;
-    photo: string | null;
-    dial_code: string;
-    mobile: string | null;
-    email: string | null;
-    relation: string | null;
-    family_group: string | null;
-    party_size: number;
-    checked_in_at: string | null;
-    checked_in_by_name: string | null;
-    verified_at: string | null;
-    verified_by_name: string | null;
-    verify_method: 'qr' | 'manual' | null;
-}
-
-/** The scanned QR → who it is in THIS event (writes nothing). */
-export function scanLookup(eventId: number, token: string) {
-    return api.post<{ participant: ScannedParticipant }>(`/client/events/${eventId}/scan/participant`, { token }).then((r) => r.participant);
-}
-
-/** Attendance scanner: Mark Present (source Event QR). `already` = checked in before. */
-export function scanCheckIn(eventId: number, participantId: number) {
-    return api.post<{ already: boolean; participant: ScannedParticipant }>(`/client/events/${eventId}/participants/${participantId}/check-in`);
-}
-
-/** Verification scanner: Verify Entry (method QR code). */
-export function scanVerify(eventId: number, participantId: number) {
-    return api.post<{ participant: AttendanceRow }>(`/client/events/${eventId}/attendance/${participantId}/verify`, { method: 'qr' });
-}
-
-/** After a scanner closes, the list and stats show what it did. */
-export function useRefreshAttendance(eventId: number) {
-    return useRefresh(eventId);
-}
-
 /** Send Notification to one or more participants — the event notifications ("specific" audience). */
 export function useNotifyParticipants(eventId: number, onDone?: () => void) {
     return useMutation({
