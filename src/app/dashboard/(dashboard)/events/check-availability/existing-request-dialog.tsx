@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ExistingRequestConflict } from "@/hooks/use-event-availability";
-import { prettyDate, prettyRange } from "../../allocation-requests/shared";
+import { localToday, prettyDate, prettyRange } from "../../allocation-requests/shared";
 
 /**
  * Existing support request flow (Jamal's designs 2026-11-14, three images):
@@ -35,7 +35,7 @@ export function ExistingRequestDialog({
     const type = ex.contact_method === "call" ? "Call Back" : "Email Support";
     const exUnavailable = conflict.conflict_dates.length ? conflict.conflict_dates : ex.unavailable_dates.map((u) => u.date);
     const exDates = exUnavailable.map(prettyDate).join(", ");
-    const today = prettyDate(new Date().toISOString().slice(0, 10));
+    const today = prettyDate(localToday());
     const reason = (ex.unavailable_dates.find((u) => exUnavailable.includes(u.date))?.status ?? "full") === "full" ? "Fully Booked" : "Not Available";
 
     return (

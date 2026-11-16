@@ -7,11 +7,22 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
+/**
+ * A calendar date ("2027-01-13") is shown as-is. A full timestamp ("2026-11-15T19:44:51.000Z") is shown
+ * as the viewer's LOCAL date: slicing its first 10 characters gave the UTC day, so a request raised at
+ * 01:14 IST on 16 Nov read "15 Nov" (live test 2026-11-16).
+ */
 export const prettyDate = (d?: string | null) => {
     if (!d) return "—";
+    if (d.length > 10) {
+        const x = new Date(d);
+        if (!Number.isNaN(x.getTime())) return `${pad(x.getDate())} ${MONTHS[x.getMonth()]} ${x.getFullYear()}`;
+    }
     const [y, m, day] = d.slice(0, 10).split("-").map(Number);
     return `${pad(day)} ${MONTHS[m - 1]} ${y}`;
 };
+/** Today as a local calendar date (not `toISOString()`, which is the UTC day). */
+export const localToday = () => { const t = new Date(); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; };
 export const prettyRange = (a: string, b: string) => (a === b ? prettyDate(a) : `${prettyDate(a)} – ${prettyDate(b)}`);
 export const weekday = (d: string) => DAYS[new Date(`${d.slice(0, 10)}T00:00:00`).getDay()];
 export const prettyDateTime = (v?: string | null) => {
