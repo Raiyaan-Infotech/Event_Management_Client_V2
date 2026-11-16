@@ -8,7 +8,7 @@ import {
     faPenToSquare, faDownload,
     faGlobe,
     faLock, faEyeSlash, faUsers, faSquareCheck, faComments, faQrcode,
-    faLayerGroup, faPalette, faClockRotateLeft, faCircleInfo,
+    faPalette, faClockRotateLeft, faCircleInfo,
     faTriangleExclamation, faArrowRight, faCircleCheck, faXmark, faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import { DownloadsPanel } from "./downloads-panel";
 import { NearbyPanel } from "./nearby-panel";
 import { AttendancePanel } from "./attendance-panel";
 import { FileDownloadsPanel } from "./file-downloads-panel";
+import { EventInfoPanel } from "./event-info-panel";
 import { GuestsView } from "../../../guests/_components/guests-view";
 import { RsvpsView } from "../../../rsvps/_components/rsvps-view";
 import { RsvpChannels, RsvpNotes, RsvpRecent, RsvpSummary } from "../../../rsvps/_components/rsvp-summary";
@@ -258,47 +259,9 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             )}
 
             {/* ── Event Information ───────────────────────────────────────── */}
+            {/* Jamal's Event Information design (2026-11-17). */}
             {tab === "information" && (
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    <Panel title="Event Information">
-                        <Row label="Event Name" value={event.name} />
-                        <Row label="Event Code" value={code} />
-                        <Row label="Category" value={event.category?.name ?? "—"} />
-                        <Row label="Privacy" value={event.privacy} />
-                        <Row label="Status" value={status.label} />
-                    </Panel>
-
-                    <Panel title="Description">
-                        <p className="py-2 text-[12.5px] leading-relaxed text-muted-foreground break-words">
-                            {event.description || "No description was added for this event."}
-                        </p>
-                        {event.tagline && (
-                            <>
-                                <Separator className="my-2" />
-                                <p className="text-[11px] text-muted-foreground">Tagline</p>
-                                <p className="text-[12.5px] text-foreground break-words">{event.tagline}</p>
-                            </>
-                        )}
-                    </Panel>
-
-                    <Panel title="Menus Included" className="lg:col-span-2">
-                        {(event.menus?.length ?? 0) === 0 ? (
-                            <p className="py-2 text-[12.5px] text-muted-foreground">
-                                No menus were selected for this event.
-                            </p>
-                        ) : (
-                            <ul className="flex flex-wrap gap-2 pt-1">
-                                {event.menus?.map((menu) => (
-                                    <li key={menu.id}
-                                        className="flex items-center gap-2 rounded-md border border-border px-3 py-2">
-                                        <FontAwesomeIcon icon={faLayerGroup} className="!size-[11px] text-primary" />
-                                        <span className="text-[12.5px] text-foreground break-words">{menu.name}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Panel>
-                </div>
+                <EventInfoPanel event={event} status={status} code={code} onShare={shareEvent} onQr={() => setQrOpen(true)} />
             )}
 
             {/* ── Agenda ──────────────────────────────────────────────────── */}
