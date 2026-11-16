@@ -218,7 +218,15 @@ export default function CheckAvailabilityPage() {
                     {month.data && !month.data.days.some((d) => d.status !== "not_configured") && (
                         <p className="mt-3 text-center text-[12.5px] text-muted-foreground">No dates are open for booking in {MONTHS[ym.m]}. Try another month, or contact support.</p>
                     )}
-                    {month.isError && <p className="mt-3 text-center text-[12.5px] text-destructive">Could not load availability. Please try again.</p>}
+                    {(month.isError || range.isError) && (
+                        <div role="alert" className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-destructive">
+                            <span>Could not load availability.</span>
+                            <Button type="button" variant="outline" size="sm" className="h-7 text-[12px]" disabled={month.isFetching || range.isFetching}
+                                onClick={() => { if (month.isError) month.refetch(); if (range.isError) range.refetch(); }}>
+                                {month.isFetching || range.isFetching ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}Retry
+                            </Button>
+                        </div>
+                    )}
                 </Card>
 
                 {/* Right card */}

@@ -25,7 +25,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
                         retry: (failureCount, error) => {
                             // Retrying a 401/403/404 just repeats the same answer
                             // three times and delays the error the user needs to see.
-                            if (error instanceof ApiError && error.status < 500) return false;
+                            // Status 0 = the request never got an answer (dropped connection,
+                            // ECONNRESET on Render) — that one IS worth retrying.
+                            if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
                             return failureCount < 2;
                         },
                     },

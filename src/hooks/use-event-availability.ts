@@ -22,7 +22,8 @@ export function useAvailabilityCalendar(from: string, to: string) {
     return useQuery({
         queryKey: ['client', 'availability', from, to],
         queryFn: () => api.get<{ range: { from: string; to: string }; days: CalendarDay[] }>(`/client/availability?from=${from}&to=${to}`),
-        retry: false,
+        // The app default retry (dropped connection / 5xx twice, never a 4xx). `retry: false` here made a
+        // single dropped request on live show "Could not load availability" (live test 2026-11-16).
     });
 }
 
