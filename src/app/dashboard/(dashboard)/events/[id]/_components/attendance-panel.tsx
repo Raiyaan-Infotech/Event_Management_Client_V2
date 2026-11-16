@@ -202,7 +202,6 @@ export function AttendancePanel({ event }: { event: ClientEvent }) {
                                     <td className="whitespace-nowrap px-3 py-2 text-foreground/80">{r.checked_in_at ? fmt(r.checked_in_at, true) : "—"}</td>
                                     <td className="px-3 py-2">
                                         <div className="flex items-center justify-end gap-1">
-                                            <Button size="icon" variant="ghost" className="size-8" aria-label={`View ${r.name}`} onClick={() => open("view", r)}><Eye className="size-4" /></Button>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button size="icon" variant="outline" className="size-8" aria-label="Actions"><MoreVertical className="size-4" /></Button>
