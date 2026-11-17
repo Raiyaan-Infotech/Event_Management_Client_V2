@@ -152,6 +152,10 @@ export interface TemplateOption {
     frame_color?: string | null;
     /** Draw the decorations in this one colour; null = their own colours. */
     decoration_color?: string | null;
+    /** The admin's sample Event Logo, where it sits and its size (% of standard). */
+    logo_image?: string | null;
+    logo_position?: string | null;
+    logo_size?: number | null;
     border_style: string | null;
     /**
      * The chosen Frame Style's artwork, resolved server-side.
@@ -161,6 +165,8 @@ export interface TemplateOption {
      * edge nobody asked for. Same rule as the admin's own preview.
      */
     frame_url: string | null;
+    /** The admin Frame Style row behind `frame_url` (the splash picks frames by id). */
+    frame_style_id?: number | null;
     /** Decorations, resolved and in display order. Placed by their `type`. */
     decorationItems: Array<{ id: number; name: string; type: string; file_url: string | null }>;
     /** Which invitation parts show, and in what order. */

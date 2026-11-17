@@ -68,7 +68,22 @@ export interface InvitationData {
     qrToken?: string | null;
     /** The event's `qr_style` (0 classic, 1 rounded, 2 heart). */
     qrStyle?: number | null;
+    /**
+     * The host's own event logo (`events.logo_image`). Drawn where the
+     * template's Event Logo sits, in place of the template's sample.
+     */
+    logoImage?: string | null;
 }
+
+/** Where a corner / side Event Logo sits inside the safe area — same as the admin preview. */
+const LOGO_CORNER: Record<string, string> = {
+    'top-left': 'left-0 top-0',
+    'top-right': 'right-0 top-0 justify-end',
+    left: 'left-0 top-1/2 -translate-y-1/2',
+    right: 'right-0 top-1/2 -translate-y-1/2 justify-end',
+    'bottom-left': 'left-0 bottom-0',
+    'bottom-right': 'right-0 bottom-0 justify-end',
+};
 
 const COMPONENT_KEYS = [
     'event_title', 'host_names', 'date_time', 'venue', 'event_qr_code', 'organizer',
@@ -341,6 +356,22 @@ export function InvitationCard({
     const headingFont = template.primary_font || 'Playfair Display';
     const bodyFont = template.secondary_font || 'Poppins';
     const frameUrl = mediaUrl(template.frame_url) || null;
+
+    /**
+     * Event Logo (2026-11-17): the host's own logo, else the template's sample.
+     * Top / centre / bottom join the column of content so it never covers the
+     * names; a corner or side pins it there. Same rule as the admin preview.
+     */
+    const logoUrl = mediaUrl(data.logoImage || template.logo_image) || null;
+    const logoPos = template.logo_position || 'top';
+    const logoInFlow = !!logoUrl && ['top', 'center', 'bottom'].includes(logoPos);
+    const logoWidth = `${(18 * Math.min(Math.max(Number(template.logo_size) || 100, 60), 200)) / 100}%`;
+    const logoEl = logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt="" data-event-logo
+            className="pointer-events-none block h-auto object-contain"
+            style={{ width: logoInFlow ? logoWidth : '100%' }} />
+    ) : null;
     // Real artwork wins over the CSS fallback — drawing both gives a double edge.
     const borderClass = frameUrl ? 'border-0' : (BORDER_CLASS[template.border_style ?? 'none'] ?? 'border-0');
 
@@ -778,18 +809,28 @@ export function InvitationCard({
                     className="flex w-full flex-col items-center justify-evenly gap-1.5"
                     style={{ minHeight: '86%', transform: `scale(${fit})`, transformOrigin: 'center center' }}
                 >
-                    {visible.length === 0 ? (
+                    {logoInFlow && logoPos === 'top' && logoEl}
+                    {visible.length === 0 && !logoUrl ? (
                         <div className="px-4 text-center text-[10px]" style={{ color: ink }}>
                             This template has every component switched off.
                         </div>
                     ) : (
-                        visible.map((key) => (
-                            <div key={key} style={{ zoom: blockZoom(key) }}>
-                                {blocks[key]}
+                        visible.map((key, i) => (
+                            <div key={key} className="contents">
+                                {logoInFlow && logoPos === 'center' && i === Math.floor(visible.length / 2) && logoEl}
+                                <div style={{ zoom: blockZoom(key) }}>
+                                    {blocks[key]}
+                                </div>
                             </div>
                         ))
                     )}
+                    {logoInFlow && (logoPos === 'bottom' || (logoPos === 'center' && visible.length === 0)) && logoEl}
                 </div>
+                {logoUrl && !logoInFlow && (
+                    <div className={cn('pointer-events-none absolute z-[5] flex', LOGO_CORNER[logoPos])} style={{ width: logoWidth }}>
+                        {logoEl}
+                    </div>
+                )}
             </div>
         </div>
     );

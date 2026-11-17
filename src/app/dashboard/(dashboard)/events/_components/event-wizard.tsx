@@ -19,7 +19,8 @@ import {
     faRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp as faWhatsappBrand } from "@fortawesome/free-brands-svg-icons";
-import { ChevronDown, ChevronUp, Loader2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Trash2, Upload, X } from "lucide-react";
+import { mediaUrl } from "@/lib/media-url";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ModuleHeader } from "@/components/module-kit";
@@ -52,7 +53,7 @@ import { useHomeScreenTemplates } from "@/hooks/use-home-screen-templates";
 import { SplashStep } from "./splash-step";
 import { PhoneInput } from "@/components/common/phone-input";
 import { joinPhone, mobileNumberError, splitPhone } from "@/lib/phone";
-import { EMPTY_SPLASH, saveEventSplash, splashFromRow, useEventSplash, type SplashState } from "@/hooks/use-event-splash";
+import { EMPTY_SPLASH, saveEventSplash, splashFromRow, splashLookFromTemplate, useEventSplash, type SplashState } from "@/hooks/use-event-splash";
 import { VenueMapPicker } from "@/components/common/venue-map-picker";
 import {
     resolveArtwork,
@@ -254,6 +255,8 @@ interface FormState {
     cover_image: string;
     /** The host's own picture for a custom-type template. "" = the template's own. */
     custom_image: string;
+    /** The host's own event logo; "" = the template's sample logo. */
+    logo_image: string;
 }
 
 /** The app's own secondary swatches (Create Event, Card Settings). */
@@ -283,6 +286,7 @@ const EMPTY: FormState = {
     secondary_color: "", qr_style: 0,
     cover_image: "",
     custom_image: "",
+    logo_image: "",
 };
 
 /** The invitation components, canonical order. Mirrors the backend's list. */
@@ -446,9 +450,11 @@ export function EventWizard({
         if (existingSplash.data) setSplashState(splashFromRow(existingSplash.data));
     }, [existingSplash.isSuccess, existingSplash.data]);
     const storeSplash = async (event: ClientEvent) => {
-        if (!splashTouched.current && !splash.id) return;
+        // The Splash Screen page always saves (it may be the template-seeded look, untouched).
+        if (!splashTouched.current && !splash.id && section !== "splash") return;
         try {
-            const saved = (await saveEventSplash(event, splash)) as { splash_screen?: { id: number } } | undefined;
+            const logo = event.logo_image || splashLogoTemplate?.logo_image || null;
+            const saved = (await saveEventSplash({ ...event, logo_url: logo ? mediaUrl(logo) ?? logo : null }, splash)) as { splash_screen?: { id: number } } | undefined;
             const id = saved?.splash_screen?.id;
             if (id) setSplashState((prev) => ({ ...prev, id }));
             splashTouched.current = false;
@@ -562,6 +568,7 @@ export function EventWizard({
             qr_style: row.qr_style ?? 0,
             cover_image: row.cover_image ?? "",
             custom_image: row.custom_image ?? "",
+            logo_image: row.logo_image ?? "",
         });
 
         const picked: Record<number, boolean> = {};
@@ -698,6 +705,27 @@ export function EventWizard({
         () => Array.from(new Set(dbTemplates.map((t) => t.style).filter((v): v is string => !!v))).sort(),
         [dbTemplates]
     );
+    /**
+     * Splash Screen (Jamal, 2026-11-17): a splash that does not exist yet starts
+     * from the event's own invitation template — same background, colours and
+     * frame — so the two match. Once, after the event and the catalogue load.
+     */
+    const invitationTemplate = opts?.templates?.find((t) => t.code === form.theme_id) ?? null;
+    const splashSeeded = useRef(false);
+    useEffect(() => {
+        if (splashSeeded.current || !existingSplash.isSuccess || existingSplash.data) return;
+        if (isEdit && !prefilled.current) return;
+        if (!opts?.templates) return;
+        splashSeeded.current = true;
+        if (invitationTemplate) setSplashState((prev) => (prev.id ? prev : { ...prev, ...splashLookFromTemplate(invitationTemplate) }));
+    }, [existingSplash.isSuccess, existingSplash.data, isEdit, opts?.templates, invitationTemplate]);
+    /** Reset to Default on the splash = the invitation template's look. */
+    const splashDefault: SplashState = invitationTemplate
+        ? { ...EMPTY_SPLASH, ...splashLookFromTemplate(invitationTemplate) }
+        : EMPTY_SPLASH;
+    /** Whose sample logo the splash shows: the template applied there, else the invitation's. */
+    const splashLogoTemplate = opts?.templates?.find((t) => t.code === splash.template) ?? invitationTemplate;
+
     const designTemplates = useMemo(
         () => (designFilter === ALL_STYLES ? dbTemplates : dbTemplates.filter((t) => t.style === designFilter)),
         [dbTemplates, designFilter]
@@ -784,6 +812,7 @@ export function EventWizard({
         // rather than from the form.
         qrToken: created?.qr_token,
         qrStyle: form.qr_style,
+        logoImage: form.logo_image || null,
     };
 
     // The card drawn with the event's own secondary colour on top of the template's.
@@ -1100,6 +1129,8 @@ export function EventWizard({
                 // custom template and back does not lose the picture; only a
                 // custom template draws it. "" → null clears it.
                 custom_image: form.custom_image || null,
+                // "" → null: back to the template's sample logo.
+                logo_image: form.logo_image || null,
                 // null means "keep following the template". Sent explicitly so
                 // that clearing an override actually clears it server-side
                 // rather than leaving the old one in place.
@@ -1763,7 +1794,12 @@ export function EventWizard({
                                 }
                                 dateText={form.start_date ? formatDate(form.start_date) : ""}
                                 tagline={form.tagline}
-                                venue={form.venue_name}
+                                templates={dbTemplates}
+                                templatesLoading={options.isLoading}
+                                defaultLook={splashDefault}
+                                logoUrl={mediaUrl(form.logo_image || splashLogoTemplate?.logo_image) ?? ""}
+                                logoIsSample={!form.logo_image && !!splashLogoTemplate?.logo_image}
+                                onLogoChange={(url) => setField("logo_image", url)}
                             />
                         )}
 
@@ -2071,6 +2107,17 @@ export function EventWizard({
                         {/* ── Invitation — Card Settings (from the Preview) ─────── */}
                         {step === S_CARD_SETTINGS && (
                             <div className="flex flex-col">
+                                    {/* Event Logo — drawn where the template's logo
+                                        sits, and on the splash screen (2026-11-17). */}
+                                    <p className="mb-1 mt-6 text-[12.5px] font-semibold text-foreground">Event Logo</p>
+                                    <p className="mb-3 text-[12px] text-muted-foreground">
+                                        Your logo or monogram, shown on the invitation and the app splash screen.
+                                    </p>
+                                    <EventLogoField
+                                        value={form.logo_image}
+                                        sample={cardTemplate?.logo_image}
+                                        onChange={(url) => setField("logo_image", url)}
+                                    />
                                     {/* What this colour ACTUALLY drives: the
                                         event / host names on the invitation and on
                                         every thumbnail of it. Nothing else reads it —
@@ -2954,6 +3001,70 @@ function CoverImageField({
  * there, and the same crop (tall, the invitation's shape) as before.
  * No Remove — the picture is required on a custom template.
  */
+/**
+ * Event Logo (2026-11-17) — the host's own logo / monogram. Drawn on the
+ * invitation where the template's sample logo sits, and on the splash screen.
+ * Uploaded as-is (no crop), so a transparent PNG stays transparent.
+ * Remove = back to the template's sample.
+ */
+export function EventLogoField({
+    value, sample, onChange,
+}: { value: string; sample?: string | null; onChange: (url: string) => void }) {
+    const upload = useUploadEventCover();
+    const inputRef = useRef<HTMLInputElement>(null);
+    const shown = value || mediaUrl(sample) || "";
+    return (
+        <div className="flex items-center gap-3">
+            <div className="grid size-[72px] shrink-0 place-items-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/40">
+                {upload.isPending ? (
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                ) : shown ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={shown} alt="Event logo" className="h-full w-full object-contain p-1.5" />
+                ) : (
+                    <Upload className="size-5 text-muted-foreground" />
+                )}
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+                <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" variant="outline" className="h-8 text-[12px]"
+                        disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
+                        {upload.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+                        {upload.isPending ? "Uploading..." : value ? "Change" : "Upload Logo"}
+                    </Button>
+                    {value && (
+                        <Button type="button" size="sm" variant="outline"
+                            className="h-8 border-destructive/40 text-[12px] text-destructive hover:bg-destructive/5 hover:text-destructive"
+                            disabled={upload.isPending} onClick={() => onChange("")}>
+                            <Trash2 className="size-3.5" />Remove
+                        </Button>
+                    )}
+                </div>
+                <p className="text-[11.5px] text-muted-foreground">
+                    {value ? "Your logo." : sample ? "The template's sample logo — upload yours to replace it." : "No logo yet."}{" "}
+                    PNG with a transparent background works best. Max 5MB.
+                </p>
+            </div>
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                        toast.error("That image is larger than 5MB.");
+                        return;
+                    }
+                    upload.mutate(file, { onSuccess: (url) => onChange(url) });
+                }}
+            />
+        </div>
+    );
+}
+
 function CustomImageButton({
     value, onChange, error,
 }: { value: string; onChange: (url: string) => void; error?: boolean }) {

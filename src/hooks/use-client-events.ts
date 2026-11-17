@@ -112,6 +112,8 @@ export interface ClientEvent {
     cover_image: string | null;
     /** The host's own picture for a custom-type template. Null = the template's own. */
     custom_image?: string | null;
+    /** The host's own event logo — on the invitation and the splash. Null = the template's sample. */
+    logo_image?: string | null;
 
     /** The finished invitation as a PNG, uploaded by the wizard after a save. */
     invitation_image?: string | null;
@@ -177,6 +179,7 @@ export interface EventPayload {
     qr_style?: number;
     cover_image?: string | null;
     custom_image?: string | null;
+    logo_image?: string | null;
     venue_landmark?: string | null;
     venue_map_link?: string | null;
     venue_image?: string | null;
@@ -428,7 +431,7 @@ const DUPLICATE_FIELDS = [
     'organizer', 'organizer_image', 'contact_phone', 'contact_email', 'footer_note',
     'privacy', 'menu_ids', 'disabled_app_menu_ids',
     'theme_id', 'home_screen_template_id', 'primary_color', 'secondary_color',
-    'cover_image', 'custom_image', 'components', 'component_order', 'qr_style',
+    'cover_image', 'custom_image', 'logo_image', 'components', 'component_order', 'qr_style',
 ] as const;
 
 export function useDuplicateEvent(onDone?: (event: ClientEvent) => void) {

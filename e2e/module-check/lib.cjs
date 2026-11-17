@@ -168,7 +168,7 @@ function makeKit({ page, ctx, PORTAL, API, EVENT, OUT, STAMP, report }) {
     /** The open panel is a slide-in (Sheet), not a centred popup (Dialog). */
     const isSlideIn = async () => (await page.locator('[data-slot="sheet-content"][data-state="open"]').count()) > 0;
 
-    return { page, api, step, shot, expect, isSlideIn, note, slow, openTab, toast, saveAndWatch, rowMenu, confirmDelete, loadingCheck, panelClosed, errors, RX, STAMP, EVENT };
+    return { page, api, step, shot, expect, isSlideIn, note, slow, openTab, toast, saveAndWatch, rowMenu, confirmDelete, loadingCheck, panelClosed, errors, RX, STAMP, EVENT, OUT, PORTAL };
 }
 
 module.exports = { makeKit, readEnvFile, RX };
