@@ -15,9 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { EventQr } from "@/components/common/event-qr";
+import { ShareEventDialog } from "@/components/common/share-event-dialog";
+import { DeleteEventDialog } from "@/components/common/delete-event-dialog";
 import { useClientProfile } from "@/hooks/use-client-portal";
 import {
     useClientEvents, useDashboardStats, useDeleteEvent, useUpdateEvent,
@@ -346,37 +346,13 @@ export default function DashboardPage() {
                 )}
             </Card>
 
-            {/* Share / Download QR */}
-            <Dialog open={!!shareFor} onOpenChange={(v) => { if (!v) setShareFor(null); }}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2"><QrCode className="h-4 w-4 text-primary" />Share Event</DialogTitle>
-                        <DialogDescription className="break-words">
-                            Guests scan this code in the Event Invite app to open &ldquo;{shareFor?.name}&rdquo;. It stays the same when you edit the event.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex justify-center py-2">
-                        <EventQr token={shareFor?.qr_token} qrStyle={shareFor?.qr_style} eventName={shareFor?.name} size={200} />
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {/* Share Event / Download QR — link, QR, share via, guests */}
+            <ShareEventDialog event={shareFor} onClose={() => setShareFor(null)} />
 
-            {/* Delete confirm (centre popup) */}
-            <Dialog open={!!pendingDelete} onOpenChange={(v) => { if (!v && !remove.isPending) setPendingDelete(null); }}>
-                <DialogContent className="sm:max-w-[460px]">
-                    <DialogHeader>
-                        <DialogTitle>Delete event?</DialogTitle>
-                        <DialogDescription>&ldquo;{pendingDelete?.name}&rdquo; will be removed from your events, and its QR code will stop working.</DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" className="h-10" disabled={remove.isPending} onClick={() => setPendingDelete(null)}>Cancel</Button>
-                        <Button variant="destructive" className="h-10" disabled={remove.isPending}
-                            onClick={() => pendingDelete && remove.mutate(pendingDelete.id, { onSettled: () => setPendingDelete(null) })}>
-                            {remove.isPending ? "Deleting..." : "Delete"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            {/* Delete Event — centre popup, same look as Share Event */}
+            <DeleteEventDialog event={pendingDelete} busy={remove.isPending} onClose={() => setPendingDelete(null)}
+                // onSettled: a failed delete must close the popup too.
+                onConfirm={(e) => remove.mutate(e.id, { onSettled: () => setPendingDelete(null) })} />
         </div>
     );
 }
