@@ -21,8 +21,10 @@ import { mediaUrl } from "@/lib/media-url";
 import { useUploadEventCover } from "@/hooks/use-client-events";
 import type { TemplateOption } from "@/hooks/use-client-portal";
 import {
-    SPLASH_DURATIONS,
+    SPLASH_DURATION_MAX,
+    SPLASH_DURATION_MIN,
     SPLASH_PARTS,
+    clampSplashDuration,
     type SplashPart,
     splashBackgroundCss,
     splashFrameTint,
@@ -488,12 +490,7 @@ export function SplashStep({
                             </Select>
                         </Row>
                         <Row label="Display Duration">
-                            <Select value={String(value.duration)} onValueChange={(v) => set("duration", Number(v))}>
-                                <SelectTrigger className="h-9 w-full max-w-[340px] text-[12.5px]"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {SPLASH_DURATIONS.map((d) => <SelectItem key={d} value={String(d)}>{d} Seconds</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                            <DurationInput value={value.duration} onChange={(n) => set("duration", n)} />
                         </Row>
                         <Row label="Music">
                             <Switch checked={value.music_enabled} onCheckedChange={(v) => set("music_enabled", v)} aria-label="Enable music" />
@@ -585,6 +582,60 @@ function TemplateTile({ template, on, onPick }: { template: TemplateOption; on: 
             <span className="absolute inset-x-1 bottom-1 truncate rounded bg-black/35 px-1 py-0.5 text-center text-[9.5px] font-semibold text-white">{template.name}</span>
             {on && <span className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground"><Check className="size-3" /></span>}
         </button>
+    );
+}
+
+/**
+ * Display Duration — how long the splash stays on screen, 5 to 30 seconds
+ * (Jamal, 2026-11-17). Typing is free; leaving the box snaps the number into
+ * range, and − / + step by one.
+ */
+function DurationInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+    const [text, setText] = useState(String(value));
+    const [seen, setSeen] = useState(value);
+    if (seen !== value) {
+        setSeen(value);
+        setText(String(value));
+    }
+    const typed = Number(text);
+    const outOfRange = text !== "" && (!Number.isFinite(typed) || typed < SPLASH_DURATION_MIN || typed > SPLASH_DURATION_MAX);
+    const commit = () => {
+        const n = clampSplashDuration(text === "" ? value : text);
+        setText(String(n));
+        if (n !== value) onChange(n);
+    };
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+                <Button type="button" size="icon" variant="outline" className="size-9" aria-label="Fewer seconds"
+                    disabled={value <= SPLASH_DURATION_MIN} onClick={() => onChange(clampSplashDuration(value - 1))}>−</Button>
+                <div className={cn("flex h-9 items-center rounded-md border px-2", outOfRange ? "border-destructive" : "border-border")}>
+                    <input
+                        type="number"
+                        inputMode="numeric"
+                        min={SPLASH_DURATION_MIN}
+                        max={SPLASH_DURATION_MAX}
+                        step={1}
+                        aria-label="Display duration in seconds"
+                        value={text}
+                        onChange={(e) => {
+                            setText(e.target.value);
+                            const n = Number(e.target.value);
+                            if (e.target.value !== "" && Number.isInteger(n) && n >= SPLASH_DURATION_MIN && n <= SPLASH_DURATION_MAX) onChange(n);
+                        }}
+                        onBlur={commit}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } }}
+                        className="w-12 bg-transparent text-center text-[13px] font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <span className="text-[12.5px] text-muted-foreground">seconds</span>
+                </div>
+                <Button type="button" size="icon" variant="outline" className="size-9" aria-label="More seconds"
+                    disabled={value >= SPLASH_DURATION_MAX} onClick={() => onChange(clampSplashDuration(value + 1))}>+</Button>
+            </div>
+            <span className={cn("text-[11px]", outOfRange ? "text-destructive" : "text-muted-foreground")}>
+                {outOfRange ? `Enter a number from ${SPLASH_DURATION_MIN} to ${SPLASH_DURATION_MAX}.` : `How long the splash shows: ${SPLASH_DURATION_MIN} to ${SPLASH_DURATION_MAX} seconds.`}
+            </span>
+        </div>
     );
 }
 

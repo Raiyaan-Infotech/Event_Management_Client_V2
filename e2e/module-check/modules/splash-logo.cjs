@@ -119,7 +119,10 @@ module.exports = async (k) => {
         await page.waitForTimeout(1200);
         await k.shot('splash-preview');
         await dlg.getByRole('button', { name: 'Close' }).click();
-        await dlg.waitFor({ state: 'detached', timeout: 10000 });
+        // Wait for the close animation to END: while the overlay is there the page behind is aria-hidden.
+        await page.locator('[data-slot="dialog-overlay"]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => null);
+        await page.locator('[data-slot="dialog-content"]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => null);
+        await page.waitForTimeout(500);
     });
 
     await step('C1. Splash Components: old fields back with on/off (Event Title, Host Names, Venue, Decoration…)', async () => {
@@ -151,6 +154,26 @@ module.exports = async (k) => {
         return order.join(' → ');
     });
 
+    await step('D1. Display Duration: number field, min 5 / max 30 seconds', async () => {
+        const box = page.getByLabel('Display duration in seconds');
+        await box.waitFor();
+        const tryValue = async (typed, expected) => {
+            await box.fill(String(typed));
+            await box.blur();
+            await page.waitForTimeout(200);
+            const v = await box.inputValue();
+            expect(v === String(expected), `typed ${typed} → ${v}, expected ${expected}`);
+        };
+        await tryValue(3, 5);
+        await tryValue(45, 30);
+        expect(await page.getByRole('button', { name: 'More seconds' }).isDisabled(), '+ not disabled at 30');
+        await tryValue(11, 11);
+        await page.getByRole('button', { name: 'More seconds' }).click();
+        expect(await box.inputValue() === '12', `+ gave ${await box.inputValue()}`);
+        await k.shot('splash-duration');
+        return '3→5, 45→30, 11 +1 = 12';
+    });
+
     await step('S8. Save stores the splash (template, frame, logo copy for the app)', async () => {
         await page.getByLabel('Show event date').click(); // a change, so the save is a real write
         await page.getByLabel('Show event date').click();
@@ -165,6 +188,7 @@ module.exports = async (k) => {
         expect(c.duration && c.text_color && Array.isArray(c.gradient_colors) || row.background_type !== 'gradient', 'new design fields missing');
         expect(c.show_logo === false || !!c.logo_url, 'logo_url copy for the app missing');
         expect(Array.isArray(c.order) && c.order[0] === 'event_title', `saved order ${JSON.stringify(c.order)}`);
+        expect(c.duration === 12, `saved duration ${c.duration}, expected 12`);
         expect(c.parts && c.parts.event_title === true && c.parts.venue === true, `saved parts ${JSON.stringify(c.parts)}`);
         expect(Array.isArray(row.component_order) && row.component_order[0] === 'event_title', `app component_order ${JSON.stringify(row.component_order)}`);
         return `row #${row.id} ${row.status}, template ${c.template}, frame ${c.frame_id ?? 'none'}, logo ${String(c.logo_url || '').slice(-40)}`;

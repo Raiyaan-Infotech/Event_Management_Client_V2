@@ -98,6 +98,15 @@ export interface SplashState {
     music_name: string;
 }
 
+/** Display Duration, in seconds (Jamal, 2026-11-17: min 5, max 30). */
+export const SPLASH_DURATION_MIN = 5;
+export const SPLASH_DURATION_MAX = 30;
+/** Any value → a whole number of seconds inside the limits. */
+export const clampSplashDuration = (v: unknown) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(Math.max(n, SPLASH_DURATION_MIN), SPLASH_DURATION_MAX) : SPLASH_DURATION_MIN;
+};
+
 export const EMPTY_SPLASH: SplashState = {
     id: null,
     enabled: true,
@@ -120,14 +129,13 @@ export const EMPTY_SPLASH: SplashState = {
     frame_id: null,
     frame_url: '',
     animation: 'fade',
-    duration: 3,
+    duration: SPLASH_DURATION_MIN,
     template: '',
     music_enabled: false,
     music_url: '',
     music_name: '',
 };
 
-export const SPLASH_DURATIONS = [2, 3, 4, 5, 6] as const;
 
 const HEX6 = /^#[0-9a-f]{6}$/i;
 const HEX3 = /^#[0-9a-f]{3}$/i;
@@ -249,7 +257,8 @@ export function splashFromRow(row: SplashRow | null | undefined): SplashState {
         frame_id: frameId > 0 ? frameId : null,
         frame_url: frameId > 0 ? str(c.frame_url) : '',
         animation: (['fade', 'zoom', 'slide', 'particles'] as const).find((a) => a === c.animation) ?? 'fade',
-        duration: num(c.duration, EMPTY_SPLASH.duration, 1, 10),
+        // Older rows saved 2-6 s; they come back inside 5-30.
+        duration: c.duration === undefined || c.duration === null ? SPLASH_DURATION_MIN : clampSplashDuration(c.duration),
         template: str(c.template),
         music_enabled: c.music_enabled === true,
         music_url: str(c.music_url),
@@ -397,7 +406,8 @@ export async function saveEventSplash(
             frame_id: s.frame_id,
             frame_url: s.frame_id ? s.frame_url || null : null,
             animation: s.animation,
-            duration: s.duration,
+            // Seconds on screen, 5-30.
+            duration: clampSplashDuration(s.duration),
             template: s.template || null,
             music_enabled: s.music_enabled,
             music_url: s.music_url || null,
