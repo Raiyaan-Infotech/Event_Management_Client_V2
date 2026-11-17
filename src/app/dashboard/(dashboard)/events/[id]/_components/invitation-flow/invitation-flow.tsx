@@ -118,7 +118,7 @@ export function InvitationFlow({ event, code }: { event: ClientEvent; code: stri
     const [title, subtitle] = TITLES[step];
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4" data-invitation-flow>
             <FlowHeader title={title} subtitle={subtitle} event={event} code={code} step={step} />
             <FlowStepper step={step} done={done} onStep={goStep} />
 

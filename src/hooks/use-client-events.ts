@@ -501,12 +501,16 @@ export function useUploadEventCover() {
  * error here is logged, never shown.
  */
 export function useUploadInvitationImage() {
+    const qc = useQueryClient();
     return useMutation({
         mutationFn: ({ eventId, image }: { eventId: number; image: Blob }) => {
             const form = new FormData();
             form.append('file', image, `invitation-${eventId}.png`);
             return api.post<{ url: string }>(`${ENDPOINT}/${eventId}/invitation-image`, form).then((r) => r.url);
         },
+        // The new picture lands after the event save's own refetch — refresh again
+        // so screens showing it (Invitation Overview, Share popup) pick it up.
+        onSuccess: () => qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' }),
     });
 }
 
