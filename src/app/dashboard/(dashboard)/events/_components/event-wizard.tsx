@@ -465,6 +465,10 @@ export function EventWizard({
 
     const afterSave = async (event: ClientEvent) => {
         await storeSplash(event);
+        // Edit Event → Invitation Card saves the invitation image the same way the
+        // Invitations flow does (Jamal, 2026-11-18): the card with the event's real
+        // QR, rendered off-screen, stored as `invitation_image`.
+        if (section === "invitation") setExportEvent(event);
         // Saved from the Exit question: leave, not on to "Event Created".
         if (exitAfterSave.current) {
             exitAfterSave.current = false;
@@ -494,6 +498,23 @@ export function EventWizard({
     */
     const uploadInvitation = useUploadInvitationImage();
     const uploadedFor = useRef<string | null>(null);
+    /** The saved event whose card is being captured (Edit Event → Invitation Card). */
+    const [exportEvent, setExportEvent] = useState<ClientEvent | null>(null);
+    useEffect(() => {
+        if (!exportEvent) return;
+        const timer = window.setTimeout(async () => {
+            const card = exportCardRef.current?.querySelector<HTMLElement>("[data-invitation-card]");
+            try {
+                if (card) await uploadInvitation.mutateAsync({ eventId: exportEvent.id, image: await nodeToPngBlob(card) });
+            } catch (error) {
+                console.error("[event-wizard] invitation image not stored", error);
+            } finally {
+                setExportEvent(null);
+            }
+        }, 800);
+        return () => window.clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [exportEvent]);
     useEffect(() => {
         if (step !== S_CREATED || !created?.id) return;
         const key = `${created.id}:${created.updated_at ?? ""}`;
@@ -2775,6 +2796,19 @@ export function EventWizard({
                     .
                 </p>
             </div>
+
+            {/* Off-screen copy of the saved card, captured as the invitation image. */}
+            {exportEvent && cardTemplate && (
+                <div ref={exportCardRef} aria-hidden className="pointer-events-none fixed top-0" style={{ left: -10000 }}>
+                    <InvitationCard
+                        template={cardTemplate}
+                        data={{ ...invitationData, qrToken: exportEvent.qr_token }}
+                        componentsOverride={compOverride ? Object.fromEntries(COMPONENT_KEYS.map((k) => [k, compOverride[k] ? 1 : 0])) : null}
+                        orderOverride={orderOverride}
+                        className="w-[360px]"
+                    />
+                </div>
+            )}
 
             <Dialog open={exitOpen} onOpenChange={setExitOpen}>
                 <DialogContent className="sm:max-w-md">

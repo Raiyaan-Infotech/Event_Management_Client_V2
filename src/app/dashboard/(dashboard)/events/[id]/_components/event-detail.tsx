@@ -46,6 +46,7 @@ import { RsvpChannels, RsvpNotes, RsvpRecent, RsvpSummary } from "../../../rsvps
 import { ParticipantsView } from "../../../participants/_components/participants-view";
 import { ScrollTabs } from "./scroll-tabs";
 import { EventWizard } from "../../_components/event-wizard";
+import { InvitationFlow } from "./invitation-flow/invitation-flow";
 import { EVENT_STATUS, EVENT_TAB_ICONS, settingsFrom, tabFrom, useVisibleEventTabs, type EventTab } from "./event-tabs";
 import { EventHero } from "./event-hero";
 import { CalendarDays, Clock, Info, Link2, MapPin, Send, UsersRound, type LucideIcon } from "lucide-react";
@@ -273,7 +274,8 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {tab === "venue" && <EventWizard key={`venue-${event.id}`} eventId={event.id} section="venue" embedded />}
 
             {/* Invitation Card + Splash Screen = the real Edit Event pages, in place, each from its own sidebar entry (Jamal, 2026-11-17). */}
-            {tab === "invitation" && <EventWizard key={`invitation-${event.id}`} eventId={event.id} section="invitation" embedded />}
+            {/* Invitation = the 4-step Invitations flow (Jamal's Template designs, 2026-11-18). */}
+            {tab === "invitation" && <InvitationFlow key={`invitation-${event.id}`} event={event} code={code} />}
             {tab === "splash" && <EventWizard key={`splash-${event.id}`} eventId={event.id} section="splash" embedded />}
 
             {/* ── Gallery ─────────────────────────────────────────────────── */}
