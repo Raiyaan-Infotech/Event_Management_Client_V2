@@ -113,13 +113,14 @@ import { useEventHref } from "@/lib/event-workspace";
 /**
  * Same order as the mobile app's Create Event (V2, 2026-10-31). The invitation
  * design steps were taken out — the invitation becomes its own module later.
+ * The Splash Screen step left too (Jamal, 2026-11-17): Invitation and Splash Screen
+ * are their own entries in the event sidebar now.
  */
 const STEPS = [
     "Event Type",
     "Basic Details",
     "Date & Time",
     "Venue",
-    "Splash Screen",
     "App Menus",
     "Organizer Details",
     "Review",
@@ -131,17 +132,18 @@ const S_TYPE = 1;
 const S_BASIC = 2;
 const S_DATE = 3;
 const S_VENUE = 4;
-const S_SPLASH = 5;
-const S_MENUS = 6;
-const S_ORGANIZER = 7;
-const S_REVIEW = 8;
-const S_CREATED = 9;
+const S_MENUS = 5;
+const S_ORGANIZER = 6;
+const S_REVIEW = 7;
+const S_CREATED = 8;
 /** The invitation pages — reachable only from Edit Event → Invitation Card. */
 const S_DESIGN = 10;        // Choose a Template Category
 const S_PREVIEW = 11;       // Preview (Save here)
 const S_TEMPLATES = 12;     // Choose a Template
 const S_CUSTOM_IMG = 13;    // Your Image — custom templates only
 const S_CARD_SETTINGS = 14; // Card Settings — opened from the Preview, as in the app
+/** The Splash Screen page — not a Create Event step; reachable only as its own section (event sidebar / Edit Event). */
+const S_SPLASH = 15;
 
 /** The invitation pages' own titles (shown under the section title). */
 const PAGE_TITLES: Record<number, string> = {
@@ -2455,13 +2457,6 @@ export function EventWizard({
                                         ],
                                     },
                                     {
-                                        title: "Splash Screen", go: S_SPLASH, rows: [
-                                            ["Background", splash.background === "image" ? (splash.image_url ? "Image" : "Image (none chosen)") : splash.background === "gradient" ? "Gradient" : "Color"],
-                                            ["Animation", { fade: "Fade", zoom: "Zoom", slide: "Slide", particles: "Particle Effect" }[splash.animation]],
-                                            ["Music", splash.music_enabled && splash.music_url ? splash.music_name || "Added" : "Off"],
-                                        ],
-                                    },
-                                    {
                                         title: "App Menus", go: S_MENUS, rows: [
                                             ["Menus on", String(previewMenus.length)],
                                         ],
@@ -2809,7 +2804,6 @@ const SUBTITLES = [
     "Tell your guests what the event is.",
     "When the event starts and ends.",
     "Where the event takes place.",
-    "The screen guests see while the event opens in the mobile app.",
     "Choose the menus to show on the participant home.",
     "Who is hosting, and how guests can reach you.",
     "Check everything before you create the event.",

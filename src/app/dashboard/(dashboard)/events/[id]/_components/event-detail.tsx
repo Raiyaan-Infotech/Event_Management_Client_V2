@@ -272,6 +272,10 @@ export function EventDetail({ eventId, workspace = false }: { eventId: number; w
             {/* Venue = the real Edit Venue page (map + fields + Save), in place (Jamal, 2026-11-06). */}
             {tab === "venue" && <EventWizard key={`venue-${event.id}`} eventId={event.id} section="venue" embedded />}
 
+            {/* Invitation Card + Splash Screen = the real Edit Event pages, in place, each from its own sidebar entry (Jamal, 2026-11-17). */}
+            {tab === "invitation" && <EventWizard key={`invitation-${event.id}`} eventId={event.id} section="invitation" embedded />}
+            {tab === "splash" && <EventWizard key={`splash-${event.id}`} eventId={event.id} section="splash" embedded />}
+
             {/* ── Gallery ─────────────────────────────────────────────────── */}
             {tab === "gallery" && <GalleryBoard eventId={event.id} />}
 

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useClientEvent } from "@/hooks/use-client-events";
 import { useDateFormatter } from "@/hooks/use-client-settings";
 import {
-    EVENT_STATUS, EVENT_TAB_ICONS, REPORT_TABS, SETTING_TABS, TAB_MENU_SLUG, TOP_TABS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
+    ADDITIONAL_EXTRA_TABS, EVENT_STATUS, EVENT_TAB_ICONS, REPORT_TABS, SETTING_TABS, TAB_MENU_SLUG, TOP_TABS, settingsFrom, tabFrom, useVisibleEventTabs, useVisibleSettingsPages,
 } from "@/app/dashboard/(dashboard)/events/[id]/_components/event-tabs";
 import { useEventOptions } from "@/hooks/use-client-portal";
 
@@ -71,7 +71,11 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const groups: { key: string; label: string | null; items: typeof tabs }[] = [
         { key: "top", label: null, items: tabs.filter((t) => TOP_TABS.includes(t.value)) },
         { key: "default", label: "Default Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
-        { key: "additional", label: "Additional Menu", items: tabs.filter((t) => TAB_MENU_SLUG[t.value] && !isDefaultMenu(TAB_MENU_SLUG[t.value]!)) },
+        { key: "additional", label: "Additional Menu", items: [
+            ...tabs.filter((t) => TAB_MENU_SLUG[t.value] && !isDefaultMenu(TAB_MENU_SLUG[t.value]!)),
+            // Event Attendance + File Downloads: plain entries here, no QR Code parent (Jamal, 2026-11-17).
+            ...tabs.filter((t) => ADDITIONAL_EXTRA_TABS.includes(t.value)),
+        ] },
         { key: "setting", label: "Setting", items: tabs.filter((t) => SETTING_TABS.includes(t.value)) },
         { key: "report", label: "Report", items: tabs.filter((t) => REPORT_TABS.includes(t.value)) },
     ].filter((g) => g.items.length > 0);
@@ -98,8 +102,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                 <SidebarMenu className="gap-0.5">
                     {g.items.map((t) => {
                         const Icon = EVENT_TAB_ICONS[t.value];
-                        // QR Code stays lit on its children's pages (File Downloads has no item of its own).
-                        const on = tab === t.value || (t.value === "attendance" && tab === "file-downloads");
+                        const on = tab === t.value;
                         return (
                             <SidebarMenuItem key={t.value}>
                                 {/* Media (was Gallery) is a parent only — no page of its own; its children navigate
@@ -133,20 +136,6 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                                 </SidebarMenuSubItem>
                                             );
                                         })}
-                                    </SidebarMenuSub>
-                                )}
-                                {/* QR Code's child menu (Jamal's design, 2026-11-16) — Event Attendance for now;
-                                    File Downloads etc. join it as they are built. */}
-                                {t.value === "attendance" && !collapsed && (
-                                    <SidebarMenuSub>
-                                        {([["attendance", "Event Attendance"], ["file-downloads", "File Downloads"]] as const).map(([key, label]) => (
-                                            <SidebarMenuSubItem key={key}>
-                                                <SidebarMenuSubButton asChild isActive={tab === key}
-                                                    className={cn("h-8 text-[12.5px]", tab === key && "bg-primary/10 font-semibold text-primary")}>
-                                                    <Link href={`${base}?tab=${key}`} scroll={false}><span>{label}</span></Link>
-                                                </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                        ))}
                                     </SidebarMenuSub>
                                 )}
                                 {t.value === "settings" && !collapsed && (

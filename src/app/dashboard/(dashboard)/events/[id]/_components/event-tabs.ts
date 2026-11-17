@@ -1,7 +1,7 @@
 "use client";
 
 import {
-    Download, FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MapPin, MapPinned, MessagesSquare, QrCode, Radio, Settings, Share2, SquareCheck,
+    ClipboardCheck, Download, FileDown, FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MailOpen, MapPin, MapPinned, MessagesSquare, Radio, Settings, Share2, Smartphone, SquareCheck,
     UserRound, Users, UsersRound, type LucideIcon,
 } from "lucide-react";
 import { useEventOptions } from "@/hooks/use-client-portal";
@@ -17,6 +17,9 @@ export const EVENT_TABS = [
     { value: "overview", label: "Dashboard" },
     // "Event Information" -> "Event Info" (Jamal, 2026-11-06).
     { value: "information", label: "Event Info" },
+    // Invitation Card + Splash Screen as their own sidebar entries (Jamal, 2026-11-17) — the same pages as Edit Event → Invitation Card / Splash Screen.
+    { value: "invitation", label: "Invitation" },
+    { value: "splash", label: "Splash Screen" },
     // Contact Messages: participants' messages to the contact person (Jamal's 8 screens, 2026-11-11; real backend).
     { value: "contact", label: "Contact" },
     { value: "agenda", label: "Agenda" },
@@ -36,9 +39,10 @@ export const EVENT_TABS = [
     // "Menu Settings" -> "App Menu", under the sidebar's SETTING heading (Jamal, 2026-11-06).
     { value: "settings", label: "App Menu" },
     { value: "messages", label: "Messages" },
-    // QR Code → Event Attendance (Jamal's design, 2026-11-16): the check-ins from the QR scans + Verify / Mark Attendance.
-    { value: "attendance", label: "QR Code" },
-    // QR Code → File Downloads (2026-11-16): who downloaded which file. Shown under QR Code, not on its own.
+    // Event Attendance (2026-11-16): the check-ins from the QR scans + Verify / Mark Attendance.
+    // File Downloads (2026-11-16): who downloaded which file. Both sit directly under ADDITIONAL MENU —
+    // the REPORT → QR Code parent is gone (Jamal, 2026-11-17).
+    { value: "attendance", label: "Event Attendance" },
     { value: "file-downloads", label: "File Downloads" },
     { value: "activity", label: "Activity Log" },
 ] as const;
@@ -52,17 +56,19 @@ export const TAB_MENU_SLUG: Partial<Record<EventTab, string>> = {
     agenda: "agenda", venue: "venue", gallery: "gallery", family: "family", wishes: "wishes", live: "live-streaming",
     nearby: "near-by", social: "social-links", downloads: "downloads", guests: "guests", rsvps: "rsvp", participants: "participants", messages: "messages",
 };
-export const TOP_TABS: EventTab[] = ["overview", "information", "contact"];
-/** Sidebar bottom (Jamal, 2026-11-06): SETTING = App Menu; REPORT = QR Code (Event Attendance) + Activity Log. */
+export const TOP_TABS: EventTab[] = ["overview", "information", "invitation", "splash", "contact"];
+/** Not app menus, but listed at the end of ADDITIONAL MENU (Jamal, 2026-11-17). */
+export const ADDITIONAL_EXTRA_TABS: EventTab[] = ["attendance", "file-downloads"];
+/** Sidebar bottom (Jamal, 2026-11-06): SETTING = App Menu; REPORT = Activity Log. */
 export const SETTING_TABS: EventTab[] = ["settings"];
-export const REPORT_TABS: EventTab[] = ["attendance", "activity"];
+export const REPORT_TABS: EventTab[] = ["activity"];
 
 export type EventTab = (typeof EVENT_TABS)[number]["value"];
 
 export const EVENT_TAB_ICONS: Record<EventTab, LucideIcon> = {
-    overview: LayoutDashboard, information: FileText, contact: MessagesSquare, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
+    overview: LayoutDashboard, information: FileText, invitation: MailOpen, splash: Smartphone, contact: MessagesSquare, agenda: ListChecks, venue: MapPin, gallery: Images, family: Users,
     wishes: Heart, live: Radio, nearby: MapPinned, social: Share2, downloads: Download, guests: UserRound, rsvps: SquareCheck, participants: UsersRound,
-    settings: Settings, messages: Mail, attendance: QrCode, "file-downloads": Download, activity: History,
+    settings: Settings, messages: Mail, attendance: ClipboardCheck, "file-downloads": FileDown, activity: History,
 };
 
 export const EVENT_STATUS: Record<DerivedStatus, { label: string; dot: string; className: string }> = {
