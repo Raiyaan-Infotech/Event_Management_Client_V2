@@ -81,14 +81,14 @@ function buildUrl(path: string, query?: Query) {
     return qs ? `${url}?${qs}` : url;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, query?: Query, raw = false): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, query?: Query, raw = false, anonymous = false): Promise<T> {
     let res: Response;
     try {
         res = await fetch(buildUrl(path, query), {
             method,
             // Sends the backend session cookie cross-origin. Without this the
             // request is anonymous and every protected route answers 401.
-            credentials: 'include',
+            credentials: anonymous ? 'omit' : 'include',
             /*
               FormData goes through UNTOUCHED, and deliberately without a
               Content-Type.
@@ -196,6 +196,15 @@ export const api = {
         };
     },
     post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+    /**
+     * POST to a `/public/...` route WITHOUT the session cookie.
+     *
+     * The backend answers its public routes with `Access-Control-Allow-Origin: *`, and a browser
+     * refuses that answer for a request sent with credentials — so a page with no login (the public
+     * invitation page, `/e/<token>`) must not send any. The few public routes that SET the session
+     * cookie (login, OTP verify) are on the backend's cookie-bearing list and keep using `post`.
+     */
+    postPublic: <T>(path: string, body?: unknown) => request<T>('POST', path, body, undefined, false, true),
     put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
     patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
     /**

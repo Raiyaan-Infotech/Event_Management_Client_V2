@@ -54,7 +54,7 @@ export default function PublicInvitationPage({ params }: { params: Promise<{ tok
     const token = decodeURIComponent(use(params).token);
     const query = useQuery({
         queryKey: ["public", "invite", token],
-        queryFn: () => api.post<{ event: PublicEvent }>("/public/events/qr/resolve", { token }),
+        queryFn: () => api.postPublic<{ event: PublicEvent }>("/public/events/qr/resolve", { token }),
         retry: (count, error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && count < 2,
         staleTime: 60_000,
     });
