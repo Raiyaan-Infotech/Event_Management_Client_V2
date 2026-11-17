@@ -26,6 +26,32 @@ import type { TemplateOption } from '@/hooks/use-client-portal';
  *   - A new splash starts from the event's own invitation template.
  */
 
+/**
+ * The parts drawn on the splash, each with an on/off switch and a place in the
+ * drag order (Jamal, 2026-11-17: the old Invitation Menu switches came back —
+ * Event Title, Host / Couple Names, Venue, Decoration — plus ordering).
+ */
+export const SPLASH_PARTS = [
+    { key: 'logo', label: 'Event Logo / Monogram' },
+    { key: 'event_title', label: 'Event Title' },
+    { key: 'host_names', label: 'Host / Couple Names' },
+    { key: 'decoration', label: 'Decoration' },
+    { key: 'tagline', label: 'Subtitle / Tagline' },
+    { key: 'date_time', label: 'Date & Time' },
+    { key: 'venue', label: 'Venue' },
+] as const;
+export type SplashPart = (typeof SPLASH_PARTS)[number]['key'];
+const PART_KEYS = SPLASH_PARTS.map((p) => p.key) as SplashPart[];
+const DEFAULT_PARTS: Record<SplashPart, boolean> = {
+    logo: true, event_title: false, host_names: true, decoration: true, tagline: true, date_time: true, venue: false,
+};
+/** A stored order → every part exactly once, unknown keys dropped, missing ones appended. */
+const normaliseOrder = (v: unknown): SplashPart[] => {
+    const given = Array.isArray(v) ? (v as unknown[]).filter((k): k is SplashPart => PART_KEYS.includes(k as SplashPart)) : [];
+    const unique = [...new Set(given)];
+    return [...unique, ...PART_KEYS.filter((k) => !unique.includes(k))];
+};
+
 export type SplashBackground = 'image' | 'gradient' | 'color';
 export type SplashGradientType = 'linear' | 'radial';
 export type SplashAnimation = 'fade' | 'zoom' | 'slide' | 'particles';
@@ -39,8 +65,10 @@ export interface SplashState {
     title: string;
     /** Subtitle / Tagline; "" = the event's tagline. */
     subtitle: string;
-    show_date: boolean;
-    show_logo: boolean;
+    /** Which parts show (Show Event Date / Show Event Logo are `date_time` / `logo`). */
+    parts: Record<SplashPart, boolean>;
+    /** The parts in the order they are drawn, top to bottom. */
+    order: SplashPart[];
     background: SplashBackground;
     image_url: string;
     color: string;
@@ -75,8 +103,8 @@ export const EMPTY_SPLASH: SplashState = {
     enabled: true,
     title: '',
     subtitle: '',
-    show_date: true,
-    show_logo: true,
+    parts: DEFAULT_PARTS,
+    order: PART_KEYS,
     background: 'gradient',
     image_url: '',
     color: '#7B0835',
@@ -181,15 +209,31 @@ export function splashFromRow(row: SplashRow | null | undefined): SplashState {
     const gradient_colors = stops.length >= 2
         ? stops
         : [hex(c.gradient_from, EMPTY_SPLASH.gradient_colors[0]), hex(c.gradient_to, EMPTY_SPLASH.gradient_colors[2])];
-    const dateOn = comp.date_time;
     const frameId = Number(c.frame_id);
+    // Part switches: the new `parts` map, else the older show_date / show_logo
+    // flags and the app's `components` keys, else the defaults.
+    const on = (v: unknown) => v === true || v === 1 || v === '1';
+    const stored = (c.parts ?? {}) as Record<string, unknown>;
+    const legacy: Partial<Record<SplashPart, unknown>> = {
+        logo: c.show_logo ?? comp.event_logo,
+        event_title: comp.event_title,
+        host_names: comp.host_names,
+        decoration: comp.decoration_elements,
+        tagline: comp.invitation_message,
+        date_time: c.show_date ?? comp.date_time,
+        venue: comp.venue,
+    };
+    const parts = Object.fromEntries(PART_KEYS.map((k) => {
+        const v = stored[k] ?? legacy[k];
+        return [k, v === undefined || v === null ? DEFAULT_PARTS[k] : on(v)];
+    })) as Record<SplashPart, boolean>;
     return {
         id: row.id,
         enabled: row.status ? row.status === 'active' : true,
         title: str(c.title),
         subtitle: str(c.subtitle),
-        show_date: bool(c.show_date, dateOn === undefined ? true : dateOn === true || dateOn === 1 || dateOn === '1'),
-        show_logo: bool(c.show_logo, true),
+        parts,
+        order: normaliseOrder(c.order),
         background: type === 'gradient' ? 'gradient' : type === 'solid_color' ? 'color' : type === 'image' ? 'image' : EMPTY_SPLASH.background,
         image_url: str(row.background_url),
         color: hex(row.bg_color, EMPTY_SPLASH.color),
@@ -291,6 +335,12 @@ export const splashAutoTitle = (event: { name?: string | null; host_one?: string
     return hosts || (event.name ?? '').trim() || 'Welcome';
 };
 
+/** Part key → the key the app's `components` / `component_order` use. */
+const APP_KEY: Record<SplashPart, string> = {
+    logo: 'event_logo', event_title: 'event_title', host_names: 'host_names', decoration: 'decoration_elements',
+    tagline: 'invitation_message', date_time: 'date_time', venue: 'venue',
+};
+
 /**
  * Create or update the event's splash. Called after the event itself is
  * saved, because a splash needs the event's id.
@@ -311,24 +361,27 @@ export async function saveEventSplash(
         background_type: s.background === 'color' ? 'solid_color' : s.background,
         background_url: s.background === 'image' ? s.image_url || null : null,
         bg_color: s.background === 'color' ? s.color : null,
-        // The app's part switches, kept in step with the new controls.
+        // The app's part switches (its own key names) and order, kept in step.
         components: {
-            event_title: true,
-            host_names: true,
-            date_time: s.show_date,
-            venue: false,
-            invitation_message: !!(s.subtitle.trim() || event.tagline),
-            decoration_elements: !!s.frame_id,
-            event_logo: s.show_logo,
+            event_title: s.parts.event_title,
+            host_names: s.parts.host_names,
+            date_time: s.parts.date_time,
+            venue: s.parts.venue,
+            invitation_message: s.parts.tagline,
+            decoration_elements: s.parts.decoration,
+            event_logo: s.parts.logo,
         },
+        component_order: s.order.map((k) => APP_KEY[k]),
         background_config: {
             title: s.title.trim() || null,
             subtitle: s.subtitle.trim() || null,
-            show_date: s.show_date,
-            show_logo: s.show_logo,
+            parts: s.parts,
+            order: s.order,
+            show_date: s.parts.date_time,
+            show_logo: s.parts.logo,
             // A copy for the app, which reads only this row; the portal always
             // re-resolves it from the event and its template.
-            logo_url: s.show_logo ? event.logo_url || null : null,
+            logo_url: s.parts.logo ? event.logo_url || null : null,
             gradient_type: s.gradient_type,
             gradient_angle: s.gradient_angle,
             gradient_colors: stops,

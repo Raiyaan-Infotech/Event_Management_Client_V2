@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import {
-    CalendarDays, Check, Circle, Droplet, Eye, Image as ImageIcon, Loader2, Music, Pause, Pipette, Play, Plus,
+    CalendarDays, Check, Circle, Droplet, Eye, GripVertical, Image as ImageIcon, Loader2, MapPin, Music, Pause, Pipette, Play, Plus,
     RotateCcw, Trash2, Upload, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,8 @@ import { useUploadEventCover } from "@/hooks/use-client-events";
 import type { TemplateOption } from "@/hooks/use-client-portal";
 import {
     SPLASH_DURATIONS,
+    SPLASH_PARTS,
+    type SplashPart,
     splashBackgroundCss,
     splashFrameTint,
     splashLineColor,
@@ -92,6 +94,8 @@ export function SplashStep({
     title,
     dateText,
     tagline,
+    eventName,
+    venue,
     templates,
     templatesLoading,
     defaultLook,
@@ -106,6 +110,10 @@ export function SplashStep({
     dateText: string;
     /** The event's tagline — used when Subtitle is blank. */
     tagline: string;
+    /** The Event Title part (the event's name). */
+    eventName: string;
+    /** The Venue part. */
+    venue: string;
     /** The admin's invitation templates on offer to this event. */
     templates: TemplateOption[];
     templatesLoading?: boolean;
@@ -118,6 +126,15 @@ export function SplashStep({
     onLogoChange: (url: string) => void;
 }) {
     const set = <K extends keyof SplashState>(key: K, v: SplashState[K]) => onChange({ ...value, [key]: v });
+    const setPart = (key: SplashPart, on: boolean) => onChange({ ...value, parts: { ...value.parts, [key]: on } });
+    const [dragKey, setDragKey] = useState<SplashPart | null>(null);
+    /** Drop the dragged part onto `target`'s place. */
+    const moveTo = (target: SplashPart) => {
+        if (!dragKey || dragKey === target) return;
+        const next = value.order.filter((k) => k !== dragKey);
+        next.splice(next.indexOf(target), 0, dragKey);
+        onChange({ ...value, order: next });
+    };
     const upload = useUploadSplashMedia();
     const logoUpload = useUploadEventCover();
     const frames = useSplashFrames();
@@ -171,7 +188,7 @@ export function SplashStep({
         logoUpload.mutate(file, {
             onSuccess: (url) => {
                 onLogoChange(url);
-                if (!value.show_logo) set("show_logo", true);
+                if (!value.parts.logo) setPart("logo", true);
             },
         });
     };
@@ -215,13 +232,13 @@ export function SplashStep({
                                     onChange={(e) => set("subtitle", e.target.value)} className="h-9 max-w-[340px] text-[13px]" />
                             </Row>
                             <Row label="Show Event Date">
-                                <Switch checked={value.show_date} onCheckedChange={(v) => set("show_date", v)} aria-label="Show event date" />
+                                <Switch checked={value.parts.date_time} onCheckedChange={(v) => setPart("date_time", v)} aria-label="Show event date" />
                                 <span className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-[12.5px] font-medium">
                                     <CalendarDays className="size-4 text-muted-foreground" />{dateText || "No date yet"}
                                 </span>
                             </Row>
                             <Row label="Show Event Logo / Monogram">
-                                <Switch checked={value.show_logo} onCheckedChange={(v) => set("show_logo", v)} aria-label="Show event logo" />
+                                <Switch checked={value.parts.logo} onCheckedChange={(v) => setPart("logo", v)} aria-label="Show event logo" />
                                 <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-muted/40">
                                     {logoUpload.isPending ? <Loader2 className="size-4 animate-spin text-muted-foreground" />
                                         // eslint-disable-next-line @next/next/no-img-element
@@ -247,6 +264,57 @@ export function SplashStep({
                                     ? "The template's sample logo. Upload yours — it also replaces the logo on your invitation."
                                     : logoUrl ? "Your logo — the same one is shown on your invitation." : "No logo yet. The one you upload is also shown on your invitation."}
                             </p>
+                        </div>
+                    </section>
+
+                    <div className="h-px bg-border" />
+
+                    {/* Splash Components — every part with a switch, then the drag order (Jamal, 2026-11-17). */}
+                    <section className={cn("flex flex-col gap-3", !value.enabled && "pointer-events-none opacity-50")}>
+                        <div>
+                            <h3 className="text-[15px] font-bold text-foreground">Splash Components</h3>
+                            <p className="text-[12px] text-muted-foreground">Choose what is shown on the splash screen.</p>
+                        </div>
+                        <ul className="grid gap-x-8 sm:grid-cols-2">
+                            {SPLASH_PARTS.map((p) => (
+                                <li key={p.key} className="flex items-center justify-between gap-3 border-b border-border py-2 text-[13px]">
+                                    {p.label}
+                                    <Switch checked={value.parts[p.key]} onCheckedChange={(v) => setPart(p.key, v)} aria-label={p.label} />
+                                </li>
+                            ))}
+                        </ul>
+                        <div>
+                            <p className="text-[12.5px] font-semibold text-foreground">Component Order</p>
+                            <p className="mb-2 text-[11.5px] text-muted-foreground">
+                                Drag the chips to arrange the order, top to bottom. Components switched off keep their place.
+                            </p>
+                            <ul className="flex flex-wrap gap-2" aria-label="Component order">
+                                {value.order.map((key, index) => {
+                                    const part = SPLASH_PARTS.find((p) => p.key === key)!;
+                                    const on = value.parts[key];
+                                    return (
+                                        <li
+                                            key={key}
+                                            draggable
+                                            data-part={key}
+                                            onDragStart={() => setDragKey(key)}
+                                            onDragEnd={() => setDragKey(null)}
+                                            // preventDefault on dragOver, or the browser refuses the drop.
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={(e) => { e.preventDefault(); moveTo(key); setDragKey(null); }}
+                                            className={cn(
+                                                "flex cursor-grab items-center gap-2 rounded-md border px-2.5 py-1.5 text-[12px] transition-colors active:cursor-grabbing",
+                                                dragKey === key ? "border-primary bg-primary/10" : "border-border bg-card",
+                                                !on && "opacity-50",
+                                            )}
+                                        >
+                                            <GripVertical className="size-3.5 text-muted-foreground" />
+                                            <span className="grid size-4 place-items-center rounded bg-foreground/80 text-[9px] font-semibold text-background">{index + 1}</span>
+                                            <span className={cn(!on && "line-through")}>{part.label}</span>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
                     </section>
 
@@ -443,7 +511,7 @@ export function SplashStep({
                 {/* ── Middle: the phone ──────────────────────────────────── */}
                 <div className="flex justify-center lg:sticky lg:top-4 lg:self-start">
                     <PhonePreview key={replay} value={value} title={shownTitle} subtitle={shownSubtitle} dateText={dateText}
-                        logoUrl={value.show_logo ? logoUrl : ""} />
+                        logoUrl={logoUrl} eventName={eventName} venue={venue} />
                 </div>
 
                 {/* ── Right: quick templates = the admin's invitation templates ── */}
@@ -483,7 +551,7 @@ export function SplashStep({
                     <div className="flex flex-col items-center gap-3">
                         {previewOpen && (
                             <PhonePreview value={value} title={shownTitle} subtitle={shownSubtitle} dateText={dateText}
-                                logoUrl={value.show_logo ? logoUrl : ""} large />
+                                logoUrl={logoUrl} eventName={eventName} venue={venue} large />
                         )}
                         <Button type="button" variant="secondary" size="sm" onClick={() => setPreviewOpen(false)}>
                             <X className="size-4" />Close
@@ -598,8 +666,8 @@ function MusicRow({ url, name, uploading, onPick }: { url: string; name: string;
 }
 
 function PhonePreview({
-    value, title, subtitle, dateText, logoUrl, large = false,
-}: { value: SplashState; title: string; subtitle: string; dateText: string; logoUrl: string; large?: boolean }) {
+    value, title, subtitle, dateText, logoUrl, eventName, venue, large = false,
+}: { value: SplashState; title: string; subtitle: string; dateText: string; logoUrl: string; eventName: string; venue: string; large?: boolean }) {
     const tintId = `splash-tint-${useId().replace(/:/g, "")}`;
     const enter =
         value.animation === "zoom" ? "animate-in zoom-in-75 fade-in duration-700"
@@ -649,19 +717,39 @@ function PhonePreview({
                     </div>
                 )}
                 <div className={cn("relative flex h-full flex-col items-center justify-center gap-2 px-9 text-center", enter)}>
-                    {logoUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoUrl} alt="" className="mb-1 object-contain" style={{ width: large ? 96 : 76, maxHeight: large ? 96 : 76 }} />
-                    )}
-                    <div className="font-serif font-semibold italic leading-tight drop-shadow" style={{ fontSize: large ? 34 : 27 }}>{title}</div>
-                    <Divider color={line} />
-                    {subtitle && <p style={{ fontSize: large ? 16 : 13 }}>{subtitle}</p>}
-                    {(subtitle || value.show_date) && <span className="h-px w-16" style={{ backgroundColor: line }} />}
-                    {value.show_date && dateText && (
-                        <p className="mt-1 inline-flex items-center gap-1.5" style={{ fontSize: large ? 16 : 13 }}>
-                            <CalendarDays className="size-4" style={{ color: value.accent_color }} />{dateText}
-                        </p>
-                    )}
+                    {/* The parts in the host's order; switched-off and empty parts are skipped. */}
+                    {value.order.filter((k) => value.parts[k]).map((k) => {
+                        const small = { fontSize: large ? 16 : 13 };
+                        switch (k) {
+                            case "logo":
+                                return logoUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img key={k} src={logoUrl} alt="" data-splash-part="logo" className="mb-1 object-contain" style={{ width: large ? 96 : 76, maxHeight: large ? 96 : 76 }} />
+                                ) : null;
+                            case "event_title":
+                                return eventName ? <p key={k} data-splash-part="event_title" className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ fontSize: large ? 13 : 11 }}>{eventName}</p> : null;
+                            case "host_names":
+                                return <div key={k} data-splash-part="host_names" className="font-serif font-semibold italic leading-tight drop-shadow" style={{ fontSize: large ? 34 : 27 }}>{title}</div>;
+                            case "decoration":
+                                return <Divider key={k} color={line} />;
+                            case "tagline":
+                                return subtitle ? <p key={k} data-splash-part="tagline" style={small}>{subtitle}</p> : null;
+                            case "date_time":
+                                return dateText ? (
+                                    <p key={k} data-splash-part="date_time" className="inline-flex items-center gap-1.5" style={small}>
+                                        <CalendarDays className="size-4" style={{ color: value.accent_color }} />{dateText}
+                                    </p>
+                                ) : null;
+                            case "venue":
+                                return venue ? (
+                                    <p key={k} data-splash-part="venue" className="inline-flex items-start gap-1.5" style={{ fontSize: large ? 14 : 12 }}>
+                                        <MapPin className="mt-0.5 size-3.5 shrink-0" style={{ color: value.accent_color }} />{venue}
+                                    </p>
+                                ) : null;
+                            default:
+                                return null;
+                        }
+                    })}
                 </div>
             </div>
         </div>

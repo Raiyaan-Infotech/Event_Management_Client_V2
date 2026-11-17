@@ -1794,6 +1794,8 @@ export function EventWizard({
                                 }
                                 dateText={form.start_date ? formatDate(form.start_date) : ""}
                                 tagline={form.tagline}
+                                eventName={form.name}
+                                venue={[form.venue_name, form.venue_address].filter((v) => v.trim()).join(", ")}
                                 templates={dbTemplates}
                                 templatesLoading={options.isLoading}
                                 defaultLook={splashDefault}
