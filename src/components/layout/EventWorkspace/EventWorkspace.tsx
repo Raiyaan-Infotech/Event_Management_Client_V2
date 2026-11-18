@@ -82,7 +82,9 @@ export function EventSidebar({ eventId }: { eventId: number }) {
         { key: "report", label: "Report", items: tabs.filter((t) => REPORT_TABS.includes(t.value)) },
     ].filter((g) => g.items.length > 0);
     return (
-        <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
+        <Sidebar collapsible="icon" className="pointer-events-auto border-r border-border bg-sidebar">
+            {/* pointer-events-auto: a settings popup (opened from App Menu) switches off clicks outside itself;
+                the sidebar stays clickable so another App Menu item opens straight away (Jamal, 2026-11-18). */}
             <SidebarHeader className={cn("sticky top-0 z-50 flex h-14 flex-col justify-center border-b border-border bg-sidebar", collapsed ? "px-1.5" : "px-4")}>
                 <Link href="/dashboard" className={cn("flex items-center gap-2.5 no-underline", collapsed && "justify-center")}>
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
@@ -155,7 +157,7 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                                             <SidebarMenuSubButton asChild isActive={subOn}
                                                                 className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
                                                                 {/* The module's own page with its settings open (Jamal, 2026-11-18). */}
-                                                                <Link href={`${base}?tab=${p.tab}&settings=1`} scroll={false}>{p.label}</Link>
+                                                                <Link href={`${base}?tab=${p.tab}&settings=1`} scroll={false} title={p.label}><span>{p.label}</span></Link>
                                                             </SidebarMenuSubButton>
                                                         </SidebarMenuSubItem>
                                                     );
