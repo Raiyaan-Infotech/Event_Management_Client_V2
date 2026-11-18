@@ -50,12 +50,12 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const tab = tabFrom(sub ? sub[1] : asked);
     const tabs = useVisibleEventTabs();
     const settingsPages = useVisibleSettingsPages();
-    // A settings sub-item is "on" when its module page is open with its settings (`&settings=1`).
-    const settingsShown = search.get("settings") === "1";
-    const settingsPage = settingsPages.find((p) => p.tab === tab && settingsShown)?.key ?? settingsFrom(search.get("set"));
-    // App Menu's list shows on App Menu and while one of its settings is open; the chevron opens / closes it anywhere.
+    // App Menu sub-items open their settings page inside App Menu (`?tab=settings&set=<key>`) — back to
+    // the old behaviour (Jamal, 2026-11-18, reverting the "open the module's own page" change).
+    const settingsPage = settingsFrom(search.get("set"));
+    // Menu Settings opens its list on its own page; the chevron opens / closes it anywhere.
     const [settingsToggled, setSettingsToggled] = useState<boolean | null>(null);
-    const settingsOpen = settingsToggled ?? (tab === "settings" || (settingsShown && settingsPages.some((p) => p.tab === tab)));
+    const settingsOpen = settingsToggled ?? tab === "settings";
     // Media's child menu shows by default; clicking Media hides / shows it.
     const [galleryToggled, setGalleryToggled] = useState<boolean | null>(null);
     const galleryOpen = galleryToggled ?? true;
@@ -83,8 +83,8 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     ].filter((g) => g.items.length > 0);
     return (
         <Sidebar collapsible="icon" className="pointer-events-auto border-r border-border bg-sidebar">
-            {/* pointer-events-auto: a settings popup (opened from App Menu) switches off clicks outside itself;
-                the sidebar stays clickable so another App Menu item opens straight away (Jamal, 2026-11-18). */}
+            {/* pointer-events-auto: a module's settings popup switches off clicks outside itself; the sidebar
+                stays clickable so any menu opens straight away (Jamal, 2026-11-18). */}
             <SidebarHeader className={cn("sticky top-0 z-50 flex h-14 flex-col justify-center border-b border-border bg-sidebar", collapsed ? "px-1.5" : "px-4")}>
                 <Link href="/dashboard" className={cn("flex items-center gap-2.5 no-underline", collapsed && "justify-center")}>
                     <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground shadow-sm">
@@ -151,13 +151,12 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         {settingsOpen && (
                                             <SidebarMenuSub>
                                                 {settingsPages.map((p) => {
-                                                    const subOn = settingsPage === p.key;
+                                                    const subOn = on && settingsPage === p.key;
                                                     return (
                                                         <SidebarMenuSubItem key={p.key}>
                                                             <SidebarMenuSubButton asChild isActive={subOn}
                                                                 className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
-                                                                {/* The module's own page with its settings open (Jamal, 2026-11-18). */}
-                                                                <Link href={`${base}?tab=${p.tab}&settings=1`} scroll={false} title={p.label}><span>{p.label}</span></Link>
+                                                                <Link href={`${base}?tab=settings&set=${p.key}`} scroll={false} title={p.label}><span>{p.label}</span></Link>
                                                             </SidebarMenuSubButton>
                                                         </SidebarMenuSubItem>
                                                     );
