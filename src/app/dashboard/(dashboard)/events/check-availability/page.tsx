@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     AlertTriangle, CalendarCheck, CalendarDays, CalendarPlus, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, Clock,
@@ -47,6 +47,12 @@ export default function CheckAvailabilityPage() {
     const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
     const [mode, setMode] = useState<Mode>("single");
     const [start, setStart] = useState<string | null>(null);
+    // Opens with today selected, so its availability shows at once (Jamal, 2026-11-18). Set in the
+    // browser, not during server render: the server's "today" (UTC) differs from India's until 05:30.
+    useEffect(() => {
+        const t = window.setTimeout(() => setStart((s) => s ?? todayIso()), 0);
+        return () => window.clearTimeout(t);
+    }, []);
     const [end, setEnd] = useState<string | null>(null);
     const [supportOpen, setSupportOpen] = useState(false);
     const [submitted, setSubmitted] = useState<AvailabilityRequest | null>(null);
