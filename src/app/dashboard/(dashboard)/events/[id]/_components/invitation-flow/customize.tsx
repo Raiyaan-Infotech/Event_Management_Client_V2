@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import {
-    ArrowRight, Check, CheckCircle2, Eye, GripVertical, Image as ImageIcon, Info, Loader2, Palette, Pencil,
+    ArrowRight, Check, Eye, GripVertical, Image as ImageIcon, Info, Loader2, Palette, Pencil,
     QrCode, RotateCcw, Save, Upload, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import { useUploadEventCover } from "@/hooks/use-client-events";
 import type { TemplateOption } from "@/hooks/use-client-portal";
 import { InvitationCard, type InvitationData } from "@/components/common/invitation-card";
 import { ImageCropDialog } from "@/components/common/image-crop-dialog";
-import { TemplateArtwork } from "@/components/common/template-artwork";
 import { EventLogoField } from "../../../_components/event-wizard";
 import {
     COMPONENT_SWITCHES, hostsOf, prettyDate, prettyTime,
@@ -89,15 +88,8 @@ export function Customize({
         setDesign((d) => ({ ...d, component_order: next.flatMap((u) => u.keys) }));
     };
 
-    const checklist = [
-        { ok: !!event.name && !!hostsOf(event), label: "Event name & couple details" },
-        { ok: !!event.start_date && !!event.venue_name, label: "Date and venue confirmed" },
-        { ok: !!event.qr_token, label: "QR code linked to your event" },
-        { ok: !!design.theme_id && !!design.primary_color, label: "Template and theme colors" },
-    ];
-
     return (
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_260px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
             {/* ── Edit Template Properties ─────────────────────────────── */}
             <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -281,43 +273,6 @@ export function Customize({
                     </Button>
                 </div>
             </section>
-
-            {/* ── Side ─────────────────────────────────────────────────── */}
-            <aside className="flex flex-col gap-4">
-                <section className="rounded-xl border border-border bg-card p-5">
-                    <h2 className="text-[15px] font-bold text-foreground">Selected Design</h2>
-                    {template ? (
-                        <div className="mt-3 flex gap-3 border-b border-border pb-3">
-                            <span className="relative block h-[96px] w-[72px] shrink-0 overflow-hidden rounded-md bg-muted/40">
-                                <TemplateArtwork template={template} data={data} className="inset-0" cardClassName="rounded-[3px]" />
-                            </span>
-                            <div className="min-w-0">
-                                <p className="text-[13.5px] font-bold text-foreground">{template.name}</p>
-                                <p className="text-[11.5px] capitalize text-muted-foreground">{[event.category?.name, "Admin Library"].filter(Boolean).join(" · ")}</p>
-                                <span className="mt-1.5 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                                    {dirty ? "Editing Copy" : "Saved"}
-                                </span>
-                            </div>
-                        </div>
-                    ) : null}
-                    <p className="mt-3 text-[11.5px] text-muted-foreground">Customized for <span className="font-semibold text-foreground">{event.name}</span></p>
-                </section>
-
-                <section className="rounded-xl border border-border bg-card p-5">
-                    <h2 className="text-[15px] font-bold text-foreground">Save Checklist</h2>
-                    <ul className="mt-3 flex flex-col gap-2.5">
-                        {checklist.map((c) => (
-                            <li key={c.label} className="flex items-start gap-2 text-[12.5px]">
-                                {c.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
-                                <span className={c.ok ? "text-foreground" : "text-muted-foreground"}>{c.label}</span>
-                            </li>
-                        ))}
-                    </ul>
-                    <p className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5 text-[11.5px] text-primary">
-                        Changes apply only to this event. The admin&apos;s original template will not be modified.
-                    </p>
-                </section>
-            </aside>
 
             <Dialog open={full} onOpenChange={setFull}>
                 <DialogContent className="w-auto max-w-none border-0 bg-transparent p-0 shadow-none" showCloseButton={false}>
