@@ -8,7 +8,6 @@ import {
     faPaperPlane,
     faChartColumn,
     faGear,
-    faUser,
 } from "@fortawesome/free-solid-svg-icons"
 
 /**
@@ -58,7 +57,8 @@ import {
  */
 export const navMain = [
     /*
-      Jamal's sidebar (2026-11-16): exactly these six, in this order. Everything else
+      Jamal's sidebar (2026-11-16): exactly these, in this order. Profile removed from
+      the sidebar (Jamal, 2026-11-18) — it stays in the header's avatar menu (My Profile). Everything else
       (Allocation Requests, Templates, Messages, Agenda, Notifications, Notification
       Templates) stays reachable from the pages and links that open it, not from the nav.
       Reports = the Analytics page; Subscription = the Billing page.
@@ -67,7 +67,6 @@ export const navMain = [
     { title: "My Events", url: "/dashboard/events", icon: faCalendarDays, items: [] },
     { title: "Reports", url: "/dashboard/analytics", icon: faChartColumn, items: [] },
     { title: "Subscription", url: "/dashboard/billing", icon: faLayerGroup, items: [] },
-    { title: "Profile", url: "/dashboard/profile", icon: faUser, items: [] },
     { title: "Settings", url: "/dashboard/settings", icon: faGear, items: [] },
 ] as { title: string; url: string; icon: typeof faHouse; section?: string; items: { title: string; url: string; icon: typeof faHouse; ready?: boolean }[] }[]
 

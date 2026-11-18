@@ -16,6 +16,13 @@ export const TONE_TEXT: Record<Tone, string> = {
     plain: "text-foreground",
 };
 
+/**
+ * A module's "<Module> Settings" header button — the Wed Wishes look, used by
+ * every module that has settings (Jamal, 2026-11-18). Pair with
+ * `<Button variant="outline" size="sm">` and the ⚙ Settings icon.
+ */
+export const SETTINGS_BTN = "border-primary/40 text-primary hover:bg-primary/5 hover:text-primary";
+
 export const TONE_PILL: Record<Tone, string> = {
     primary: "bg-primary/10 text-primary",
     violet: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",

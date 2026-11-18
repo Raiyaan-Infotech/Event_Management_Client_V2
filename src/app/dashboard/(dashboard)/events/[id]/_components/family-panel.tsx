@@ -19,7 +19,7 @@ import {
 } from "@/hooks/use-event-modules";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import {
-    ChoiceRadio, CountTabs, DeletePopup, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar,
+    ChoiceRadio, CountTabs, DeletePopup, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar, SETTINGS_BTN,
 } from "@/components/module-kit";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
 
@@ -288,7 +288,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
                 actions={(
 <>
                     <Button variant="outline" size="sm" className="h-8" onClick={exportCsv} disabled={!ordered.length}><Download className="size-3.5" /> Export</Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Family Settings</Button>
+                    <Button variant="outline" size="sm" className={cn("h-8", SETTINGS_BTN)} onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Family Settings</Button>
                     <Button size="sm" className="h-8" onClick={addNew}><UserPlus className="size-3.5" /> Add Family Member</Button>
                     </>
                 )}

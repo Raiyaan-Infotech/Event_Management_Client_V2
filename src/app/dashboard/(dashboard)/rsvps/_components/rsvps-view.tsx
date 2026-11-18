@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
     CalendarDays, CheckCircle2, ChevronDown, CircleHelp, Clock, Download, Eye, EyeOff, Mail, MessageCircle,
-    Send, Smartphone, Star, User, Users, XCircle,
+    Send, Settings, Smartphone, Star, User, Users, XCircle,
 } from "lucide-react";
+import { RsvpSettingsDialog } from "../../events/[id]/_components/settings-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-    ActionSheet, CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SearchBox, SortSelect,
+    ActionSheet, CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SETTINGS_BTN, SearchBox, SortSelect,
     StarBadge, StatTile, StatusPill, Toolbar,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     const [act, setAct] = useState<{ a: RsvpAction; r: RsvpRow; target?: RsvpAnswer | "pending" } | null>(null);
     const [guestAct, setGuestAct] = useState<{ a: GuestAction; r: RsvpRow } | null>(null);
     const [bulkOpen, setBulkOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     useEffect(() => {
         const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);
@@ -118,6 +120,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                     actions={(
                         <>
                             <Button variant="outline" size="sm" onClick={exportCsv} disabled={!d?.pagination.totalItems}><Download className="size-3.5" /> Export</Button>
+                            <Button variant="outline" size="sm" className={SETTINGS_BTN} onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> RSVP Settings</Button>
                             <Button size="sm" onClick={() => setBulkOpen(true)} disabled={!s?.pending}><Send className="size-3.5" /> Send Reminder</Button>
                         </>
                     )} />
@@ -239,6 +242,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
                 action={guestAct?.a ?? null} guest={guestAct ? asGuest(fresh(guestAct.r)) : null} eventId={eventId}
                 onClose={() => setGuestAct(null)} onSwitch={(a) => setGuestAct((x) => (x ? { ...x, a } : x))}
             />
+            {settingsOpen && <RsvpSettingsDialog eventId={eventId} onClose={() => setSettingsOpen(false)} />}
             {bulkOpen && <BulkReminder eventId={eventId} onClose={() => setBulkOpen(false)} onOne={(r) => { setBulkOpen(false); setAct({ a: "reminder", r }); }} />}
         </div>
     );

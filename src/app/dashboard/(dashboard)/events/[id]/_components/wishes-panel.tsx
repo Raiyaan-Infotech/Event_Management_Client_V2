@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, StatTile, StatusPill, type RowAction,
+    ActionSheet, CharCount, DetailRow, DetailSection, FormField, FormPanel, ModuleHeader, Notice, OverviewCard, StatTile, StatusPill, type RowAction, SETTINGS_BTN,
 } from "@/components/module-kit";
 import type { Tone } from "@/components/module-kit/tones";
 import type { ClientEvent } from "@/hooks/use-client-events";
@@ -118,7 +118,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
                 <>
                     {settingsPage
                         ? <Button variant="outline" size="sm" onClick={() => setSettingsPage(false)}><ArrowLeft className="size-3.5" /> Back to Wishes</Button>
-                        : <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/5 hover:text-primary" onClick={() => { close(); setSettingsPage(true); }}><Settings className="size-3.5" /> Wishes Settings</Button>}
+                        : <Button variant="outline" size="sm" className={SETTINGS_BTN} onClick={() => { close(); setSettingsPage(true); }}><Settings className="size-3.5" /> Wishes Settings</Button>}
                     <Button variant="outline" size="sm" onClick={() => { setSettingsPage(false); open({ kind: "words" }); }}><Filter className="size-3.5" /> Blocked Words</Button>
                     <Button size="sm" onClick={() => { setSettingsPage(false); close(); setPosting(true); }}><Plus className="size-3.5" /> Post Wish</Button>
                 </>

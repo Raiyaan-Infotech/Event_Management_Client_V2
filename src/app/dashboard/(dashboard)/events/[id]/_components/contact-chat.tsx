@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     ActionSheet, CountTabs, DetailRow, DetailSection, FormField, ModuleHeader, OverviewCard, SearchBox, StatTile, StatusPill,
-    type Tone,
+    type Tone, SETTINGS_BTN,
 } from "@/components/module-kit";
 import {
     useContactDetails, useContactInbox, useContactMessages, useContactRecipients, useSendContactMessage, useSetContactStatus,
@@ -103,7 +103,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setPanel("contact")}><UserRound className="size-4" /> Contact Person</Button>
-                        <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setPanel("settings")}><Settings className="size-4" /> Contact Settings</Button>
+                        <Button variant="outline" size="sm" className={cn("h-9 gap-1.5", SETTINGS_BTN)} onClick={() => setPanel("settings")}><Settings className="size-4" /> Contact Settings</Button>
                         <Button size="sm" className="h-9 gap-1.5" onClick={() => setPanel("new")}><Send className="size-4" /> New Message</Button>
                     </>
                 )}

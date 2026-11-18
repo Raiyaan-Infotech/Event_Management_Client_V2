@@ -11,7 +11,7 @@ import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SearchBox, SortSelect, StatTile, Toolbar,
+    CountTabs, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, RowActions, SearchBox, SortSelect, StatTile, Toolbar, SETTINGS_BTN,
 } from "@/components/module-kit";
 import { cn } from "@/lib/utils";
 import { useDateFormatter } from "@/hooks/use-client-settings";
@@ -107,7 +107,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
                     <>
                         <Button variant="outline" size="sm" className="h-8" onClick={downloadCsv} disabled={!shown.length}><Download className="size-3.5" /> Export</Button>
                         {/* Participant Settings — a labelled button, same as Family (Jamal, 2026-11-12). */}
-                        <Button variant="outline" size="sm" className="h-8" onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Participant Settings</Button>
+                        <Button variant="outline" size="sm" className={cn("h-8", SETTINGS_BTN)} onClick={() => setSettingsOpen(true)}><Settings className="size-3.5" /> Participant Settings</Button>
                         <Button size="sm" className="h-8" onClick={() => setAddSheet({ guestId: null })} disabled={full}><Plus className="size-3.5" /> Add Participant</Button>
                     </>
                 )}

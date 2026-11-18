@@ -80,6 +80,23 @@ const ANSWERS: { value: RsvpAnswer; label: string }[] = [
     { value: "maybe", label: "Maybe" },
 ];
 
+/**
+ * RSVP Settings as a popup — the "RSVP Settings" button on the RSVPs page
+ * (Jamal, 2026-11-18: every module with settings gets the button, like Wed Wishes).
+ * The same form as App Menu → RSVP Settings.
+ */
+export function RsvpSettingsDialog({ eventId, onClose }: { eventId: number; onClose: () => void }) {
+    return (
+        <Dialog open onOpenChange={(o) => !o && onClose()}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-md">
+                <DialogTitle className="sr-only">RSVP Settings</DialogTitle>
+                <DialogDescription className="sr-only">What guests can answer in the RSVP form.</DialogDescription>
+                <RsvpCard eventId={eventId} />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function RsvpCard({ eventId }: { eventId: number }) {
     const query = useRsvpSettings(eventId);
     if (query.isLoading) return <Section title="RSVP Settings"><PanelLoading /></Section>;
