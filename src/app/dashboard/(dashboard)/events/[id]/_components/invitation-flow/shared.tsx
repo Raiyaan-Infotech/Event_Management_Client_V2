@@ -17,8 +17,11 @@ export const FLOW_STEPS = [
     { n: 1, label: "Choose Template" },
     { n: 2, label: "Customize & Save" },
     { n: 3, label: "Share with Guests" },
-    { n: 4, label: "Track Responses" },
 ] as const;
+/**
+ * 1-3 = the wizard. 4 = the Shared Invitations list — its own page, not a
+ * wizard step (Jamal, 2026-11-18: no step bar or "STEP 4" there, list only).
+ */
 export type FlowStep = 1 | 2 | 3 | 4;
 
 /* ── The design ───────────────────────────────────────────────────────── */
@@ -175,9 +178,11 @@ export function FlowHeader({
             <span className="hidden text-[11.5px] font-medium tracking-wide text-muted-foreground sm:inline">
                 {[category, `EVENT ${code.replace(/^#/, "")}`].filter(Boolean).join(" · ")}
             </span>
-            <span className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-[12px] font-bold text-primary">
-                STEP {step} OF 4
-            </span>
+            {step <= FLOW_STEPS.length && (
+                <span className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-[12px] font-bold text-primary">
+                    STEP {step} OF {FLOW_STEPS.length}
+                </span>
+            )}
         </div>
     );
 }

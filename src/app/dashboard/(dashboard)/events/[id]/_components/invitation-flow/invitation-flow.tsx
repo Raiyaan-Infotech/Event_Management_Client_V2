@@ -19,12 +19,13 @@ import {
 
 /**
  * The event's Invitation page = the Invitations flow (Jamal's "Template"
- * designs, 2026-11-18): 1 Choose Template → 2 Customize & Save → 3 Share with
- * Guests → 4 Track Responses. Replaces the embedded Edit Event invitation pages.
+ * designs, 2026-11-18): a 3-step wizard — 1 Choose Template → 2 Customize & Save
+ * → 3 Share with Guests — plus the Shared Invitations list (`step=4`), shown on
+ * its own with no step bar. Replaces the embedded Edit Event invitation pages.
  *
  * The step lives in the address (`?tab=invitation&step=N`) so a reload or a
  * shared link lands on the same step. A new invitation opens on step 1; one
- * already designed opens on Track Responses.
+ * already designed opens on the Shared Invitations list.
  *
  * Saving writes the old invitation fields onto the event, then renders the card
  * off-screen and stores it as the event's invitation image — the picture the
@@ -114,13 +115,13 @@ export function InvitationFlow({ event, code }: { event: ClientEvent; code: stri
     };
 
     const [sent, setSent] = useState<SendInvitationResult | null>(null);
-    const done = (n: FlowStep) => (n === 1 ? !!saved.theme_id : n === 2 ? !!saved.theme_id && !dirty : n === 3 ? step === 4 : false);
+    const done = (n: FlowStep) => (n === 1 ? !!saved.theme_id : n === 2 ? !!saved.theme_id && !dirty : false);
     const [title, subtitle] = TITLES[step];
 
     return (
         <div className="flex flex-col gap-4" data-invitation-flow>
             <FlowHeader title={title} subtitle={subtitle} event={event} code={code} step={step} />
-            <FlowStepper step={step} done={done} onStep={goStep} />
+            {step !== 4 && <FlowStepper step={step} done={done} onStep={goStep} />}
 
             {step === 1 && (
                 <ChooseTemplate
