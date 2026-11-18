@@ -108,7 +108,8 @@ export default function CheckAvailabilityPage() {
     const one = mode === "single" ? info[0] : undefined;
     const myEvents = info.flatMap((x) => (x?.my_events ?? []).map((e) => ({ ...e, date: x!.date })));
     const rangeLabel = !start ? "" : mode === "multiple" && end ? `${pretty(start)} to ${pretty(end)}` : pretty(start);
-    const bookHref = start ? `/dashboard/events/create?start=${start}${mode === "multiple" && end ? `&end=${end}` : ""}` : "#";
+    // Book → Select Plan → (Review → Payment) → Create Event (Jamal's Create Event v3, 2026-11-18).
+    const bookHref = start ? `/dashboard/events/book?start=${start}${mode === "multiple" && end ? `&end=${end}` : ""}` : "#";
     const unavailableItems = unavailable.map((d) => ({ date: d, label: `${pretty(d)} — ${STATUS_TEXT[byDate.get(d)?.status ?? "not_configured"] ?? "Not Available"}` }));
     const statusChip = (d?: CalendarDay) =>
         isOpen(d) ? <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"><CheckCircle2 className="h-3 w-3" />Available</span>
@@ -327,7 +328,17 @@ export default function CheckAvailabilityPage() {
                             </div>
                             <p className="mt-2 flex items-start gap-1.5 text-[11.5px] text-muted-foreground"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />Event creation cannot continue until support assistance is completed.</p>
                         </div>
-                    ) : start && plan.reached && complete && !past ? (
+                    ) : start && plan.reached && allOpen ? (
+                        // Limit reached: the dates are free, so booking goes on to Select Plan to upgrade (2026-11-18).
+                        <>
+                            <Button asChild className="mt-4 h-10 w-full text-[13.5px] font-semibold">
+                                <Link href={bookHref}><CalendarPlus className="mr-1.5 h-4 w-4" />Choose a Plan to Book</Link>
+                            </Button>
+                            <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-50 px-2.5 py-2 text-[12px] text-amber-800">
+                                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{planText} Choose a bigger plan to book {mode === "single" ? "this date" : "these dates"}.
+                            </p>
+                        </>
+                    ) : start && plan.reached && complete && !past && !checking ? (
                         <>
                             <Button disabled className="mt-4 h-10 w-full bg-muted text-[13.5px] font-semibold text-muted-foreground">
                                 <XCircle className="mr-1.5 h-4 w-4" />Event Limit Reached

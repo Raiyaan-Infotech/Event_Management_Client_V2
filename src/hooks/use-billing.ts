@@ -40,6 +40,9 @@ export interface BillingPlan {
     is_active: number;
     is_visible: number;
     sort_order: number;
+    /** On the /billing/plans list only — the Select Plan cards' "Up to N events". Null/0 = unlimited. */
+    max_events?: number | null;
+    max_guests_per_event?: number | null;
 }
 
 /** Money. `price` is PRE-TAX and tax is added on top — never carved out. */
@@ -602,6 +605,44 @@ export function useChangePlan() {
         (planId) => api.post('/client/billing/change-plan', { plan_id: planId }),
         { success: 'Plan change scheduled', failure: 'Could not change your plan.' },
     );
+}
+
+/**
+ * Book Event → Payment (Jamal, 2026-11-18). No gateway yet: this SAVES the payment details as a
+ * pending payment (it shows in Billing History) — nothing is charged and the plan is not switched
+ * until a gateway confirms it. Never send a card number / CVC / expiry: only brand + last four + name.
+ */
+export interface CheckoutBody {
+    plan_id: number;
+    method: 'upi' | 'card' | 'netbanking' | 'wallet';
+    upi_id?: string;
+    upi_app?: string;
+    card_brand?: string;
+    card_last4?: string;
+    holder_name?: string;
+    bank_name?: string;
+    wallet?: string;
+    start_date?: string;
+    end_date?: string;
+}
+
+export interface CheckoutResult {
+    transaction: {
+        id: number; reference: string; status: 'pending'; method: CheckoutBody['method'];
+        method_label: string; amount: Money; currency_code: string; occurred_at: string;
+    };
+    plan: { id: number; name: string; billing_cycle: BillingPlan['billing_cycle'] };
+}
+
+export function useCheckout() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (body: CheckoutBody) => api.post<CheckoutResult>('/client/billing/checkout', body),
+        onSuccess: () => {
+            for (const key of [KEY.history, KEY.overview]) qc.invalidateQueries({ queryKey: key, refetchType: 'all' });
+        },
+        onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Could not save your payment details.'),
+    });
 }
 
 export function useCancelSubscription() {

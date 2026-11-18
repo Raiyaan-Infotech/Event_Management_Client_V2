@@ -19,7 +19,10 @@ import {
     faRotateLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp as faWhatsappBrand } from "@fortawesome/free-brands-svg-icons";
-import { ChevronDown, ChevronUp, Loader2, Trash2, Upload, X } from "lucide-react";
+import {
+    Briefcase, Cake, CalendarDays, ChevronDown, ChevronUp, Gem, HeartHandshake, Layers, Loader2, PartyPopper, Trash2, Upload, UsersRound, X, type LucideIcon,
+} from "lucide-react";
+import { useBillingPlans } from "@/hooks/use-billing";
 import { mediaUrl } from "@/lib/media-url";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -118,7 +121,8 @@ import { useEventHref } from "@/lib/event-workspace";
  * are their own entries in the event sidebar now.
  */
 const STEPS = [
-    "Event Type",
+    // "Event Type" -> "Category" (Jamal's Create Event v3, 2026-11-18).
+    "Category",
     "Basic Details",
     "Date & Time",
     "Venue",
@@ -332,9 +336,12 @@ export function EventWizard({
     initialThemeId,
     initialStartDate,
     initialEndDate,
+    bookingPlanId,
     section,
     embedded = false,
 }: {
+    /** The plan picked on Book Event → Select Plan — named in step 1's Booking Confirmed strip. */
+    bookingPlanId?: number;
     eventId?: number;
     /** Edit one section (Edit Event hub) instead of the whole wizard. */
     section?: EditSectionKey;
@@ -1442,17 +1449,49 @@ export function EventWizard({
                                     </div>
                                 )}
 
-                                <div className="grid gap-3 md:grid-cols-3">
-                                    <Field label="Event Category" required error={errors.category_id}>
-                                        <TaxonomySelect
-                                            value={form.category_id}
-                                            onChange={(v) => setField("category_id", v)}
-                                            loading={options.isLoading}
-                                            rows={categoryRows}
-                                            placeholder="Select category"
-                                            invalid={errors.category_id}
-                                        />
-                                    </Field>
+                                {/* Came from Book Event (Jamal's Create Event v3, 2026-11-18). */}
+                                {!isEdit && initialStartDate && (
+                                    <BookingStrip
+                                        planName={opts?.plan?.name ?? null}
+                                        bookingPlanId={bookingPlanId}
+                                        start={initialStartDate}
+                                        end={initialEndDate && initialEndDate !== initialStartDate ? initialEndDate : undefined}
+                                    />
+                                )}
+
+                                {/* Category as picture cards instead of a dropdown (Create Event v3). */}
+                                <div>
+                                    <p className="mb-2 text-[16px] font-bold text-foreground">Select Event Category <span className="text-destructive">*</span></p>
+                                    {options.isLoading ? (
+                                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                            {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[100px] rounded-xl" />)}
+                                        </div>
+                                    ) : categoryRows.length === 0 ? (
+                                        <p className="rounded-lg border border-dashed py-6 text-center text-[12.5px] text-muted-foreground">No event categories are available on your plan.</p>
+                                    ) : (
+                                        <div role="radiogroup" aria-label="Event Category" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                            {categoryRows.map((c) => {
+                                                const on = form.category_id === String(c.id);
+                                                const Icon = categoryIcon(c.name);
+                                                return (
+                                                    <button key={c.id} type="button" role="radio" aria-checked={on} onClick={() => setField("category_id", String(c.id))}
+                                                        className={cn(
+                                                            "relative flex items-start gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/60",
+                                                            on && "border-2 border-primary bg-primary/5",
+                                                            errors.category_id && !form.category_id && "border-destructive",
+                                                        )}>
+                                                        {on && <span className="absolute right-2.5 top-2.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground"><FontAwesomeIcon icon={faCheck} className="!size-[11px]" /></span>}
+                                                        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-6 w-6" /></span>
+                                                        <span className="min-w-0 pr-5">
+                                                            <span className="block text-[15px] font-bold text-foreground">{c.name}</span>
+                                                            <span className="mt-0.5 line-clamp-2 block text-[12.5px] text-muted-foreground">{c.description || categoryBlurb(c.name)}</span>
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {errors.category_id && !form.category_id && <p className="mt-1.5 text-[12px] text-destructive">Please choose a category.</p>}
                                 </div>
 
                                 {/* Mobile app home design — templates from the admin's
@@ -3234,33 +3273,61 @@ function IconInput({
     );
 }
 
-function TaxonomySelect({
-    value, onChange, rows, loading, disabled, placeholder, invalid,
-}: {
-    value: string;
-    onChange: (v: string) => void;
-    rows?: { id: number; name: string }[];
-    loading?: boolean;
-    disabled?: boolean;
-    placeholder: string;
-    invalid?: boolean;
-}) {
-    if (loading && !disabled) return <Skeleton className="h-11 w-full rounded-md" />;
+/** Step 1's category cards (Create Event v3): an icon + a fallback line by the category's name. */
+function categoryIcon(name: string): LucideIcon {
+    if (/wedding|marriage|nikah/i.test(name)) return HeartHandshake;
+    if (/engage/i.test(name)) return Gem;
+    if (/birthday/i.test(name)) return Cake;
+    if (/family|reunion/i.test(name)) return UsersRound;
+    if (/corporate|business|office|conference/i.test(name)) return Briefcase;
+    return PartyPopper;
+}
+function categoryBlurb(name: string) {
+    if (/wedding|marriage|nikah/i.test(name)) return "A wedding ceremony and reception celebration.";
+    if (/engage/i.test(name)) return "An engagement ceremony and celebration.";
+    if (/birthday/i.test(name)) return "A birthday party or celebration event.";
+    if (/family|reunion/i.test(name)) return "A family gathering, reunion or special occasion.";
+    return `A ${name.toLowerCase()} event.`;
+}
+
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const bookedDay = (d: string) => { const [y, m, day] = d.split("-").map(Number); return `${day} ${MONTH_SHORT[m - 1]} ${y}`; };
+
+/**
+ * Step 1's "Booking Confirmed" strip, when the wizard was opened from Book Event (Create Event v3,
+ * 2026-11-18). The plan named is the one picked on Select Plan; until a payment gateway confirms a
+ * paid plan, the account still runs on its current one — so that is what the strip says.
+ */
+function BookingStrip({ planName, bookingPlanId, start, end }: { planName: string | null; bookingPlanId?: number; start: string; end?: string }) {
+    const plans = useBillingPlans();
+    const picked = bookingPlanId ? plans.data?.plans.find((p) => p.id === bookingPlanId) : undefined;
+    const pending = !!picked && !picked.is_current;
+    const dateText = end ? `${bookedDay(start)} – ${bookedDay(end)}` : `${bookedDay(start)} (${DAY_SHORT[new Date(`${start}T00:00:00`).getDay()]})`;
     return (
-        <Select value={value} onValueChange={onChange} disabled={disabled}>
-            <SelectTrigger className={cn("h-11 w-full rounded-md", invalid && "border-destructive")}>
-                <SelectValue placeholder={placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-                {(rows ?? []).length === 0 ? (
-                    <div className="px-3 py-2 text-[12.5px] text-muted-foreground">No options available</div>
-                ) : (
-                    rows!.map((r) => (
-                        <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
-                    ))
-                )}
-            </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10"><span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground"><FontAwesomeIcon icon={faCheck} className="!size-[13px]" /></span></span>
+            <div className="min-w-[220px] flex-1 border-l border-primary/15 pl-4">
+                <p className="text-[17px] font-bold text-foreground">Booking Confirmed</p>
+                <p className="text-[12.5px] text-muted-foreground">
+                    {pending ? "Your payment details are saved and your date is available." : "Your date is available — continue to create your event."}
+                </p>
+            </div>
+            <div className="flex items-center gap-3 border-l border-primary/15 pl-4">
+                <Layers className="h-6 w-6 text-primary" />
+                <div>
+                    <p className="text-[11.5px] text-muted-foreground">Selected Plan</p>
+                    <p className="text-[15px] font-bold text-foreground">{picked?.name ?? planName ?? "—"}{pending && <span className="ml-1.5 align-middle text-[11px] font-medium text-amber-700">(awaiting confirmation)</span>}</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-3 border-l border-primary/15 pl-4">
+                <CalendarDays className="h-6 w-6 text-primary" />
+                <div>
+                    <p className="text-[11.5px] text-muted-foreground">Reserved Event Date</p>
+                    <p className="text-[15px] font-bold text-foreground">{dateText}</p>
+                </div>
+            </div>
+        </div>
     );
 }
 

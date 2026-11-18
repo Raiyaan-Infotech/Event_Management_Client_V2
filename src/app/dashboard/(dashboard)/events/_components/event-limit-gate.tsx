@@ -42,10 +42,10 @@ export function useEventLimit() {
     };
 }
 
-export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string }) {
+export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate, bookingPlanId }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string; bookingPlanId?: number }) {
     const { limit, used, planName, reached: limitReached } = useEventLimit();
 
-    if (!limitReached) return <EventWizard initialThemeId={initialThemeId} initialStartDate={initialStartDate} initialEndDate={initialEndDate} />;
+    if (!limitReached) return <EventWizard initialThemeId={initialThemeId} initialStartDate={initialStartDate} initialEndDate={initialEndDate} bookingPlanId={bookingPlanId} />;
 
     return (
         <Card className="mx-auto mt-6 max-w-lg">
@@ -56,6 +56,12 @@ export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDat
                     Your {planName ?? "current"} plan allows {limit} event{limit === 1 ? "" : "s"} and
                     you have created {used}. Upgrade your plan to create more.
                 </p>
+                {bookingPlanId && (
+                    // Came from Book Event → Payment: the details are saved but no gateway has confirmed them yet.
+                    <p className="max-w-sm rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+                        Your payment details for the new plan are saved. You can create this event as soon as the payment is confirmed.
+                    </p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                     <Button asChild size="sm" className="h-8 text-[12px]">
                         <Link href="/dashboard/billing">View Plan &amp; Billing</Link>

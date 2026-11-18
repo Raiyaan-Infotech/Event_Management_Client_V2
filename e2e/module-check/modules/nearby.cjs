@@ -75,7 +75,9 @@ module.exports = async (k) => {
         await k.confirmDelete();
         await k.toast(/Nearby place deleted/i);
         await k.panelClosed();
-        expect(!(await places()).some((p) => p.id === saved[0].id), 'place still in the API');
+        // By the edited NAME, not saved[0].id: two Google suggestions can share a name ("Tirunelveli"),
+        // so the row edited in step 6 is not always saved[0].
+        expect(!(await places()).some((p) => p.name === NAME2), 'place still in the API');
         await k.shot('deleted');
     });
 
