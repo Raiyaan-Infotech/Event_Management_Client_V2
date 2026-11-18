@@ -11,7 +11,7 @@ module.exports = async (k) => {
     let groupId = null;
     const go = async (s) => {
         await page.goto(`${P}/event/${EVENT}?tab=invitation&step=${s}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
-        await page.getByText(`STEP ${s} OF 4`).waitFor({ timeout: 90000 });
+        await (s === 4 ? page.locator('[data-stat="Invitations Sent"]') : page.getByText(`STEP ${s} OF 3`)).waitFor({ timeout: 90000 });
         await page.waitForTimeout(1200);
     };
     const rows = async () => (await api(`/client/invitation-sends?event_id=${EVENT}&limit=100`)).body?.data;
@@ -40,14 +40,15 @@ module.exports = async (k) => {
 
     await step('F1. Sidebar → Invitation opens the flow (designed event → Track step)', async () => {
         await page.goto(`${P}/event/${EVENT}?tab=invitation`, { waitUntil: 'domcontentloaded', timeout: 90000 });
-        await page.getByText('STEP 4 OF 4').waitFor({ timeout: 90000 });
-        for (const t of ['Choose Template', 'Customize & Save', 'Share with Guests', 'Track Responses']) await page.getByRole('button', { name: t }).first().waitFor();
+        await page.locator('[data-stat="Invitations Sent"]').waitFor({ timeout: 90000 });
+        // The list is its own page: no step bar, no STEP badge.
+        expect(await page.getByRole('navigation', { name: 'Invitation steps' }).count() === 0 && await page.getByText(/STEP \d OF/).count() === 0, 'step bar / badge shown on the list');
         expect(await page.locator('[data-invitation-flow]').getByText(/RSVP/i).count() === 0, 'RSVP text on the Track page');
         await page.waitForTimeout(1200);
         await k.shot('flow-track-start');
         // Overview card's Edit → back to step 1
         await page.getByRole('button', { name: 'Edit invitation' }).click();
-        await page.getByText('STEP 1 OF 4').waitFor({ timeout: 15000 });
+        await page.getByText('STEP 1 OF 3').waitFor({ timeout: 15000 });
     });
 
     await step('T1. Step 1 Choose Template: grid, style chips, Selected Template, Customize', async () => {
@@ -67,7 +68,7 @@ module.exports = async (k) => {
         void other;
         await k.shot('flow-step1');
         await page.getByRole('button', { name: 'Customize This Template' }).click();
-        await page.getByText('STEP 2 OF 4').waitFor({ timeout: 15000 });
+        await page.getByText('STEP 2 OF 3').waitFor({ timeout: 15000 });
         return `${await tiles.count()} templates`;
     });
 
@@ -80,7 +81,7 @@ module.exports = async (k) => {
             await page.getByRole('tab', { name: t }).click();
             await page.waitForTimeout(250);
         }
-        await page.getByText('Save Checklist').waitFor();
+        expect(await page.getByText('Save Checklist').count() === 0 && await page.getByText('Selected Design', { exact: true }).count() === 0, 'side cards still shown');
         expect(await page.locator('[data-invitation-flow]').getByText(/RSVP/i).count() === 0, 'RSVP shown in the invitation form');
         await k.shot('flow-step2');
     });
@@ -88,7 +89,7 @@ module.exports = async (k) => {
     await step('C2. Save & Continue saves the design + the invitation image, opens step 3', async () => {
         const before = event.invitation_image;
         await page.getByRole('button', { name: 'Save & Continue' }).click();
-        await page.getByText('STEP 3 OF 4').waitFor({ timeout: 60000 });
+        await page.getByText('STEP 3 OF 3').waitFor({ timeout: 60000 });
         await page.waitForTimeout(6000);
         const e = await api(`/client/events/${EVENT}`);
         const after = (e.body?.data?.event || e.body?.data || {});
@@ -153,8 +154,10 @@ module.exports = async (k) => {
     });
 
     await step('R1. Step 4: cards + table show the QA rows, no RSVP; filter by Email', async () => {
-        await page.getByRole('button', { name: 'View Invitations' }).click();
-        await page.getByText('STEP 4 OF 4').waitFor({ timeout: 15000 });
+        // "Return to Dashboard" = the invitation list (Track step), not the portal dashboard.
+        await page.getByRole('button', { name: 'Return to Dashboard' }).click();
+        await page.locator('[data-stat="Invitations Sent"]').waitFor({ timeout: 15000 });
+        expect(page.url().includes('tab=invitation'), `went to ${page.url()}`);
         await page.locator(`tr[data-row="${GUEST}"]`).first().waitFor({ timeout: 30000 });
         expect(await page.locator(`tr[data-row="${GUEST}"]`).count() === 2, 'expected 2 rows for the QA guest');
         for (const c of ['Invitations Sent', 'Delivered', 'Joined in App', 'Scheduled']) await page.locator(`[data-stat="${c}"]`).waitFor();
@@ -194,6 +197,20 @@ module.exports = async (k) => {
         await page.waitForTimeout(1500);
         mine = ((await rows())?.rows || []).filter((r) => r.guest?.id === guestId);
         expect(mine.length === 2, `after remove ${mine.length} rows`);
+    });
+
+    await step('B1. Send Invitation from Guests / Share popup (bulk invite) also shows on Track', async () => {
+        const before = ((await rows())?.rows || []).filter((r) => r.guest?.id === guestId).length;
+        const b = await api('/client/guests/bulk', { method: 'POST', body: JSON.stringify({ guest_ids: [guestId], action: 'invite', value: { channels: ['whatsapp', 'email', 'in_app'], message: `${STAMP} from Guests` } }) });
+        expect(b.status === 200, `bulk invite ${b.status} ${JSON.stringify(b.body?.message)}`);
+        const mine = ((await rows())?.rows || []).filter((r) => r.guest?.id === guestId);
+        expect(mine.length === before + 2, `expected +2 rows (WhatsApp + Email, not In-App), got ${mine.length - before}`);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.locator('[data-stat="Invitations Sent"]').waitFor({ timeout: 90000 });
+        await page.locator(`tr[data-row="${GUEST}"]`).nth(before + 1).waitFor({ timeout: 30000 });
+        await page.getByRole('button', { name: 'Export' }).waitFor();
+        await k.shot('flow-track-after-guests-invite');
+        return `${before} → ${mine.length} rows`;
     });
 
     await step('clean up: remove the QA rows, guest and group', async () => {
