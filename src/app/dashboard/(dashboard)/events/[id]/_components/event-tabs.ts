@@ -4,6 +4,7 @@ import {
     ClipboardCheck, Download, FileDown, FileText, Heart, History, Images, LayoutDashboard, ListChecks, Mail, MailOpen, MapPin, MapPinned, MessagesSquare, Radio, Settings, Share2, Smartphone, SquareCheck,
     UserRound, Users, UsersRound, type LucideIcon,
 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEventOptions } from "@/hooks/use-client-portal";
 import { EVENT_SECTIONS, grantedSections } from "@/lib/navigation";
 import type { DerivedStatus } from "@/hooks/use-client-events";
@@ -101,12 +102,33 @@ export function useVisibleEventTabs() {
  * Participants follow the plan like their modules. Guests have no settings.
  */
 export const SETTINGS_PAGES = [
-    { key: "rsvp", label: "RSVP Settings", gate: "rsvp" },
-    { key: "participants", label: "Participants Settings", gate: "participants" },
-    { key: "family", label: "Family Settings" },
-    { key: "wishes", label: "Wish Settings" },
-    { key: "contact", label: "Contact Person" },
+    { key: "rsvp", label: "RSVP Settings", gate: "rsvp", tab: "rsvps" },
+    { key: "participants", label: "Participants Settings", gate: "participants", tab: "participants" },
+    { key: "family", label: "Family Settings", tab: "family" },
+    { key: "wishes", label: "Wish Settings", tab: "wishes" },
+    { key: "contact", label: "Contact Person", tab: "contact" },
 ] as const;
+
+/**
+ * App Menu's sub-items open the module's OWN page with its settings open
+ * (`?tab=<module>&settings=1`), not a separate settings page (Jamal, 2026-11-18).
+ * Each module reads this instead of a local "settings open" state, so the
+ * sidebar link, its own ⚙ button and a reload all agree. Closing drops the flag.
+ */
+export function useSettingsParam(): [boolean, (open: boolean) => void] {
+    const params = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const open = params.get("settings") === "1";
+    const set = (next: boolean) => {
+        if (next === open) return;
+        const q = new URLSearchParams(params.toString());
+        if (next) q.set("settings", "1"); else q.delete("settings");
+        const s = q.toString();
+        router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+    };
+    return [open, set];
+}
 
 export type SettingsKey = (typeof SETTINGS_PAGES)[number]["key"];
 

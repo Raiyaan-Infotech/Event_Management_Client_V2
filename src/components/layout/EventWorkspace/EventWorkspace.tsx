@@ -50,10 +50,12 @@ export function EventSidebar({ eventId }: { eventId: number }) {
     const tab = tabFrom(sub ? sub[1] : asked);
     const tabs = useVisibleEventTabs();
     const settingsPages = useVisibleSettingsPages();
-    const settingsPage = settingsFrom(search.get("set"));
-    // Menu Settings opens its list on its own page; the chevron opens / closes it anywhere.
+    // A settings sub-item is "on" when its module page is open with its settings (`&settings=1`).
+    const settingsShown = search.get("settings") === "1";
+    const settingsPage = settingsPages.find((p) => p.tab === tab && settingsShown)?.key ?? settingsFrom(search.get("set"));
+    // App Menu's list shows on App Menu and while one of its settings is open; the chevron opens / closes it anywhere.
     const [settingsToggled, setSettingsToggled] = useState<boolean | null>(null);
-    const settingsOpen = settingsToggled ?? tab === "settings";
+    const settingsOpen = settingsToggled ?? (tab === "settings" || (settingsShown && settingsPages.some((p) => p.tab === tab)));
     // Media's child menu shows by default; clicking Media hides / shows it.
     const [galleryToggled, setGalleryToggled] = useState<boolean | null>(null);
     const galleryOpen = galleryToggled ?? true;
@@ -147,12 +149,13 @@ export function EventSidebar({ eventId }: { eventId: number }) {
                                         {settingsOpen && (
                                             <SidebarMenuSub>
                                                 {settingsPages.map((p) => {
-                                                    const subOn = on && settingsPage === p.key;
+                                                    const subOn = settingsPage === p.key;
                                                     return (
                                                         <SidebarMenuSubItem key={p.key}>
                                                             <SidebarMenuSubButton asChild isActive={subOn}
                                                                 className={cn("h-8 text-[12.5px]", subOn && "font-semibold text-primary")}>
-                                                                <Link href={`${base}?tab=settings&set=${p.key}`} scroll={false}>{p.label}</Link>
+                                                                {/* The module's own page with its settings open (Jamal, 2026-11-18). */}
+                                                                <Link href={`${base}?tab=${p.tab}&settings=1`} scroll={false}>{p.label}</Link>
                                                             </SidebarMenuSubButton>
                                                         </SidebarMenuSubItem>
                                                     );

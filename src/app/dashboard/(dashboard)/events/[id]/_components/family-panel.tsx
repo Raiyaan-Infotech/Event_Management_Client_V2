@@ -22,6 +22,7 @@ import {
     ChoiceRadio, CountTabs, DeletePopup, FormField, FormPanel, ListCard, ModuleHeader, OverviewCard, Pager, PersonCell, PhotoDropzone, SearchBox, SortSelect, StarBadge, StatTile, StatusPill, SwitchField, Toolbar, SETTINGS_BTN,
 } from "@/components/module-kit";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
+import { useSettingsParam } from "./event-tabs";
 
 /**
  * Event Family — Jamal's web design (2026-11-04), built from the module kit:
@@ -88,7 +89,7 @@ export function FamilyPanel({ event }: { event: ClientEvent }) {
     const [form, setForm] = useState<FormState | null>(null);
     const [tried, setTried] = useState(false);
     const [deleting, setDeleting] = useState<FamilyMember | null>(null);
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useSettingsParam();
 
     // A backend without the 2026-11-04 columns sends neither field: treat as visible, not key.
     const all = useMemo(

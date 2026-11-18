@@ -21,6 +21,7 @@ import {
     useBlockWishWriter, useCreateWish, useDeleteWish, useEventWishes, useSaveWishFilter, useSaveWishSettings, useUpdateWish, useWishFilter, type BlockReason, type Wish, type WishAudience, type WishFilter, type WishSettings, type WordAction,
 } from "@/hooks/use-event-engagement";
 import { Empty, PanelLoading, Section, SettingsShell, SwitchRow } from "./module-ui";
+import { useSettingsParam } from "./event-tabs";
 import { WishesChat, type ChatPanel, type ChatView } from "./wishes-chat";
 import { ApproveWish, EditWish, ManageComments, PersonCard, SendNotification, ViewWish, WishPanelsProvider, useWishPanels } from "./wish-panels";
 import { useEventParticipants } from "@/hooks/use-event-participants";
@@ -69,7 +70,7 @@ export function WishesPanel({ event }: { event: ClientEvent }) {
     const update = useUpdateWish(event.id);
     const [view, setView] = useState<ChatView>({ tab: "all", status: "all" });
     const [panel, setPanel] = useState<Panel | null>(null);
-    const [settingsPage, setSettingsPage] = useState(false);
+    const [settingsPage, setSettingsPage] = useSettingsParam();
     const [posting, setPosting] = useState(false);
 
     const wishes = useMemo(() => query.data?.wishes ?? [], [query.data]);

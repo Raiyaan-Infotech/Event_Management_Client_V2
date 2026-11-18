@@ -7,6 +7,7 @@ import {
     Send, Settings, Smartphone, Star, User, Users, XCircle,
 } from "lucide-react";
 import { RsvpSettingsDialog } from "../../events/[id]/_components/settings-panel";
+import { useSettingsParam } from "../../events/[id]/_components/event-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,7 +62,7 @@ export function RsvpsView({ eventId }: { eventId: number }) {
     const [act, setAct] = useState<{ a: RsvpAction; r: RsvpRow; target?: RsvpAnswer | "pending" } | null>(null);
     const [guestAct, setGuestAct] = useState<{ a: GuestAction; r: RsvpRow } | null>(null);
     const [bulkOpen, setBulkOpen] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useSettingsParam();
 
     useEffect(() => {
         const t = setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 350);

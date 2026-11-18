@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Ban, Check, CheckCircle2, Clock, Download, Gauge, Plus, Search, Settings, Users } from "lucide-react";
 import { ParticipantSettingsDialog } from "../../events/[id]/_components/settings-panel";
+import { useSettingsParam } from "../../events/[id]/_components/event-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +66,7 @@ export function ParticipantsView({ eventId }: { eventId: number }) {
     // Add Participant = the slide-in panel (Jamal, 2026-11-07); guestId = filled from that event guest.
     const [addSheet, setAddSheet] = useState<{ guestId: number | null } | null>(null);
     const [pickGuest, setPickGuest] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useSettingsParam();
 
     const rows = useMemo(() => list.data ?? [], [list.data]);
     const count = (t: Tab) => rows.filter((p) => inTab(p, t)).length;

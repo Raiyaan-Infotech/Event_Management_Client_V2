@@ -27,6 +27,7 @@ import { useDateFormatter } from "@/hooks/use-client-settings";
 import { mediaUrl } from "@/lib/media-url";
 import { useEventHref } from "@/lib/event-workspace";
 import { cn } from "@/lib/utils";
+import { useSettingsParam } from "./event-tabs";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import { ChatAvatar, DayPill, Presence, dayStart, listTime, timeOf, useFitHeight } from "./wishes-chat";
 import { Empty, PanelLoading, Section } from "./module-ui";
@@ -79,7 +80,10 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
     const [search, setSearch] = useState("");
     const [picked, setPicked] = useState<number | null>(null);
     const [phoneThread, setPhoneThread] = useState(false);
-    const [panel, setPanel] = useState<Panel>(null);
+    const [panelState, setPanel] = useState<Panel>(null);
+    // Contact Settings is driven by the address too (App Menu → Contact Person, Jamal 2026-11-18).
+    const [settingsOpen, setSettingsOpen] = useSettingsParam();
+    const panel: Panel = settingsOpen ? "settings" : panelState;
     const [boxRef, boxHeight] = useFitHeight();
 
     const q = search.trim().toLowerCase();
@@ -93,7 +97,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
 
     const pick = (id: number) => { setPicked(id); setPhoneThread(true); };
     const showView = (t: Tab, n: Narrow = "all") => { setTab(t); setNarrow(n); };
-    const close = () => setPanel(null);
+    const close = () => { setPanel(null); setSettingsOpen(false); };
 
     return (
         <div className="flex flex-col gap-4">
@@ -103,7 +107,7 @@ function ContactInboxView({ event, data }: { event: ClientEvent; data: ContactIn
                 actions={(
                     <>
                         <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setPanel("contact")}><UserRound className="size-4" /> Contact Person</Button>
-                        <Button variant="outline" size="sm" className={cn("h-9 gap-1.5", SETTINGS_BTN)} onClick={() => setPanel("settings")}><Settings className="size-4" /> Contact Settings</Button>
+                        <Button variant="outline" size="sm" className={cn("h-9 gap-1.5", SETTINGS_BTN)} onClick={() => setSettingsOpen(true)}><Settings className="size-4" /> Contact Settings</Button>
                         <Button size="sm" className="h-9 gap-1.5" onClick={() => setPanel("new")}><Send className="size-4" /> New Message</Button>
                     </>
                 )}
@@ -793,7 +797,7 @@ function ContactPersonSheet({ open, onClose, event, data }: { open: boolean; onC
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>
-                    <Button onClick={() => { onClose(); router.push(wsHref(`/dashboard/events/${event.id}?tab=settings&set=contact`)); }}>Edit Contact Person</Button>
+                    <Button onClick={() => { onClose(); router.push(wsHref(`/dashboard/events/${event.id}?tab=contact&settings=1`)); }}>Edit Contact Person</Button>
                 </>
             )}>
             <div className="flex items-center gap-3 rounded-lg border border-border bg-primary/[0.04] p-3">
