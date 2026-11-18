@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-    Bold, Braces, CalendarDays, Check, ChevronDown, Clock, Download, Eye, FileText, Filter, Home, Italic, Link2, List,
+    Bold, Braces, CalendarDays, Check, ChevronDown, Clock, Copy, Download, Eye, FileText, Filter, Home, Italic, Link2, List,
     ListOrdered, Loader2, Mail, Plus, Redo2, Search, Send, Smile, Strikethrough, Undo2, Users, UserRound,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -34,31 +34,51 @@ import { hostsOf, initials, prettyDate, prettyTime } from "./shared";
  */
 
 const MAX_CHARS = 500;
-const PLACEHOLDERS = [
-    { token: "{guest_name}", label: "Guest name" },
-    { token: "{event_name}", label: "Event name" },
-    { token: "{couple_names}", label: "Couple / host names" },
-    { token: "{event_date}", label: "Event date" },
-    { token: "{event_time}", label: "Event time" },
-    { token: "{venue}", label: "Venue" },
-    { token: "{invitation_link}", label: "Invitation link" },
+interface InviteCtx { event: ClientEvent; guestName: string; link: string; code: string }
+const t = (v?: string | null) => (v ?? "").trim();
+/** Every value a message can use. Order = the order in the Placeholders list. */
+const PLACEHOLDERS: { token: string; label: string; value: (c: InviteCtx) => string }[] = [
+    { token: "{guest_name}", label: "Guest name", value: (c) => c.guestName || "Guest" },
+    { token: "{event_name}", label: "Event name", value: (c) => t(c.event.name) },
+    { token: "{couple_names}", label: "Couple / host names", value: (c) => hostsOf(c.event) || t(c.event.name) },
+    // The event form saves host_one = Groom Name, host_two = Bride Name.
+    { token: "{groom_name}", label: "Groom name", value: (c) => t(c.event.host_one) },
+    { token: "{bride_name}", label: "Bride name", value: (c) => t(c.event.host_two) },
+    { token: "{event_date}", label: "Start date", value: (c) => (c.event.start_date ? prettyDate(c.event.start_date) : "") },
+    { token: "{event_time}", label: "Start time", value: (c) => (c.event.start_time ? prettyTime(c.event.start_time) : "") },
+    { token: "{end_date}", label: "End date", value: (c) => (c.event.end_date ? prettyDate(c.event.end_date) : "") },
+    { token: "{end_time}", label: "End time", value: (c) => (c.event.end_time ? prettyTime(c.event.end_time) : "") },
+    { token: "{venue}", label: "Venue (name + address)", value: (c) => [t(c.event.venue_name), t(c.event.venue_address)].filter(Boolean).join(", ") },
+    { token: "{venue_name}", label: "Venue name", value: (c) => t(c.event.venue_name) },
+    { token: "{venue_address}", label: "Venue address", value: (c) => t(c.event.venue_address) },
+    { token: "{venue_landmark}", label: "Landmark", value: (c) => t(c.event.venue_landmark) },
+    { token: "{map_link}", label: "Google Maps link", value: (c) => t(c.event.venue_map_link) },
+    { token: "{organizer}", label: "Organizer", value: (c) => t(c.event.organizer) },
+    { token: "{contact_phone}", label: "Contact phone", value: (c) => t(c.event.contact_phone) },
+    { token: "{contact_email}", label: "Contact email", value: (c) => t(c.event.contact_email) },
+    { token: "{event_code}", label: "Event code", value: (c) => c.code },
+    { token: "{invitation_link}", label: "Invitation link", value: (c) => c.link },
 ];
 const EMOJI = ["🌸", "💕", "💐", "🎉", "✨", "💍", "🙏", "😊", "❤️", "🕌", "🎊", "🌙"];
 
 const defaultMessage = (channel: InviteChannel) => channel === "email"
-    ? "Dear {guest_name},\nYou are warmly invited to {event_name} of {couple_names} on {event_date} at {event_time}, at {venue}.\nPlease join us and bless the couple with your gracious presence. 💕\n{invitation_link}"
-    : "Hello {guest_name}! 🌸\nYou are warmly invited to {event_name} of {couple_names} on {event_date} at {event_time}, at {venue}.\nPlease join us and bless the couple. 💕\n{invitation_link}";
+    ? "Dear {guest_name},\nYou are warmly invited to {event_name} of {couple_names}.\n📅 {event_date}, {event_time}\n📍 {venue}\n🗺️ {map_link}\nPlease join us and bless the couple with your gracious presence. 💕\nYour invitation: {invitation_link}\nFor any help: {contact_phone}"
+    : "Hello {guest_name}! 🌸\nYou are warmly invited to {event_name} of {couple_names}.\n📅 {event_date}, {event_time}\n📍 {venue}\n🗺️ {map_link}\nPlease join us and bless the couple. 💕\nYour invitation: {invitation_link}\nFor any help: {contact_phone}";
 
-/** The message as one guest would read it. */
-export const renderInvite = (text: string, event: ClientEvent, guestName: string, link: string) =>
-    text
-        .replaceAll("{guest_name}", guestName || "Guest")
-        .replaceAll("{event_name}", event.name || "")
-        .replaceAll("{couple_names}", hostsOf(event) || event.name || "")
-        .replaceAll("{event_date}", prettyDate(event.start_date))
-        .replaceAll("{event_time}", prettyTime(event.start_time))
-        .replaceAll("{venue}", [event.venue_name, event.venue_address].filter(Boolean).join(", "))
-        .replaceAll("{invitation_link}", link);
+/**
+ * The message as one guest would read it. A line whose placeholders are all
+ * empty for this event (no map link, no contact phone…) is left out, so the
+ * guest never sees a bare "🗺️".
+ */
+export const renderInvite = (text: string, event: ClientEvent, guestName: string, link: string, code = "") => {
+    const ctx: InviteCtx = { event, guestName, link, code };
+    const values = new Map(PLACEHOLDERS.map((p) => [p.token, p.value(ctx)]));
+    return text.split("\n").flatMap((line) => {
+        const used = line.match(/\{[a-z_]+\}/g)?.filter((tok) => values.has(tok)) ?? [];
+        if (used.length && used.every((tok) => !values.get(tok))) return [];
+        return [line.replace(/\{[a-z_]+\}/g, (tok) => (values.has(tok) ? values.get(tok)! : tok))];
+    }).join("\n");
+};
 
 const todayISO = () => {
     const d = new Date();
@@ -72,8 +92,8 @@ const readDraft = (eventId: number): Draft | null => {
 };
 
 export function ShareGuests({
-    event, link, onSent,
-}: { event: ClientEvent; link: string; onSent: (r: SendInvitationResult) => void }) {
+    event, link, code = "", onSent,
+}: { event: ClientEvent; link: string; code?: string; onSent: (r: SendInvitationResult) => void }) {
     const audience = useInvitationAudience(event.id);
     const draft = useMemo(() => (typeof window !== "undefined" ? readDraft(event.id) : null), [event.id]);
     const [mode, setMode] = useState<"group" | "individual">("group");
@@ -396,10 +416,30 @@ export function ShareGuests({
                                         <Braces className="size-4" />Placeholders<ChevronDown className="size-3.5" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="max-h-80 w-80 overflow-y-auto">
+                                    <p className="px-2 pb-1 pt-1.5 text-[11px] text-muted-foreground">Click to insert, or copy</p>
                                     {PLACEHOLDERS.map((p) => (
-                                        <DropdownMenuItem key={p.token} onClick={() => insert(p.token)} className="text-[12.5px]">
-                                            <span className="font-mono text-primary">{p.token}</span><span className="ml-2 text-muted-foreground">{p.label}</span>
+                                        <DropdownMenuItem key={p.token} onClick={() => insert(p.token)} className="gap-2 text-[12.5px]" data-placeholder={p.token}>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block font-mono text-primary">{p.token}</span>
+                                                <span className="block text-[11.5px] text-muted-foreground">{p.label}</span>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label={`Copy ${p.token}`}
+                                                title="Copy"
+                                                className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-background hover:text-primary"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    navigator.clipboard?.writeText(p.token).then(
+                                                        () => toast.success(`${p.token} copied`),
+                                                        () => toast.error("Could not copy"),
+                                                    );
+                                                }}
+                                            >
+                                                <Copy className="size-3.5" />
+                                            </button>
                                         </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>
@@ -450,7 +490,7 @@ export function ShareGuests({
                     <DialogDescription className="text-[12px]">As {sample} would read it.</DialogDescription>
                     {channel === "email" && <p className="text-[13px]"><span className="text-muted-foreground">Subject: </span><span className="font-semibold">{subject}</span></p>}
                     <div className={cn("whitespace-pre-wrap rounded-xl p-3 text-[13px] leading-relaxed", channel === "whatsapp" ? "bg-[#DCF8C6] text-neutral-900" : "border border-border bg-muted/30")}>
-                        {renderInvite(message, event, sample, link)}
+                        {renderInvite(message, event, sample, link, code)}
                     </div>
                 </DialogContent>
             </Dialog>

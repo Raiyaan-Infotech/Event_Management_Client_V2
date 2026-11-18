@@ -165,7 +165,7 @@ export function InvitationFlow({ event, code }: { event: ClientEvent; code: stri
 
             {step === 3 && (sent
                 ? <SentScreen result={sent} onAnother={() => setSent(null)} onView={() => goStep(4)} />
-                : <ShareGuests event={event} link={link} onSent={setSent} />)}
+                : <ShareGuests event={event} link={link} code={code} onSent={setSent} />)}
 
             {step === 4 && (
                 <TrackResponses

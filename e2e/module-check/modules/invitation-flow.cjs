@@ -102,10 +102,21 @@ module.exports = async (k) => {
         await row.getByRole('checkbox').click();
         await page.getByText('1 Guest Selected').first().waitFor();
         await page.getByRole('radio', { name: /WhatsApp/ }).click();
+        // Placeholders list: all 19, bride / groom names, each with a copy button.
+        await page.getByRole('button', { name: 'Placeholders' }).click();
+        const items = page.locator('[data-placeholder]');
+        await items.first().waitFor();
+        const tokens = await items.evaluateAll((els) => els.map((el) => el.getAttribute('data-placeholder')));
+        expect(tokens.length === 19 && tokens.includes('{bride_name}') && tokens.includes('{groom_name}') && !tokens.some((x) => x.includes('host_')), `placeholders ${tokens.join(' ')}`);
+        expect(await page.getByRole('button', { name: /^Copy \{/ }).count() === 19, 'copy buttons missing');
+        await k.shot('flow-step3-placeholders');
+        await page.keyboard.press('Escape');
         await page.getByRole('button', { name: 'Preview Message' }).click();
         const dlg = page.locator('[data-slot="dialog-content"][data-state="open"]').last();
         await dlg.waitFor();
-        expect((await dlg.textContent()).includes(event.name), 'preview does not name the event');
+        const text = await dlg.textContent();
+        expect(text.includes(event.name), 'preview does not name the event');
+        expect(!/\{[a-z_]+\}/.test(text), `preview has an unfilled placeholder: ${text.match(/\{[a-z_]+\}/)?.[0]}`);
         await k.shot('flow-step3-preview');
         await page.keyboard.press('Escape');
         await page.locator('[data-slot="dialog-overlay"]').waitFor({ state: 'detached', timeout: 10000 }).catch(() => null);
@@ -146,13 +157,20 @@ module.exports = async (k) => {
         for (const c of ['Invitations Sent', 'Delivered', 'Joined in App', 'Scheduled']) await page.locator(`[data-stat="${c}"]`).waitFor();
         expect(await page.locator('[data-invitation-flow]').getByText(/RSVP/i).count() === 0, 'RSVP shown on Track');
         await k.shot('flow-step4');
+        // Live can take a few seconds per filter change (global loader) — wait for the count to settle.
+        const settle = async (n) => {
+            for (let i = 0; i < 40; i++) {
+                if (await page.locator(`tr[data-row="${GUEST}"]`).count() === n && !(await page.getByText('Loading...').count())) return true;
+                await page.waitForTimeout(500);
+            }
+            return false;
+        };
         await page.getByRole('combobox', { name: 'Channel' }).click();
         await page.getByRole('option', { name: 'Email' }).click();
-        await page.waitForTimeout(1500);
-        expect(await page.locator(`tr[data-row="${GUEST}"]`).count() === 1, 'Email filter did not narrow to 1 row');
+        expect(await settle(1), 'Email filter did not narrow to 1 row');
         await page.getByRole('combobox', { name: 'Channel' }).click();
         await page.getByRole('option', { name: 'Channel: All' }).click();
-        await page.waitForTimeout(1200);
+        expect(await settle(2), 'Channel: All did not bring back 2 rows');
     });
 
     await step('R2. Row actions: Resend adds a row; Remove (centre popup) removes one', async () => {
