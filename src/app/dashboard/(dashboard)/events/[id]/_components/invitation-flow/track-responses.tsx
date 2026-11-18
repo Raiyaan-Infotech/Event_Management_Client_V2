@@ -17,13 +17,14 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { mediaUrl } from "@/lib/media-url";
+import { api } from "@/lib/api-client";
 import type { ClientEvent } from "@/hooks/use-client-events";
 import type { TemplateOption } from "@/hooks/use-client-portal";
 import type { InvitationData } from "@/components/common/invitation-card";
 import { TemplateArtwork } from "@/components/common/template-artwork";
 import {
     useInvitationSends, useRemoveInvitationRecipient, useResendInvitation,
-    type InvitationSendRow, type InviteStatus,
+    type InvitationSendList, type InvitationSendRow, type InviteStatus,
 } from "@/hooks/use-invitation-sends";
 import { hostsOf, initials, prettyDate, prettyStamp } from "./shared";
 
@@ -90,6 +91,51 @@ export function TrackResponses({
         }
     };
 
+    /** Export = every row of the event matching the current filters, as CSV (opens in Excel). */
+    const [exporting, setExporting] = useState(false);
+    const exportCsv = async () => {
+        setExporting(true);
+        try {
+            const all: InvitationSendRow[] = [];
+            for (let p = 1; p <= 50; p++) {
+                const d = await api.get<InvitationSendList>("/client/invitation-sends", {
+                    event_id: event.id, page: p, limit: 100,
+                    search: search.trim() || undefined,
+                    status: status === "all" ? undefined : status,
+                    channel: channel === "all" ? undefined : channel,
+                });
+                all.push(...d.rows);
+                if (p >= d.pagination.totalPages) break;
+            }
+            if (!all.length) { toast.error("Nothing to export."); return; }
+            const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+            const lines = [
+                ["Guest Name", "Mobile", "Email", "Group", "Channel", "Sent On", "Scheduled For", "Delivery", "Joined in App"].map(cell).join(","),
+                ...all.map((r) => [
+                    r.guest?.name ?? "Removed guest",
+                    r.guest?.mobile ? `${r.guest.dial_code ?? ""} ${r.guest.mobile}`.trim() : "",
+                    r.guest?.email ?? "",
+                    r.guest?.group?.name ?? "",
+                    r.channel === "email" ? "Email" : "WhatsApp",
+                    r.status === "scheduled" ? "" : prettyStamp(r.sent_at ?? r.created_at),
+                    r.status === "scheduled" ? prettyStamp(r.scheduled_at) : "",
+                    STATUS_META[r.status]?.label ?? r.status,
+                    r.guest?.joined ? "Yes" : "No",
+                ].map(cell).join(",")),
+            ];
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+            a.download = `${(event.name || "event").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-shared-invitations.csv`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast.success(`${all.length} row${all.length === 1 ? "" : "s"} exported.`);
+        } catch {
+            toast.error("Could not export the list.");
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const cards = [
         { icon: Send, value: stats?.shared ?? 0, label: "Invitations Sent" },
         { icon: UserCheck, value: stats?.delivered ?? 0, label: "Delivered" },
@@ -144,6 +190,9 @@ export function TrackResponses({
                                 <SelectItem value="email">Email</SelectItem>
                             </SelectContent>
                         </Select>
+                        <Button variant="outline" className="h-10 text-[13px]" disabled={empty || exporting} onClick={() => void exportCsv()}>
+                            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}Export
+                        </Button>
                     </div>
 
                     {q.isLoading ? (

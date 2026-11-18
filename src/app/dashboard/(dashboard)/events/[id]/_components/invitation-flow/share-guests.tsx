@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
     Bold, Braces, CalendarDays, Check, ChevronDown, Clock, Copy, Download, Eye, FileText, Filter, Home, Italic, Link2, List,
     ListOrdered, Loader2, Mail, Plus, Redo2, Search, Send, Smile, Strikethrough, Undo2, Users, UserRound,
@@ -538,7 +537,8 @@ export function SentScreen({
                 <Stat icon={<Clock className="size-6" />} label={scheduled ? "At" : "Sent At"} value={`${String(h % 12 || 12).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`} />
             </div>
             <div className="flex flex-wrap justify-center gap-3">
-                <Button variant="outline" className="h-11 px-5 text-[13.5px]" asChild><Link href="/dashboard"><Home className="size-4" />Return to Dashboard</Link></Button>
+                {/* Jamal: "Return to Dashboard" = the invitation list page (Track step). */}
+                <Button variant="outline" className="h-11 px-5 text-[13.5px]" onClick={onView}><Home className="size-4" />Return to Dashboard</Button>
                 <Button variant="outline" className="h-11 px-5 text-[13.5px]" onClick={onAnother}><Plus className="size-4" />Send Another Invitation</Button>
                 <Button className="h-11 px-6 text-[13.5px] font-semibold" onClick={onView}><FileText className="size-4" />View Invitations</Button>
             </div>

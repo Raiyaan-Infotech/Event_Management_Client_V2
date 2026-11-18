@@ -467,6 +467,8 @@ export function useBulkGuests() {
             toast.success(`${result.affected} guest(s) updated`);
             qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
             qc.invalidateQueries({ queryKey: GROUP_KEY, refetchType: 'all' });
+            // A Send Invitation also adds rows to the Invitation page's Track list.
+            qc.invalidateQueries({ queryKey: ['invitation-sends'], refetchType: 'all' });
         },
         onError: (e) => reportError(e, 'update'),
     });
