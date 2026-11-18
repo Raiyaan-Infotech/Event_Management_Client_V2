@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-    CalendarClock, ChevronLeft, ChevronRight, Copy, Download, Eye, Image as ImageIcon, Info, Layers, Loader2, Mail,
+    CalendarClock, ChevronLeft, ChevronRight, Download, Eye, Image as ImageIcon, Info, Layers, Loader2, Mail,
     MoreHorizontal, Pencil, Plus, Search, Send, Share2, Trash2, UserCheck, Users,
 } from "lucide-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -44,12 +44,11 @@ const STATUS_META: Record<InviteStatus, { label: string; cls: string }> = {
 };
 
 export function TrackResponses({
-    event, template, data, link, onShareAgain, onCreate, onViewTemplates,
+    event, template, data, onShareAgain, onCreate, onViewTemplates,
 }: {
     event: ClientEvent;
     template: TemplateOption | null;
     data: InvitationData;
-    link: string;
     onShareAgain: () => void;
     onCreate: () => void;
     onViewTemplates: () => void;
@@ -74,9 +73,6 @@ export function TrackResponses({
     const empty = !q.isLoading && (stats?.total ?? 0) === 0;
     const image = mediaUrl(event.invitation_image) || "";
 
-    const copyLink = async () => {
-        try { await navigator.clipboard.writeText(link); toast.success("Guest link copied."); } catch { toast.error("Could not copy the link."); }
-    };
     const download = async () => {
         if (!image) { toast.error("Save the invitation in Customize & Save first."); return; }
         try {
@@ -274,7 +270,6 @@ export function TrackResponses({
                                                         <DropdownMenuContent align="end" className="w-52">
                                                             <DropdownMenuItem onClick={() => setViewing(true)}><Eye className="size-4" />View Invitation</DropdownMenuItem>
                                                             <DropdownMenuItem disabled={resend.isPending || !r.guest} onClick={() => resend.mutate(r.id)}><Send className="size-4" />Resend Invitation</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={copyLink}><Copy className="size-4" />Copy Guest Link</DropdownMenuItem>
                                                             <DropdownMenuItem onClick={download}><Download className="size-4" />Download Invitation</DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem variant="destructive" onClick={() => setRemoving(r)}><Trash2 className="size-4" />Remove Recipient</DropdownMenuItem>

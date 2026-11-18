@@ -173,7 +173,6 @@ export function InvitationFlow({ event, code }: { event: ClientEvent; code: stri
                     event={event}
                     template={saved.theme_id ? template : null}
                     data={data}
-                    link={link}
                     onShareAgain={() => goStep(3)}
                     onCreate={() => goStep(saved.theme_id ? 3 : 1)}
                     onViewTemplates={() => goStep(1)}
