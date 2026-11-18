@@ -101,6 +101,27 @@ module.exports = async (k) => {
         return 'no checkout request sent';
     });
 
+    // PAY=1 only: saves ONE real pending payment. The caller must delete it afterwards (by reference).
+    if (process.env.PAY === '1') {
+        await step('B7. Pay with a valid UPI ID -> "Payment Details Saved" with a transaction ID', async () => {
+            await page.getByRole('checkbox').check();
+            await page.getByRole('button', { name: 'Proceed to Payment' }).click();
+            await page.getByRole('heading', { name: 'Complete Your Payment' }).waitFor({ timeout: 20000 });
+            await page.getByLabel('UPI ID').fill('qa-test@okaxis');
+            await page.getByRole('button', { name: /^Pay .* & Continue$/ }).click();
+            await page.getByRole('heading', { name: 'Payment Details Saved' }).waitFor({ timeout: 30000 });
+            await page.getByText('awaiting confirmation', { exact: false }).first().waitFor();
+            const ref = (await page.getByText(/^TXN\d+$/).first().innerText()).trim();
+            const next = await page.getByRole('link', { name: 'Continue to Create Event' }).getAttribute('href');
+            expect(next.includes(`plan=${paid.id}`), `Continue link = ${next}`);
+            await k.shot('payment-saved');
+            const r = await api('/client/billing/plans');
+            expect(r.body.data.current_plan_id === plans.current_plan_id, 'plan changed!');
+            require('fs').writeFileSync(process.env.PAY_REF_FILE || 'pay-ref.txt', ref);
+            return `${ref}; plan unchanged; continue -> ${next}`;
+        });
+    }
+
     await step('B6. Create Event with ?plan= on a used-up plan: limit card + "payment details saved" note', async () => {
         await page.goto(`${PORTAL}/dashboard/events/create?start=${DATE}&plan=${paid.id}`, { waitUntil: 'domcontentloaded', timeout: 90000 });
         await page.getByText('Event limit reached').waitFor({ timeout: 60000 });
