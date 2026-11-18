@@ -45,6 +45,9 @@ module.exports = async (k) => {
         expect(await page.locator('[data-invitation-flow]').getByText(/RSVP/i).count() === 0, 'RSVP text on the Track page');
         await page.waitForTimeout(1200);
         await k.shot('flow-track-start');
+        // Overview card's Edit → back to step 1
+        await page.getByRole('button', { name: 'Edit invitation' }).click();
+        await page.getByText('STEP 1 OF 4').waitFor({ timeout: 15000 });
     });
 
     await step('T1. Step 1 Choose Template: grid, style chips, Selected Template, Customize', async () => {

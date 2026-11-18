@@ -253,7 +253,14 @@ export function TrackResponses({
 
                 <aside className="flex flex-col gap-4">
                     <section className="rounded-xl border border-border bg-card p-5">
-                        <h2 className="text-[16px] font-bold text-foreground">Invitation Overview</h2>
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="text-[16px] font-bold text-foreground">Invitation Overview</h2>
+                            {template && (
+                                <Button variant="outline" size="sm" className="h-8 gap-1.5 px-3 text-[12.5px] font-semibold" onClick={onViewTemplates} aria-label="Edit invitation">
+                                    <Pencil className="size-3.5" />Edit
+                                </Button>
+                            )}
+                        </div>
                         {template ? (
                             <>
                                 <div className="mt-3 flex gap-3 border-b border-border pb-4">
