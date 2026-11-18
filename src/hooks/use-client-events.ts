@@ -411,6 +411,8 @@ export function useCreateEvent(onDone?: (event: ClientEvent) => void) {
             // refetchType 'all' also refreshes the dashboard's queries while
             // they are unmounted — otherwise going back shows the old list.
             qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
+            // Made from a booked date: that booking is now used (dashboard card, counts).
+            qc.invalidateQueries({ queryKey: ['client', 'bookings'], refetchType: 'all' });
             onDone?.(event);
         },
         onError: (e) => reportError(e, 'create'),

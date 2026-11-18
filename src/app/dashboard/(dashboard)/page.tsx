@@ -18,13 +18,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from "@/lib/utils";
 import { ShareEventDialog } from "@/components/common/share-event-dialog";
 import { DeleteEventDialog } from "@/components/common/delete-event-dialog";
-import { useClientProfile } from "@/hooks/use-client-portal";
 import {
     useClientEvents, useDashboardStats, useDeleteEvent, useUpdateEvent,
     type ClientEvent, type DerivedStatus,
 } from "@/hooks/use-client-events";
 import { ApiError } from "@/lib/api-client";
 import { SignInPrompt } from "@/components/common/sign-in-prompt";
+import { DashboardBookingState } from "./_components/dashboard-booking-state";
 import { PageLoader } from "@/components/common/page-loader";
 
 /**
@@ -78,7 +78,6 @@ export default function DashboardPage() {
     useEffect(() => { const t = setTimeout(() => setDebounced(search.trim()), 350); return () => clearTimeout(t); }, [search]);
 
     const chartYear = range === "all" ? thisYear : Number(range);
-    const profile = useClientProfile();
     const stats = useDashboardStats(chartYear);
     const events = useClientEvents({
         status: filter,
@@ -99,16 +98,6 @@ export default function DashboardPage() {
     const pagination = events.data?.pagination;
     const authError = (events.error instanceof ApiError && events.error.isAuthError) || (stats.error instanceof ApiError && stats.error.isAuthError);
 
-    const tiles = [
-        { label: "Total Events", value: s?.total_events, Icon: CalendarDays, cls: "bg-pink-50 text-pink-600" },
-        { label: "Total Guests", value: s?.total_guests, Icon: Users, cls: "bg-indigo-50 text-indigo-600" },
-        { label: "Confirmed", value: s?.rsvp_going, Icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-600" },
-        { label: "Pending", value: s?.rsvp_pending, Icon: Hourglass, cls: "bg-amber-50 text-amber-600" },
-        { label: "Declined", value: s?.rsvp_declined, Icon: XCircle, cls: "bg-rose-50 text-rose-600" },
-        { label: "Messages", value: s?.total_messages, Icon: MessageCircle, cls: "bg-violet-50 text-violet-600" },
-        { label: "Downloads", value: s?.total_downloads, Icon: Download, cls: "bg-sky-50 text-sky-600" },
-    ];
-
     const guestSlices = [
         { key: "Confirmed", value: s?.rsvp_going ?? 0, color: "#16A34A" },
         { key: "Pending", value: s?.rsvp_pending ?? 0, color: "#EAB308" },
@@ -125,7 +114,6 @@ export default function DashboardPage() {
             .map((m) => ({ name: MONTHS[m.month - 1], value: chartMode === "events" ? m.events : m.guests })),
         [s?.events_by_month, chartMode],
     );
-    const firstName = profile.data?.name?.trim();
     const yearOptions = [thisYear - 1, thisYear, thisYear + 1];
 
     return (
@@ -133,25 +121,13 @@ export default function DashboardPage() {
             {/* Saving loader for the row actions (publish / delete). */}
             <PageLoader open={publish.isPending || remove.isPending}
                 text={remove.isPending ? "Deleting..." : "Publishing..."} />
-            {/* Header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                    {profile.data?.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={profile.data.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-                    ) : (
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">
-                            {(firstName || "?").slice(0, 2).toUpperCase()}
-                        </span>
-                    )}
-                    <div className="min-w-0">
-                        <h1 className="text-[18px] font-bold leading-tight text-foreground">
-                            {profile.isLoading ? <Skeleton className="h-6 w-[240px]" /> : <>Welcome Back{firstName ? `, ${firstName}` : ""} <span aria-hidden>👋</span></>}
-                        </h1>
-                        <p className="text-[12px] text-muted-foreground">Organizer Dashboard · All Events Overview</p>
-                    </div>
-                </div>
-            </div>
+            {/* Booked dates + the 4 tiles (Create Event updated v4, 2026-11-19). */}
+            <DashboardBookingState loading={stats.isLoading} counts={{
+                total: s?.total_events ?? 0,
+                draft: s?.draft_events ?? 0,
+                published: (s?.live_events ?? 0) + (s?.upcoming_events ?? 0),
+                past: s?.past_events ?? 0,
+            }} />
 
             {authError && (
                 <div className="flex items-start gap-3 rounded-md border border-warning/40 bg-warning/10 px-4 py-3">
@@ -164,19 +140,8 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* 7 tiles */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-                {tiles.map((t) => (
-                    <div key={t.label} className={cn("flex items-center gap-2.5 rounded-lg px-3 py-2.5", t.cls.split(" ")[0])}>
-                        <t.Icon className={cn("h-6 w-6 shrink-0", t.cls.split(" ")[1])} strokeWidth={1.8} />
-                        <div className="min-w-0">
-                            {stats.isLoading ? <Skeleton className="h-5 w-10" /> : <p className="text-[18px] font-bold leading-none tabular-nums text-foreground">{fmt(t.value)}</p>}
-                            <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{t.label}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
+            {/* Charts + the events table: once there is an event. */}
+            {(s?.total_events ?? 0) > 0 && (<>
             {/* Charts */}
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_1.3fr]">
                 <ChartCard title="Guest Responses (All Events)">
@@ -345,6 +310,8 @@ export default function DashboardPage() {
                     </div>
                 )}
             </Card>
+
+            </>)}
 
             {/* Share Event / Download QR — link, QR, share via, guests */}
             <ShareEventDialog event={shareFor} onClose={() => setShareFor(null)} />

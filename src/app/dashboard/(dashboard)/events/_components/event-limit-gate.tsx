@@ -5,7 +5,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendarXmark } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { useEventOptions } from "@/hooks/use-client-portal";
+import { useBooking, useBookings } from "@/hooks/use-bookings";
 import { EventWizard } from "./event-wizard";
 
 /**
@@ -42,33 +44,73 @@ export function useEventLimit() {
     };
 }
 
-export function EventLimitGate({ initialThemeId, initialStartDate, initialEndDate, bookingPlanId }: { initialThemeId?: string; initialStartDate?: string; initialEndDate?: string; bookingPlanId?: number }) {
-    const { limit, used, planName, reached: limitReached } = useEventLimit();
+/**
+ * Create Event (per-event plans, Jamal 2026-11-19): an event is made from a BOOKED DATE — the date
+ * was checked, a plan chosen for it (Free too) and the slot reserved. `?booking=<id>` opens the
+ * wizard on that booking (its dates and plan). Without one, the client books a date first; any
+ * booked dates still waiting for their event are offered here.
+ */
+export function EventLimitGate({ initialThemeId, bookingId }: { initialThemeId?: string; bookingId?: number }) {
+    const booking = useBooking(bookingId ?? null);
+    const waiting = useBookings("reserved");
 
-    if (!limitReached) return <EventWizard initialThemeId={initialThemeId} initialStartDate={initialStartDate} initialEndDate={initialEndDate} bookingPlanId={bookingPlanId} />;
+    if (bookingId) {
+        if (booking.isLoading) {
+            return <div className="flex justify-center py-24"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+        }
+        const b = booking.data;
+        if (b && b.status === "reserved") {
+            return <EventWizard initialThemeId={initialThemeId} initialStartDate={b.start_date} initialEndDate={b.end_date ?? b.start_date} booking={b} />;
+        }
+        return (
+            <GateCard
+                title={b?.status === "used" ? "This booked date already has an event" : "Booked date not found"}
+                text={b?.status === "used" ? "An event has already been created for this booking. Book another date to create a new event." : "We could not find this booking. Check your availability and book a date to create an event."}
+                eventId={b?.status === "used" ? b.event_id : null}
+            />
+        );
+    }
 
+    const list = waiting.data ?? [];
+    return (
+        <GateCard
+            title="Book your event date first"
+            text="Every event starts with a booked date. Check availability, confirm a plan for the event, then create it."
+        >
+            {list.length > 0 && (
+                <div className="mt-2 w-full max-w-sm text-left">
+                    <p className="mb-1.5 text-[12.5px] font-semibold text-foreground">Your booked dates waiting for an event</p>
+                    <ul className="divide-y rounded-lg border">
+                        {list.map((x) => (
+                            <li key={x.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12.5px]">
+                                <span><b>{x.start_date}</b> · {x.plan.name}</span>
+                                <Link href={`/dashboard/events/create?booking=${x.id}`} className="font-semibold text-primary hover:underline">Create Event</Link>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </GateCard>
+    );
+}
+
+function GateCard({ title, text, eventId, children }: { title: string; text: string; eventId?: number | null; children?: React.ReactNode }) {
     return (
         <Card className="mx-auto mt-6 max-w-lg">
             <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
                 <FontAwesomeIcon icon={faCalendarXmark} className="!size-[26px] text-muted-foreground/40" />
-                <p className="text-[14px] font-semibold text-foreground">Event limit reached</p>
-                <p className="max-w-sm text-[13px] text-muted-foreground">
-                    Your {planName ?? "current"} plan allows {limit} event{limit === 1 ? "" : "s"} and
-                    you have created {used}. Upgrade your plan to create more.
-                </p>
-                {bookingPlanId && (
-                    // Came from Book Event → Payment: the details are saved but no gateway has confirmed them yet.
-                    <p className="max-w-sm rounded-md bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-                        Your payment details for the new plan are saved. You can create this event as soon as the payment is confirmed.
-                    </p>
-                )}
+                <p className="text-[14px] font-semibold text-foreground">{title}</p>
+                <p className="max-w-sm text-[13px] text-muted-foreground">{text}</p>
+                {children}
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                     <Button asChild size="sm" className="h-8 text-[12px]">
-                        <Link href="/dashboard/billing">View Plan &amp; Billing</Link>
+                        <Link href="/dashboard/events/check-availability">Check Event Availability</Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="h-8 text-[12px]">
-                        <Link href="/dashboard/events">Back to Events</Link>
-                    </Button>
+                    {eventId ? (
+                        <Button asChild variant="outline" size="sm" className="h-8 text-[12px]"><Link href={`/event/${eventId}`}>Open the Event</Link></Button>
+                    ) : (
+                        <Button asChild variant="outline" size="sm" className="h-8 text-[12px]"><Link href="/dashboard">Back to Dashboard</Link></Button>
+                    )}
                 </div>
             </CardContent>
         </Card>

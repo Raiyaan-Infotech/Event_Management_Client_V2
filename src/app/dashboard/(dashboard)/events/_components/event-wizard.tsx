@@ -22,7 +22,7 @@ import { faWhatsapp as faWhatsappBrand } from "@fortawesome/free-brands-svg-icon
 import {
     Briefcase, Cake, CalendarDays, ChevronDown, ChevronUp, Gem, HeartHandshake, Layers, Loader2, PartyPopper, Trash2, Upload, UsersRound, X, type LucideIcon,
 } from "lucide-react";
-import { useBillingPlans } from "@/hooks/use-billing";
+import type { Booking } from "@/hooks/use-bookings";
 import { mediaUrl } from "@/lib/media-url";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -336,12 +336,12 @@ export function EventWizard({
     initialThemeId,
     initialStartDate,
     initialEndDate,
-    bookingPlanId,
+    booking,
     section,
     embedded = false,
 }: {
-    /** The plan picked on Book Event → Select Plan — named in step 1's Booking Confirmed strip. */
-    bookingPlanId?: number;
+    /** The booked date this event is made from (per-event plans, 2026-11-19): its plan + dates. */
+    booking?: Booking;
     eventId?: number;
     /** Edit one section (Edit Event hub) instead of the whole wizard. */
     section?: EditSectionKey;
@@ -635,7 +635,7 @@ export function EventWizard({
 
     // One request. Everything here is already narrowed to the client's plan by
     // the backend, so the wizard cannot offer an option they have not paid for.
-    const options = useEventOptions();
+    const options = useEventOptions(booking?.id ?? null);
     const opts = options.data;
 
     /**
@@ -1116,6 +1116,8 @@ export function EventWizard({
                 start_date: form.start_date,
                 end_date: form.end_date,
                 start_time: form.start_time,
+                // Made from a booked date: the backend uses its plan and marks it used.
+                ...(!isEdit && booking ? { booking_id: booking.id } : {}),
                 end_time: form.end_time,
                 timezone: form.timezone,
                 venue_name: form.venue_name.trim() || null,
@@ -1453,7 +1455,7 @@ export function EventWizard({
                                 {!isEdit && initialStartDate && (
                                     <BookingStrip
                                         planName={opts?.plan?.name ?? null}
-                                        bookingPlanId={bookingPlanId}
+                                        booking={booking}
                                         start={initialStartDate}
                                         end={initialEndDate && initialEndDate !== initialStartDate ? initialEndDate : undefined}
                                     />
@@ -1645,7 +1647,7 @@ export function EventWizard({
                                 <div className="grid gap-2.5 sm:grid-cols-2">
                                     <Field label="Start Date" required error={errors.start_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.start_date}
-                                            disabled={isEdit}
+                                            disabled={isEdit || !!booking}
                                             onChange={(v) => confirmDate("start_date", v)} invalid={errors.start_date} />
                                     </Field>
                                     <Field label="Start Time" required error={errors.start_time}>
@@ -1654,7 +1656,7 @@ export function EventWizard({
                                     </Field>
                                     <Field label="End Date" required error={errors.end_date}>
                                         <IconInput icon={faCalendarDays} type="date" value={form.end_date}
-                                            disabled={isEdit}
+                                            disabled={isEdit || !!booking}
                                             onChange={(v) => confirmDate("end_date", v)} invalid={errors.end_date} />
                                     </Field>
                                     <Field label="End Time" required error={errors.end_time}>
@@ -3295,14 +3297,11 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const bookedDay = (d: string) => { const [y, m, day] = d.split("-").map(Number); return `${day} ${MONTH_SHORT[m - 1]} ${y}`; };
 
 /**
- * Step 1's "Booking Confirmed" strip, when the wizard was opened from Book Event (Create Event v3,
- * 2026-11-18). The plan named is the one picked on Select Plan; until a payment gateway confirms a
- * paid plan, the account still runs on its current one — so that is what the strip says.
+ * Step 1's "Booking Confirmed" strip, when the wizard was opened from a booked date (per-event plans,
+ * 2026-11-19). The plan is the one chosen for THIS event when the date was booked.
  */
-function BookingStrip({ planName, bookingPlanId, start, end }: { planName: string | null; bookingPlanId?: number; start: string; end?: string }) {
-    const plans = useBillingPlans();
-    const picked = bookingPlanId ? plans.data?.plans.find((p) => p.id === bookingPlanId) : undefined;
-    const pending = !!picked && !picked.is_current;
+function BookingStrip({ planName, booking, start, end }: { planName: string | null; booking?: Booking; start: string; end?: string }) {
+    const pending = booking?.payment_status === "pending";
     const dateText = end ? `${bookedDay(start)} – ${bookedDay(end)}` : `${bookedDay(start)} (${DAY_SHORT[new Date(`${start}T00:00:00`).getDay()]})`;
     return (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -3310,14 +3309,14 @@ function BookingStrip({ planName, bookingPlanId, start, end }: { planName: strin
             <div className="min-w-[220px] flex-1 border-l border-primary/15 pl-4">
                 <p className="text-[17px] font-bold text-foreground">Booking Confirmed</p>
                 <p className="text-[12.5px] text-muted-foreground">
-                    {pending ? "Your payment details are saved and your date is available." : "Your date is available — continue to create your event."}
+                    {booking ? "Your event date is reserved — continue to create your event." : "Your date is available — continue to create your event."}
                 </p>
             </div>
             <div className="flex items-center gap-3 border-l border-primary/15 pl-4">
                 <Layers className="h-6 w-6 text-primary" />
                 <div>
                     <p className="text-[11.5px] text-muted-foreground">Selected Plan</p>
-                    <p className="text-[15px] font-bold text-foreground">{picked?.name ?? planName ?? "—"}{pending && <span className="ml-1.5 align-middle text-[11px] font-medium text-amber-700">(awaiting confirmation)</span>}</p>
+                    <p className="text-[15px] font-bold text-foreground">{booking?.plan.name ?? planName ?? "—"}{pending && <span className="ml-1.5 align-middle text-[11px] font-medium text-amber-700">(payment pending)</span>}</p>
                 </div>
             </div>
             <div className="flex items-center gap-3 border-l border-primary/15 pl-4">

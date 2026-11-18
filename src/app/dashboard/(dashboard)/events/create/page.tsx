@@ -8,22 +8,17 @@ import { EventLimitGate } from "../_components/event-limit-gate";
  * Editing" on a draft has to reopen this exact form, and keeping two copies is
  * how a field added to one goes missing from the other.
  *
- * `?theme=` is what the Templates screen's "Use Template" button passes. Read
- * here in the server component rather than with `useSearchParams` in the client
- * one, which would need its own Suspense boundary for a value known at request
- * time. In Next 16 `searchParams` is a Promise and must be awaited.
+ * `?booking=<id>` (per-event plans, 2026-11-19): the booked date this event is made from — its
+ * dates and plan. Without it the gate asks the client to book a date first.
+ * `?theme=` is what the Templates screen's "Use Template" button passes.
+ * In Next 16 `searchParams` is a Promise and must be awaited.
  */
 export default async function CreateEventPage({
     searchParams,
 }: {
-    searchParams: Promise<{ theme?: string; start?: string; end?: string; plan?: string }>;
+    searchParams: Promise<{ theme?: string; booking?: string }>;
 }) {
-    const { theme, start, end, plan } = await searchParams;
-    // ?plan= = the plan picked on Book Event → Select Plan (shown in step 1's Booking Confirmed strip).
-    const planId = plan && /^\d+$/.test(plan) ? Number(plan) : undefined;
-    // ?start= / ?end= come from the Event Availability calendar's Book Event.
-    const day = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
-    const startDate = day(start);
-    const endDate = startDate ? day(end) : undefined;
-    return <EventLimitGate initialThemeId={theme} initialStartDate={startDate} initialEndDate={endDate && endDate >= (startDate as string) ? endDate : startDate} bookingPlanId={planId} />;
+    const { theme, booking } = await searchParams;
+    const bookingId = booking && /^\d+$/.test(booking) ? Number(booking) : undefined;
+    return <EventLimitGate initialThemeId={theme} bookingId={bookingId} />;
 }

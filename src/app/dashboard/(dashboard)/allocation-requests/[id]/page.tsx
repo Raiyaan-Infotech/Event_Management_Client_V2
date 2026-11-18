@@ -44,7 +44,7 @@ export default function AllocationRequestPage({ params }: { params: Promise<{ id
     const slots = r.decision?.exception_slots ?? 1;
     const expired = !!r.decision?.expires_at && Date.parse(r.decision.expires_at) < now;
     const used = !!r.decision?.used_event_id;
-    const createHref = `/dashboard/events/create?start=${r.start_date}${r.end_date !== r.start_date ? `&end=${r.end_date}` : ""}`;
+    const createHref = `/dashboard/events/book?start=${r.start_date}${r.end_date !== r.start_date ? `&end=${r.end_date}` : ""}`;
     const title = r.status === "pending" ? "Event Allocation Request – Tracking" : r.status === "approved" ? "Event Allocation Request" : "Event Allocation Request Details";    const subtitle = r.status === "pending" ? "Track the status of your event booking allocation request."
         : r.status === "approved" ? "Track the status of your event availability request and continue creating your event after approval."
             : "Track the status of your event date allocation request and take the next action.";

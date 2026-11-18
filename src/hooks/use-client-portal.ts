@@ -228,10 +228,14 @@ export function useClientProfile() {
     });
 }
 
-export function useEventOptions() {
+/**
+ * `bookingId` (per-event plans, 2026-11-19): creating an event from a booked date — the options
+ * come from THAT booking's plan, not the account's.
+ */
+export function useEventOptions(bookingId?: number | null) {
     return useQuery({
-        queryKey: ['client', 'event-options'],
-        queryFn: () => api.get<EventOptions>('/client/event-options'),
+        queryKey: bookingId ? ['client', 'event-options', 'booking', bookingId] : ['client', 'event-options'],
+        queryFn: () => api.get<EventOptions>(bookingId ? `/client/event-options?booking_id=${bookingId}` : '/client/event-options'),
         staleTime: 5 * 60 * 1000,
         retry: false,
     });

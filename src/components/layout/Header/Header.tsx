@@ -20,7 +20,6 @@ import {
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import Breadcrumb from "@/components/layout/Breadcrumb/Breadcrumb";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -115,7 +114,7 @@ export default function Header({ left, exit }: { left?: React.ReactNode; exit?: 
     };
 
     const client = profile.data;
-    const planName = client?.plan?.name;
+    // No plan under the name (Jamal, 2026-11-19): each event has its own plan now.
 
     return (
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-5">
@@ -275,15 +274,11 @@ export default function Header({ left, exit }: { left?: React.ReactNode; exit?: 
                                 {profile.isLoading ? (
                                     <>
                                         <Skeleton className="h-3 w-[86px]" />
-                                        <Skeleton className="mt-1 h-2.5 w-[60px]" />
                                     </>
                                 ) : (
                                     <>
                                         <span className="max-w-[140px] truncate text-[12.5px] font-semibold text-foreground">
                                             {client?.name ?? "Not signed in"}
-                                        </span>
-                                        <span className="max-w-[140px] truncate text-[10.5px] text-muted-foreground">
-                                            {planName ?? "No plan assigned"}
                                         </span>
                                     </>
                                 )}
@@ -300,11 +295,6 @@ export default function Header({ left, exit }: { left?: React.ReactNode; exit?: 
                                 <span className="truncate text-[11px] font-normal text-muted-foreground">
                                     {client.email}
                                 </span>
-                            )}
-                            {planName && (
-                                <Badge variant="secondary" className="mt-1 w-fit text-[10px]">
-                                    {planName}
-                                </Badge>
                             )}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />

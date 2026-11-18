@@ -1,28 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-    ArrowLeft, ArrowRight, Building2, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock, CreditCard, Crown, Gem, Gift, Info, Layers,
-    Loader2, Lock, Mail, Phone, Receipt, Send, ShieldCheck, Tag, User, Wallet, Zap, type LucideIcon,
+    ArrowLeft, Building2, CalendarDays, CalendarPlus, Check, CheckCircle2, Clock, CreditCard, Crown, Gem, Gift, Info, Layers,
+    LayoutDashboard, Loader2, Lock, Mail, Phone, Receipt, Send, ShieldCheck, Tag, User, Wallet, Zap, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useClientProfile } from "@/hooks/use-client-portal";
-import { CYCLE_SUFFIX, formatMoney, useBillingPlans, useCheckout, type AvailablePlans, type CheckoutBody, type CheckoutResult } from "@/hooks/use-billing";
-import { useEventLimit } from "../../_components/event-limit-gate";
+import { CYCLE_SUFFIX, formatMoney, useBillingPlans, type AvailablePlans, type CheckoutBody } from "@/hooks/use-billing";
+import { useCreateBooking, type BookingBody, type BookingResult } from "@/hooks/use-bookings";
 
 /**
- * Book Event → Select Plan → Review → Payment → Saved (Jamal's Create Event Updated v3, 2026-11-18).
+ * Book Event → Select Plan → (Review → Payment) → Date Booked → Create Event.
+ * Per-event plans (Jamal, 2026-11-19, Create Event updated v4): EVERY event is booked with its own
+ * plan. Free books the date at once; a paid plan goes through Review and Payment first.
  *
  * ⚠ No payment gateway yet ("just save payment details"): Pay saves the method as a PENDING payment
- * (Billing History shows it) — nothing is charged and the plan is not switched until a gateway
- * confirms it. Card number / CVC / expiry stay in this browser; only brand + last four + name are sent.
- *
- * Staying on the current plan (credits left) skips payment and goes straight to Create Event.
+ * (Billing History shows it) and the date is reserved straight away. Card number / CVC / expiry stay
+ * in this browser; only brand + last four + name are sent.
  */
 
 type Plan = AvailablePlans["plans"][number];
@@ -38,26 +37,18 @@ const limitText = (n: number | null | undefined, unit: string) => (n && n > 0 ? 
 
 export function BookingFlow({ start, end }: { start: string; end?: string }) {
     const plans = useBillingPlans();
-    const limit = useEventLimit();
+    const book = useCreateBooking();
     const [stage, setStage] = useState<Stage>("plan");
     const [planId, setPlanId] = useState<number | null>(null);
-    const [result, setResult] = useState<CheckoutResult | null>(null);
+    const [result, setResult] = useState<BookingResult | null>(null);
 
     const list = plans.data?.plans ?? [];
-    const current = list.find((p) => p.is_current) ?? null;
-    const currentName = plans.data?.subscription?.plan?.name ?? current?.name ?? limit.planName ?? "—";
     const chosen = list.find((p) => p.id === planId) ?? null;
     const dateLabel = end ? `${pretty(start)} – ${pretty(end)}` : withDay(start);
     const bookingType = end ? "Multi Date Event" : "Single Date Event";
-    const createHref = (plan?: number) => `/dashboard/events/create?start=${start}${end ? `&end=${end}` : ""}${plan ? `&plan=${plan}` : ""}`;
     const stepIndex = stage === "plan" ? 2 : stage === "done" ? 4 : 3;
-
-    // The upgrade offer is for FREE plans (and any plan that is used up). A paid plan with events
-    // left books straight away, like the big products do — no offer on every booking.
-    const paidWithRoom = !!current && Number(current.price) > 0 && !limit.reached && limit.limit !== null;
-    const router = useRouter();
-    const target = createHref();
-    useEffect(() => { if (paidWithRoom) router.replace(target); }, [paidWithRoom, router, target]);
+    const dates = { start_date: start, ...(end ? { end_date: end } : {}) };
+    const done = (r: BookingResult) => { setResult(r); setStage("done"); };
 
     const summary = (
         <Card className="gap-0 rounded-xl border p-4 shadow-none">
@@ -69,7 +60,7 @@ export function BookingFlow({ start, end }: { start: string; end?: string }) {
             </div>
             {stage !== "plan" && (
                 <p className="mt-3 flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-[12.5px] text-foreground">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Event creation will continue after your payment details are saved.
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your date is booked as soon as your payment details are saved.
                 </p>
             )}
         </Card>
@@ -79,7 +70,7 @@ export function BookingFlow({ start, end }: { start: string; end?: string }) {
         <div className="flex flex-col gap-5">
             <BookingStepper step={stepIndex} done={stage === "done"} />
 
-            {plans.isLoading || paidWithRoom ? (
+            {plans.isLoading ? (
                 <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
             ) : plans.isError ? (
                 <div role="alert" className="flex flex-col items-center gap-2 py-16 text-[13px] text-destructive">
@@ -88,16 +79,20 @@ export function BookingFlow({ start, end }: { start: string; end?: string }) {
                 </div>
             ) : stage === "plan" ? (
                 <SelectPlan
-                    list={list} current={current} currentName={currentName} limit={limit} summary={summary}
-                    onPick={(p) => { setPlanId(p.id); setStage("review"); }}
-                    continueHref={createHref()}
+                    list={list} summary={summary} bookingFree={book.isPending ? planId : null}
+                    onPick={(p) => {
+                        setPlanId(p.id);
+                        // Free: the date is booked at once. Paid: Review → Payment first.
+                        if (Number(p.price) > 0) setStage("review");
+                        else book.mutate({ ...dates, plan_id: p.id }, { onSuccess: done });
+                    }}
                 />
             ) : stage === "review" && chosen ? (
-                <ReviewPlan plan={chosen} currentName={currentName} summary={summary} onBack={() => setStage("plan")} onNext={() => setStage("payment")} />
+                <ReviewPlan plan={chosen} summary={summary} onBack={() => setStage("plan")} onNext={() => setStage("payment")} />
             ) : stage === "payment" && chosen ? (
-                <PaymentStep plan={chosen} dateLabel={dateLabel} start={start} end={end} onBack={() => setStage("review")} onSaved={(r) => { setResult(r); setStage("done"); }} />
+                <PaymentStep plan={chosen} dateLabel={dateLabel} dates={dates} onBack={() => setStage("review")} onSaved={done} />
             ) : stage === "done" && result ? (
-                <Saved result={result} dateLabel={dateLabel} createHref={createHref(result.plan.id)} />
+                <Booked result={result} dateLabel={dateLabel} />
             ) : null}
         </div>
     );
@@ -132,46 +127,22 @@ function BookingStepper({ step, done }: { step: number; done: boolean }) {
 
 /* ── Step 2 — Select Plan ────────────────────────────────────────────────── */
 
-function SelectPlan({ list, current, currentName, limit, summary, onPick, continueHref }: {
-    list: Plan[]; current: Plan | null; currentName: string; limit: ReturnType<typeof useEventLimit>;
-    summary: React.ReactNode; onPick: (p: Plan) => void; continueHref: string;
+function SelectPlan({ list, summary, onPick, bookingFree }: {
+    list: Plan[]; summary: React.ReactNode; onPick: (p: Plan) => void; bookingFree: number | null;
 }) {
-    const left = limit.limit !== null && limit.used !== null ? Math.max(0, limit.limit - limit.used) : null;
-    // Upgrade offer with a way out (Jamal, 2026-11-18): while the current plan has events left, Skip
-    // goes straight to Create Event. Only a used-up plan has to pick a new one.
-    const canSkip = !limit.reached;
-    const skip = canSkip && (
-        <Button asChild variant="outline" className="h-10 border-primary/50 font-semibold text-primary hover:bg-primary/5 hover:text-primary">
-            <Link href={continueHref}>Skip for now — Continue with {currentName}<ArrowRight className="ml-1.5 h-4 w-4" /></Link>
-        </Button>
-    );
     return (
         <>
             <div className="grid gap-4 xl:grid-cols-[1fr_380px] xl:items-start">
                 <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h1 className="text-[22px] font-bold leading-tight text-foreground">{canSkip ? "Upgrade Your Plan?" : "Select Subscription Plan"}</h1>
-                            <p className="text-[13px] text-muted-foreground">
-                                {canSkip
-                                    ? "Get more events, guests and features — or skip and book this date on your current plan."
-                                    : "You have used every event on your plan. Choose a plan to book this date."}
-                            </p>
-                        </div>
-                        {skip}
+                    <div>
+                        <h1 className="text-[22px] font-bold leading-tight text-foreground">Choose a Plan for This Event</h1>
+                        <p className="text-[13px] text-muted-foreground">Each event has its own plan. Start free, or pick a plan with more guests and features.</p>
                     </div>
                     <div className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
                         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Crown className="h-7 w-7" /></span>
                         <div className="min-w-0 border-l border-primary/15 pl-4">
-                            <p className="text-[17px] font-bold text-foreground">Current Plan: {currentName}</p>
-                            <p className="text-[12.5px] text-muted-foreground">
-                                {limit.reached ? "You have used every event on this plan — choose a plan to book this date." : left !== null ? `You have ${left} event${left === 1 ? "" : "s"} left on this plan.` : "Your current plan and its limits."}
-                            </p>
-                            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
-                                {current && <Pill icon={<CalendarDays />}>{limitText(current.max_events, "events")}</Pill>}
-                                {current && <Pill icon={<User />}>{limitText(current.max_guests_per_event, "guests")}</Pill>}
-                                {limit.used !== null && <Pill icon={<CheckCircle2 />}>{limit.used} used</Pill>}
-                            </div>
+                            <p className="text-[17px] font-bold text-foreground">Confirm a plan to book this date</p>
+                            <p className="text-[12.5px] text-muted-foreground">Your date is reserved as soon as you confirm. You can create the event any time before the event date.</p>
                         </div>
                     </div>
                 </div>
@@ -187,8 +158,7 @@ function SelectPlan({ list, current, currentName, limit, summary, onPick, contin
                         const free = !(Number(p.price) > 0);
                         const features = p.features.slice(0, 4);
                         return (
-                            <Card key={p.id} className={cn("relative gap-0 rounded-xl border p-5 shadow-none", p.is_current && "bg-muted/20")}>
-                                {p.is_pending && <span className="absolute right-4 top-4 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Scheduled</span>}
+                            <Card key={p.id} className="relative gap-0 rounded-xl border p-5 shadow-none">
                                 <div className="flex items-start gap-3">
                                     <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-6 w-6" /></span>
                                     <div className="min-w-0">
@@ -201,27 +171,22 @@ function SelectPlan({ list, current, currentName, limit, summary, onPick, contin
                                     <span className="ml-1 text-[14px] font-normal text-muted-foreground">{CYCLE_SUFFIX[p.billing_cycle] ?? ""}</span>
                                 </p>
                                 <p className="mt-4 flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[13.5px] font-semibold text-foreground">
-                                    <CalendarDays className="h-4 w-4 text-primary" />{limitText(p.max_events, "events")}
+                                    <User className="h-4 w-4 text-primary" />{limitText(p.max_guests_per_event, "guests")}
                                 </p>
                                 <ul className="mt-3 flex flex-1 flex-col gap-1.5 text-[13px] text-foreground">
-                                    <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-600" />{limitText(p.max_guests_per_event, "guests")}</li>
+                                    <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-600" />One event on the booked date</li>
                                     <li className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-600" />Check event availability</li>
                                     {features.map((f) => <li key={f.id} className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-600" />{f.label}</li>)}
                                     {p.features.length > features.length && <li className="pl-6 text-[12px] font-medium text-primary">+{p.features.length - features.length} more features</li>}
                                 </ul>
                                 <div className="mt-5">
-                                    {p.is_current ? (
-                                        limit.reached ? (
-                                            <Button disabled variant="secondary" className="h-10 w-full text-[13.5px] font-semibold"><Check className="mr-1.5 h-4 w-4" />Current Plan</Button>
-                                        ) : (
-                                            <Button asChild variant="outline" className="h-10 w-full border-primary/50 text-[13.5px] font-semibold text-primary hover:bg-primary/5 hover:text-primary">
-                                                <Link href={continueHref}>Continue with {p.name}</Link>
-                                            </Button>
-                                        )
-                                    ) : free ? (
-                                        <Button disabled variant="secondary" className="h-10 w-full text-[13px]">Free plan</Button>
+                                    {free ? (
+                                        <Button variant="outline" className="h-10 w-full border-primary/50 text-[13.5px] font-semibold text-primary hover:bg-primary/5 hover:text-primary"
+                                            disabled={bookingFree !== null} onClick={() => onPick(p)}>
+                                            {bookingFree === p.id ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Booking...</> : `Book with ${p.name}`}
+                                        </Button>
                                     ) : (
-                                        <Button className="h-10 w-full text-[13.5px] font-semibold" onClick={() => onPick(p)}>Select {p.name} Plan</Button>
+                                        <Button className="h-10 w-full text-[13.5px] font-semibold" disabled={bookingFree !== null} onClick={() => onPick(p)}>Select {p.name} Plan</Button>
                                     )}
                                 </div>
                             </Card>
@@ -232,12 +197,9 @@ function SelectPlan({ list, current, currentName, limit, summary, onPick, contin
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-[12.5px] text-foreground">
-                    <Info className="h-4 w-4 shrink-0 text-primary" /><span><b>You&apos;ll continue to payment after selecting a plan.</b> {canSkip ? "Or skip and create the event on your current plan." : "Your new plan unlocks more events."}</span>
+                    <Info className="h-4 w-4 shrink-0 text-primary" /><span><b>A free plan books the date straight away.</b> A paid plan continues to payment.</span>
                 </p>
-                <div className="flex flex-wrap gap-2">
-                    <Button asChild variant="outline" className="h-10"><Link href="/dashboard/events/check-availability"><ArrowLeft className="mr-1.5 h-4 w-4" />Back</Link></Button>
-                    {skip}
-                </div>
+                <Button asChild variant="outline" className="h-10"><Link href="/dashboard/events/check-availability"><ArrowLeft className="mr-1.5 h-4 w-4" />Back</Link></Button>
             </div>
         </>
     );
@@ -245,7 +207,7 @@ function SelectPlan({ list, current, currentName, limit, summary, onPick, contin
 
 /* ── Step 3a — Review ────────────────────────────────────────────────────── */
 
-function ReviewPlan({ plan, currentName, summary, onBack, onNext }: { plan: Plan; currentName: string; summary: React.ReactNode; onBack: () => void; onNext: () => void }) {
+function ReviewPlan({ plan, summary, onBack, onNext }: { plan: Plan; summary: React.ReactNode; onBack: () => void; onNext: () => void }) {
     const [agree, setAgree] = useState(false);
     const [coupon, setCoupon] = useState("");
     const cur = plan.currency_code;
@@ -269,16 +231,10 @@ function ReviewPlan({ plan, currentName, summary, onBack, onNext }: { plan: Plan
                             <p className="mt-4 text-[32px] font-bold leading-none text-foreground">{formatMoney(plan.price, cur)}<span className="ml-1 text-[15px] font-normal text-muted-foreground">{CYCLE_SUFFIX[plan.billing_cycle] ?? ""}</span></p>
                         </div>
                         <ul className="flex flex-col gap-1.5 text-[13px] md:border-l md:border-primary/15 md:pl-5">
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-600" />{limitText(plan.max_events, "events")}</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-600" />One event on the booked date</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-600" />{limitText(plan.max_guests_per_event, "guests")}</li>
                             {plan.features.slice(0, 3).map((f) => <li key={f.id} className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-600" />{f.label}</li>)}
                         </ul>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-muted/30 p-4">
-                        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-lg bg-background text-muted-foreground"><Gift className="h-5 w-5" /></span><div><p className="text-[14px] font-semibold">Current Plan: {currentName}</p><p className="text-[12px] text-muted-foreground">Your plan today.</p></div></div>
-                        <ArrowRight className="h-5 w-5 text-primary" />
-                        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary"><Zap className="h-5 w-5" /></span><div><p className="text-[14px] font-semibold">Upgrading To: {plan.name}</p><p className="text-[12px] text-muted-foreground">More events, higher capacity and more features.</p></div></div>
                     </div>
 
                     <Card className="gap-0 rounded-xl border p-4 shadow-none">
@@ -345,11 +301,11 @@ const luhn = (n: string) => {
     return sum % 10 === 0;
 };
 
-function PaymentStep({ plan, dateLabel, start, end, onBack, onSaved }: {
-    plan: Plan; dateLabel: string; start: string; end?: string; onBack: () => void; onSaved: (r: CheckoutResult) => void;
+function PaymentStep({ plan, dateLabel, dates, onBack, onSaved }: {
+    plan: Plan; dateLabel: string; dates: { start_date: string; end_date?: string }; onBack: () => void; onSaved: (r: BookingResult) => void;
 }) {
     const me = useClientProfile();
-    const checkout = useCheckout();
+    const checkout = useCreateBooking();
     const [method, setMethod] = useState<CheckoutBody["method"]>("upi");
     const [upiId, setUpiId] = useState("");
     const [upiApp, setUpiApp] = useState<string | null>(null);
@@ -383,7 +339,7 @@ function PaymentStep({ plan, dateLabel, start, end, onBack, onSaved }: {
         setError(problem);
         if (problem) return;
         // Card number, CVV and expiry never leave the browser — only brand + last four + name.
-        const body: CheckoutBody = { plan_id: plan.id, method, start_date: start, end_date: end };
+        const body: BookingBody = { ...dates, plan_id: plan.id, method };
         if (method === "upi") { if (upiId.trim()) body.upi_id = upiId.trim(); else body.upi_app = upiApp ?? undefined; }
         if (method === "card") { body.card_brand = cardBrand(num); body.card_last4 = num.slice(-4); body.holder_name = card.name.trim(); }
         if (method === "netbanking") body.bank_name = bank;
@@ -395,7 +351,7 @@ function PaymentStep({ plan, dateLabel, start, end, onBack, onSaved }: {
         <>
             <div>
                 <h1 className="text-[22px] font-bold leading-tight text-foreground">Complete Your Payment</h1>
-                <p className="text-[13px] text-muted-foreground">Choose a payment method and save your payment details to continue to the event creation wizard.</p>
+                <p className="text-[13px] text-muted-foreground">Choose a payment method and save your payment details to book your event date.</p>
             </div>
             <div className="grid gap-4 xl:grid-cols-[1fr_400px] xl:items-start">
                 <Card className="gap-0 rounded-xl border p-4 shadow-none">
@@ -510,40 +466,48 @@ function PaymentStep({ plan, dateLabel, start, end, onBack, onSaved }: {
     );
 }
 
-/* ── Saved (the design's "Payment Successful") ───────────────────────────── */
+/* ── Date Booked (the design's "Payment Successful") ─────────────────────── */
 
-function Saved({ result, dateLabel, createHref }: { result: CheckoutResult; dateLabel: string; createHref: string }) {
+function Booked({ result, dateLabel }: { result: BookingResult; dateLabel: string }) {
+    const b = result.booking;
     const t = result.transaction;
-    const when = new Date(t.occurred_at);
+    const when = new Date(t?.occurred_at ?? b.booked_at);
     const at = `${when.getDate()} ${MONTHS[when.getMonth()]} ${when.getFullYear()}, ${when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
-    const methodName = METHODS.find((m) => m.key === t.method)?.label ?? t.method;
+    const methodName = t ? METHODS.find((m) => m.key === t.method)?.label ?? t.method : null;
     return (
         <>
             <div>
-                <h1 className="text-[22px] font-bold leading-tight text-foreground">Payment Details Saved</h1>
-                <p className="text-[13px] text-muted-foreground">Your payment details are saved. You can now continue to create your event.</p>
+                <h1 className="text-[22px] font-bold leading-tight text-foreground">Your Event Date Is Booked</h1>
+                <p className="text-[13px] text-muted-foreground">Your slot is reserved. Create your event now, or any time before the event date.</p>
             </div>
             <div className="grid gap-4 xl:grid-cols-[1fr_420px] xl:items-start">
                 <Card className="gap-0 items-center rounded-xl border p-6 shadow-none">
                     <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-100 text-emerald-600"><Check className="h-10 w-10" strokeWidth={3} /></span>
-                    <p className="mt-3 text-[24px] font-bold text-foreground">Payment Details Saved</p>
-                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[13px] font-medium text-amber-800">
-                        <Clock className="h-4 w-4" />Plan Selected: <b>{result.plan.name}</b> — awaiting confirmation
-                    </span>
+                    <p className="mt-3 text-[24px] font-bold text-foreground">Event Date Booked</p>
+                    {t ? (
+                        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[13px] font-medium text-amber-800">
+                            <Clock className="h-4 w-4" />Payment details saved — awaiting confirmation
+                        </span>
+                    ) : (
+                        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-medium text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4" />Slot Reserved
+                        </span>
+                    )}
                     <div className="mt-5 w-full divide-y rounded-xl border px-4 text-[13px]">
-                        <Row icon={<Receipt />} label="Transaction ID" value={t.reference} />
-                        <Row icon={<Crown />} label="Plan Selected" value={result.plan.name} />
-                        <Row icon={<Wallet />} label="Amount" value={formatMoney(t.amount.total, t.currency_code)} />
-                        <Row icon={<CreditCard />} label="Payment Method" value={<span title={t.method_label}>{methodName}</span>} />
                         <Row icon={<CalendarDays />} label="Event Date" value={dateLabel} />
-                        <Row icon={<Clock />} label="Date & Time Saved" value={at} />
+                        <Row icon={<Layers />} label="Booking Type" value={b.booking_type} />
+                        <Row icon={<Crown />} label="Plan" value={b.plan.name} />
+                        {t && <Row icon={<Receipt />} label="Transaction ID" value={t.reference} />}
+                        {t && <Row icon={<Wallet />} label="Amount" value={formatMoney(t.amount.total, t.currency_code)} />}
+                        {t && <Row icon={<CreditCard />} label="Payment Method" value={<span title={t.method_label}>{methodName}</span>} />}
+                        <Row icon={<Clock />} label="Booked On" value={at} />
                     </div>
                     <p className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-[13px] font-medium text-emerald-800">
-                        <CheckCircle2 className="h-5 w-5 shrink-0" />Your payment details are saved. The {result.plan.name} plan activates once the payment is confirmed.
+                        <CheckCircle2 className="h-5 w-5 shrink-0" />Your booking slot is secured. The event stays pending setup until you create it.
                     </p>
                     <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
-                        <Button asChild variant="outline" className="h-11 border-primary/50 text-primary hover:bg-primary/5 hover:text-primary"><Link href="/dashboard/billing"><Receipt className="mr-1.5 h-4 w-4" />View Billing</Link></Button>
-                        <Button asChild className="h-11 font-semibold"><Link href={createHref}><CalendarPlus className="mr-1.5 h-4 w-4" />Continue to Create Event</Link></Button>
+                        <Button asChild variant="outline" className="h-11 border-primary/50 text-primary hover:bg-primary/5 hover:text-primary"><Link href="/dashboard"><LayoutDashboard className="mr-1.5 h-4 w-4" />Go to Dashboard</Link></Button>
+                        <Button asChild className="h-11 font-semibold"><Link href={`/dashboard/events/create?booking=${b.id}`}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
                     </div>
                 </Card>
                 <Card className="gap-0 overflow-hidden rounded-xl border p-0 shadow-none">
@@ -572,10 +536,6 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
 
 function Line({ label, value }: { label: string; value: string }) {
     return <div className="flex items-center justify-between py-2"><span className="text-foreground">{label}</span><span className="font-medium">{value}</span></div>;
-}
-
-function Pill({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-    return <span className="inline-flex items-center gap-1.5 rounded-md bg-background px-2 py-1 font-medium text-foreground [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:text-primary">{icon}{children}</span>;
 }
 
 function PanelTitle({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
