@@ -181,7 +181,7 @@ function SelectPlan({ list, current, currentName, limit, summary, onPick, contin
             {list.length === 0 ? (
                 <p className="rounded-xl border border-dashed py-10 text-center text-[13px] text-muted-foreground">No plans are available right now. Please contact support.</p>
             ) : (
-                <div className={cn("grid gap-4", list.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2")}>
+                <div className={cn("grid gap-4", list.length >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : list.length === 3 ? "lg:grid-cols-3" : "md:grid-cols-2")}>
                     {list.map((p, i) => {
                         const Icon = planIcon(p, i);
                         const free = !(Number(p.price) > 0);
@@ -406,8 +406,8 @@ function PaymentStep({ plan, dateLabel, start, end, onBack, onSaved }: {
                     <div role="tablist" className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
                         {METHODS.map(({ key, label, icon: Icon }) => (
                             <button key={key} type="button" role="tab" aria-selected={method === key} onClick={() => { setMethod(key); setError(null); }}
-                                className={cn("flex h-11 items-center justify-center gap-2 rounded-lg border text-[13px] font-medium transition-colors",
-                                    method === key ? "border-primary bg-primary/5 text-primary" : "hover:bg-muted")}>
+                                className={cn("flex h-11 items-center justify-center gap-2 rounded-lg border text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                                    method === key ? "border-2 border-primary bg-primary/5 font-semibold text-primary" : "border-border bg-background text-foreground hover:bg-muted")}>
                                 <Icon className="h-4 w-4" />{label}
                             </button>
                         ))}
