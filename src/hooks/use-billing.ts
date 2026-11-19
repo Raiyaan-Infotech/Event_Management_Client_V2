@@ -603,7 +603,7 @@ function useBillingMutation<TArgs>(
 export function useChangePlan() {
     return useBillingMutation<number>(
         (planId) => api.post('/client/billing/change-plan', { plan_id: planId }),
-        { success: 'Plan change scheduled', failure: 'Could not change your plan.' },
+        { success: 'Plan changed', failure: 'Could not change your plan.' },
     );
 }
 

@@ -297,7 +297,7 @@ export default function UpgradeNowPage() {
                                 <ul className="flex flex-col gap-1.5 text-[12.5px] text-muted-foreground">
                                     <li className="flex items-start gap-2">
                                         <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
-                                        Change takes effect at the end of your term
+                                        Your new plan starts straight away
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
@@ -305,7 +305,7 @@ export default function UpgradeNowPage() {
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
-                                        Nothing is charged today
+                                        A new term starts on the day you switch
                                     </li>
                                 </ul>
                             </CardContent>
@@ -319,11 +319,11 @@ export default function UpgradeNowPage() {
                             {[
                                 {
                                     q: 'Can I change my plan later?',
-                                    a: 'Yes. A change is scheduled for the end of your current billing term, and you keep your present plan until then.',
+                                    a: 'Yes. Choose another plan at any time and it applies straight away.',
                                 },
                                 {
                                     q: 'What happens when I upgrade?',
-                                    a: 'Your new plan starts when the current term ends. Nothing is charged at the moment you choose it.',
+                                    a: 'Your new plan starts immediately, with a new billing term from today.',
                                 },
                                 {
                                     q: 'How do I pay?',
@@ -366,10 +366,8 @@ export default function UpgradeNowPage() {
                     <DialogHeader>
                         <DialogTitle>Switch to {target?.name}?</DialogTitle>
                         <DialogDescription>
-                            You stay on <span className="font-medium text-foreground">{sub?.plan?.name}</span> until{' '}
-                            <span className="font-medium text-foreground">{formatDate(data?.change_effective_at)}</span>,
-                            then move to <span className="font-medium text-foreground">{target?.name}</span>.
-                            {' '}Nothing is charged today.
+                            You move from <span className="font-medium text-foreground">{sub?.plan?.name}</span> to{' '}
+                            <span className="font-medium text-foreground">{target?.name}</span> straight away.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

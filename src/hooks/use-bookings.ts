@@ -13,8 +13,7 @@ import type { CheckoutBody, CheckoutResult } from '@/hooks/use-billing';
  * dashboard's "Create Your Event Now" card lists them. Creating the event from one sends
  * `booking_id` and the booking turns `used`.
  *
- * No gateway yet: a paid plan saves the payment details as a pending payment and the date is
- * reserved straight away.
+ * A paid plan saves a successful payment and the date is reserved straight away (no pending).
  */
 
 export interface Booking {

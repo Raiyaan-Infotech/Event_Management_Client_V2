@@ -21,15 +21,8 @@ import {
 /**
  * Change Plan.
  *
- * ── A CHANGE IS SCHEDULED, NEVER IMMEDIATE ──────────────────────────────────
- * Choosing a plan schedules the switch for the end of the current term, which
- * is exactly what this screen's own banner has always promised. That is not a
- * limitation being papered over: an immediate upgrade has to charge the
- * difference, there is no payment provider to charge it with, and applying it
- * for free instead would hand out a paid plan on a button press.
- *
- * The effective date comes from the subscription record rather than being
- * written into the copy, so the banner cannot drift from the row it describes.
+ * ── A CHANGE APPLIES STRAIGHT AWAY (Jamal, 2026-11-19: no pending) ─────────
+ * Choosing a plan switches it now and starts a new term today (backend changePlan).
  *
  * ── THE COMPARISON TABLE IS REAL ────────────────────────────────────────────
  * Its rows are the union of the modules every plan grants
@@ -94,12 +87,7 @@ export default function ChangePlanPage() {
                             {', plus tax)'}.
                         </p>
                         <p className="mt-0.5 break-words text-muted-foreground">
-                            {data?.change_effective_at
-                                ? <>A new plan takes effect at the end of your current billing cycle, on{' '}
-                                    <span className="font-medium text-foreground">
-                                        {formatDate(data.change_effective_at)}
-                                    </span>. Nothing changes before then.</>
-                                : 'A new plan takes effect at the end of your current billing cycle.'}
+                            A new plan applies straight away, with a new billing term from today.
                         </p>
                     </div>
                 </div>
@@ -307,19 +295,13 @@ export default function ChangePlanPage() {
                         </DialogTitle>
                         <DialogDescription>
                             {target?.is_current ? (
-                                <>This cancels the scheduled switch. You stay on {target?.name}.</>
+                                <>This cancels the earlier scheduled switch. You stay on {target?.name}.</>
                             ) : (
                                 <>
-                                    You stay on <span className="font-medium text-foreground">{sub?.plan?.name}</span>{' '}
-                                    until{' '}
-                                    <span className="font-medium text-foreground">
-                                        {formatDate(data?.change_effective_at)}
-                                    </span>
-                                    , then move to{' '}
-                                    <span className="font-medium text-foreground">{target?.name}</span> at{' '}
+                                    You move from <span className="font-medium text-foreground">{sub?.plan?.name}</span> to{' '}
+                                    <span className="font-medium text-foreground">{target?.name}</span> straight away, at{' '}
                                     {target ? formatMoney(target.amount.subtotal, target.currency_code) : ''}
                                     {target ? CYCLE_SUFFIX[target.billing_cycle] : ''} plus tax.
-                                    {' '}Nothing is charged today.
                                 </>
                             )}
                         </DialogDescription>

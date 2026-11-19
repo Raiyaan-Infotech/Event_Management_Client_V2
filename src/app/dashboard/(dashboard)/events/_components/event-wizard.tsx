@@ -3301,7 +3301,6 @@ const bookedDay = (d: string) => { const [y, m, day] = d.split("-").map(Number);
  * 2026-11-19). The plan is the one chosen for THIS event when the date was booked.
  */
 function BookingStrip({ planName, booking, start, end }: { planName: string | null; booking?: Booking; start: string; end?: string }) {
-    const pending = booking?.payment_status === "pending";
     const dateText = end ? `${bookedDay(start)} – ${bookedDay(end)}` : `${bookedDay(start)} (${DAY_SHORT[new Date(`${start}T00:00:00`).getDay()]})`;
     return (
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -3316,7 +3315,7 @@ function BookingStrip({ planName, booking, start, end }: { planName: string | nu
                 <Layers className="h-6 w-6 text-primary" />
                 <div>
                     <p className="text-[11.5px] text-muted-foreground">Selected Plan</p>
-                    <p className="text-[15px] font-bold text-foreground">{booking?.plan.name ?? planName ?? "—"}{pending && <span className="ml-1.5 align-middle text-[11px] font-medium text-amber-700">(payment pending)</span>}</p>
+                    <p className="text-[15px] font-bold text-foreground">{booking?.plan.name ?? planName ?? "—"}</p>
                 </div>
             </div>
             <div className="flex items-center gap-3 border-l border-primary/15 pl-4">

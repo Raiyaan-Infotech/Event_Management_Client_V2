@@ -310,7 +310,7 @@ function BookingDetails({ booking, onClose }: { booking: Booking | null; onClose
                                 ["Event Date", bookingDates(booking)],
                                 ["Booking Type", booking.booking_type],
                                 ["Plan", booking.plan.name],
-                                ["Payment", booking.payment_status === "free" ? "Free plan — no payment" : booking.payment_status === "pending" ? "Payment details saved — awaiting confirmation" : "Paid"],
+                                ["Payment", booking.payment_status === "free" ? "Free plan — no payment" : "Paid"],
                                 ["Slot Status", "Reserved"],
                                 ["Booked On", atText(booking.booked_at)],
                             ] as const).map(([k, v]) => (

@@ -19,9 +19,9 @@ import { useCreateBooking, type BookingBody, type BookingResult } from "@/hooks/
  * Per-event plans (Jamal, 2026-11-19, Create Event updated v4): EVERY event is booked with its own
  * plan. Free books the date at once; a paid plan goes through Review and Payment first.
  *
- * ⚠ No payment gateway yet ("just save payment details"): Pay saves the method as a PENDING payment
- * (Billing History shows it) and the date is reserved straight away. Card number / CVC / expiry stay
- * in this browser; only brand + last four + name are sent.
+ * Pay saves a SUCCESSFUL payment (Billing History shows it) and the date is reserved straight away
+ * (Jamal 2026-11-19: no pending). Card number / CVC / expiry stay in this browser; only brand + last
+ * four + name are sent.
  */
 
 type Plan = AvailablePlans["plans"][number];
@@ -60,7 +60,7 @@ export function BookingFlow({ start, end }: { start: string; end?: string }) {
             </div>
             {stage !== "plan" && (
                 <p className="mt-3 flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-[12.5px] text-foreground">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your date is booked as soon as your payment details are saved.
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your date is booked as soon as your payment is done.
                 </p>
             )}
         </Card>
@@ -424,7 +424,7 @@ function PaymentStep({ plan, dateLabel, dates, onBack, onSaved }: {
                         )}
                     </div>
                     {error && <p role="alert" className="mt-3 text-[12.5px] font-medium text-destructive">{error}</p>}
-                    <p className="mt-4 flex items-center gap-2 text-[12.5px] text-muted-foreground"><ShieldCheck className="h-4 w-4 text-primary" />Your payment details are saved securely. You will not be charged until online payment is enabled.</p>
+                    <p className="mt-4 flex items-center gap-2 text-[12.5px] text-muted-foreground"><ShieldCheck className="h-4 w-4 text-primary" />Your payment details are kept secure.</p>
                 </Card>
 
                 <div className="flex flex-col gap-4">
@@ -485,8 +485,8 @@ function Booked({ result, dateLabel }: { result: BookingResult; dateLabel: strin
                     <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-100 text-emerald-600"><Check className="h-10 w-10" strokeWidth={3} /></span>
                     <p className="mt-3 text-[24px] font-bold text-foreground">Event Date Booked</p>
                     {t ? (
-                        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[13px] font-medium text-amber-800">
-                            <Clock className="h-4 w-4" />Payment details saved — awaiting confirmation
+                        <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-medium text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4" />Payment Successful — Slot Reserved
                         </span>
                     ) : (
                         <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-medium text-emerald-700">
