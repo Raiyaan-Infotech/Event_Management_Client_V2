@@ -72,28 +72,28 @@ export function DashboardBookingState({ counts, loading }: { counts: DashboardCo
     return (
         <>
             <div>
-                <h1 className="text-[22px] font-bold leading-tight text-foreground">Organizer Dashboard</h1>
-                <p className="text-[13px] text-muted-foreground">Manage your booked dates, create events, and track event activity from one place.</p>
+                <h1 className="text-[20px] font-bold leading-tight text-foreground">Organizer Dashboard</h1>
+                <p className="text-[12.5px] text-muted-foreground">Manage your booked dates, create events, and track event activity from one place.</p>
             </div>
 
             {/* Banner */}
-            <div className="relative flex items-center gap-5 overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 px-5 py-5">
-                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/70 text-primary dark:bg-white/10"><PartyPopper className="h-8 w-8" /></span>
-                <div className="min-w-0 flex-1 border-l border-primary/15 pl-5">
-                    {busy ? <Skeleton className="h-6 w-72" /> : <p className="text-[19px] font-bold text-foreground">{banner.title}</p>}
-                    <p className="mt-1 max-w-3xl text-[13px] text-muted-foreground">{busy ? <Skeleton className="h-4 w-96 max-w-full" /> : banner.text}</p>
+            <div className="relative flex items-center gap-4 overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 px-5 py-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/70 text-primary dark:bg-white/10"><PartyPopper className="h-6 w-6" /></span>
+                <div className="min-w-0 flex-1 border-l border-primary/15 pl-4">
+                    {busy ? <Skeleton className="h-5 w-72" /> : <p className="text-[16px] font-bold text-foreground">{banner.title}</p>}
+                    <p className="mt-0.5 max-w-3xl text-[12.5px] leading-snug text-muted-foreground">{busy ? <Skeleton className="h-4 w-96 max-w-full" /> : banner.text}</p>
                 </div>
-                <span className="hidden h-20 w-20 shrink-0 place-items-center rounded-2xl bg-white/70 text-primary md:grid dark:bg-white/10"><CalendarCheck2 className="h-11 w-11" /></span>
+                <span className="hidden h-14 w-14 shrink-0 place-items-center rounded-xl bg-white/70 text-primary md:grid dark:bg-white/10"><CalendarCheck2 className="h-8 w-8" /></span>
             </div>
 
             {/* Tiles */}
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {tiles.map((t) => (
-                    <div key={t.label} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3">
-                        <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", t.cls.split(" ")[0])}><t.Icon className={cn("h-5 w-5", t.cls.split(" ")[1])} /></span>
+                    <div key={t.label} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-2.5">
+                        <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-lg", t.cls.split(" ")[0])}><t.Icon className={cn("h-5 w-5", t.cls.split(" ")[1])} /></span>
                         <div className="min-w-0">
-                            <p className="truncate text-[12.5px] text-muted-foreground">{t.label}</p>
-                            {busy ? <Skeleton className="mt-1 h-6 w-10" /> : <p className="text-[22px] font-bold leading-tight tabular-nums text-foreground">{(t.value ?? 0).toLocaleString()}</p>}
+                            <p className="truncate text-[12px] text-muted-foreground">{t.label}</p>
+                            {busy ? <Skeleton className="mt-1 h-5 w-10" /> : <p className="text-[19px] font-bold leading-tight tabular-nums text-foreground">{(t.value ?? 0).toLocaleString()}</p>}
                         </div>
                     </div>
                 ))}
@@ -118,13 +118,13 @@ function ZeroState() {
     return (
         <>
             <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-                <Card className="items-center gap-0 rounded-xl border px-6 py-8 text-center shadow-none">
+                <Card className="items-center gap-0 rounded-xl border px-6 py-5 text-center shadow-none">
                     <Illustration icon={CalendarSearch} />
-                    <p className="mt-4 text-[22px] font-bold text-foreground">No Event Date Booked Yet</p>
-                    <p className="mt-1 max-w-md text-[13px] text-muted-foreground">You haven&apos;t booked any event date yet. To create an event, you must first check date availability and book a date.</p>
-                    <div className="mt-5 flex flex-wrap justify-center gap-3">
-                        <Button asChild className="h-10 px-6 font-semibold"><Link href="/dashboard/events/check-availability"><CalendarDays className="mr-1.5 h-4 w-4" />Check Event Availability</Link></Button>
-                        <Button asChild variant="outline" className="h-10 px-6 font-semibold"><a href="#how-it-works"><Play className="mr-1.5 h-4 w-4" />View How It Works</a></Button>
+                    <p className="mt-3 text-[19px] font-bold text-foreground">No Event Date Booked Yet</p>
+                    <p className="mt-1 max-w-md text-[12.5px] text-muted-foreground">You haven&apos;t booked any event date yet. To create an event, you must first check date availability and book a date.</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-3">
+                        <Button asChild className="h-9 px-6 font-semibold"><Link href="/dashboard/events/check-availability"><CalendarDays className="mr-1.5 h-4 w-4" />Check Event Availability</Link></Button>
+                        <Button asChild variant="outline" className="h-9 px-6 font-semibold"><a href="#how-it-works"><Play className="mr-1.5 h-4 w-4" />View How It Works</a></Button>
                     </div>
                 </Card>
                 <Steps
@@ -147,10 +147,10 @@ function InitialState({ booking, more, onDetails, activity }: { booking: Booking
     return (
         <>
             <div className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-                <Card className="items-center gap-0 rounded-xl border px-6 py-6 text-center shadow-none">
+                <Card className="items-center gap-0 rounded-xl border px-6 py-5 text-center shadow-none">
                     <Illustration icon={CalendarCheck2} done />
-                    <p className="mt-4 text-[22px] font-bold text-foreground">Event Date Allotted — Create Your Event Now</p>
-                    <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">Your event date is reserved, but you haven&apos;t created the event yet. Set up your event details now and publish your invitation for your guests.</p>
+                    <p className="mt-3 text-[19px] font-bold text-foreground">Event Date Allotted — Create Your Event Now</p>
+                    <p className="mt-1 max-w-xl text-[12.5px] text-muted-foreground">Your event date is reserved, but you haven&apos;t created the event yet. Set up your event details now and publish your invitation for your guests.</p>
                     <div className="mt-4 grid w-full grid-cols-2 gap-3 rounded-xl border px-3 py-3 text-left md:grid-cols-4">
                         <Fact icon={CalendarDays} label="Event Date" value={bookingDates(booking)} />
                         <Fact icon={Layers} label="Booking Type" value={booking.booking_type} />
@@ -159,8 +159,8 @@ function InitialState({ booking, more, onDetails, activity }: { booking: Booking
                     </div>
                     <p className="mt-3 flex items-center gap-1.5 text-[12.5px] text-muted-foreground"><Info className="h-3.5 w-3.5" />You can create the event anytime before the event date.</p>
                     <div className="mt-4 flex flex-wrap justify-center gap-3">
-                        <Button asChild className="h-10 px-8 font-semibold"><Link href={createHref(booking)}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
-                        <Button variant="outline" className="h-10 px-8 font-semibold" onClick={() => onDetails(booking)}><Play className="mr-1.5 h-4 w-4" />View Booking Details</Button>
+                        <Button asChild className="h-9 px-8 font-semibold"><Link href={createHref(booking)}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
+                        <Button variant="outline" className="h-9 px-8 font-semibold" onClick={() => onDetails(booking)}><Play className="mr-1.5 h-4 w-4" />View Booking Details</Button>
                     </div>
                 </Card>
                 <Steps
@@ -217,9 +217,9 @@ function PendingSetup({ booking, onDetails }: { booking: Booking; onDetails: (b:
 
 function Illustration({ icon: Icon, done }: { icon: LucideIcon; done?: boolean }) {
     return (
-        <span className="relative grid h-28 w-36 place-items-center rounded-[48%] bg-primary/10">
-            <Icon className="h-16 w-16 text-primary" strokeWidth={1.6} />
-            {done && <span className="absolute bottom-3 right-6 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground"><CheckCircle2 className="h-5 w-5" /></span>}
+        <span className="relative grid h-20 w-28 place-items-center rounded-[48%] bg-primary/10">
+            <Icon className="h-11 w-11 text-primary" strokeWidth={1.6} />
+            {done && <span className="absolute bottom-2 right-5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground"><CheckCircle2 className="h-4 w-4" /></span>}
         </span>
     );
 }
@@ -242,21 +242,21 @@ function ReservedChip() {
 
 function Steps({ id, icon: Icon, title, text, steps }: { id?: string; icon: LucideIcon; title: string; text: string; steps: [string, string][] }) {
     return (
-        <Card id={id} className="gap-0 rounded-xl border p-5 shadow-none scroll-mt-20">
+        <Card id={id} className="gap-0 rounded-xl border p-4 shadow-none scroll-mt-20">
             <div className="flex items-start gap-3">
-                <Icon className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
-                <div><p className="text-[18px] font-bold text-foreground">{title}</p><p className="text-[12.5px] text-muted-foreground">{text}</p></div>
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div><p className="text-[16px] font-bold text-foreground">{title}</p><p className="text-[12.5px] text-muted-foreground">{text}</p></div>
             </div>
-            <ol className="mt-4 flex flex-col">
+            <ol className="mt-3 flex flex-col">
                 {steps.map(([t, d], i) => (
-                    <li key={t} className="flex gap-4">
+                    <li key={t} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[14px] font-bold text-primary">{i + 1}</span>
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[13px] font-bold text-primary">{i + 1}</span>
                             {i < steps.length - 1 && <span className="my-1 w-px flex-1 border-l-2 border-dotted border-primary/30" aria-hidden />}
                         </div>
-                        <div className={cn(i < steps.length - 1 && "pb-4")}>
-                            <p className="text-[14px] font-bold text-foreground">{t}</p>
-                            <p className="text-[12.5px] text-muted-foreground">{d}</p>
+                        <div className={cn(i < steps.length - 1 && "pb-3")}>
+                            <p className="text-[13.5px] font-bold text-foreground">{t}</p>
+                            <p className="text-[12px] text-muted-foreground">{d}</p>
                         </div>
                     </li>
                 ))}
@@ -267,16 +267,16 @@ function Steps({ id, icon: Icon, title, text, steps }: { id?: string; icon: Luci
 
 function RecentActivity({ items }: { items: Booking[] }) {
     return (
-        <Card className="gap-0 rounded-xl border p-5 shadow-none">
+        <Card className="gap-0 rounded-xl border p-4 shadow-none">
             <div className="flex items-start gap-3">
                 <Activity className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                <div><p className="text-[16px] font-bold text-foreground">Recent Activity</p><p className="text-[12.5px] text-muted-foreground">A timeline of your latest actions, such as bookings, event creations, and updates.</p></div>
+                <div><p className="text-[15px] font-bold text-foreground">Recent Activity</p><p className="text-[12px] text-muted-foreground">A timeline of your latest actions, such as bookings, event creations, and updates.</p></div>
             </div>
             {items.length === 0 ? (
-                <div className="mt-4 flex flex-col items-center rounded-xl border px-4 py-6 text-center">
-                    <Clock className="h-9 w-9 text-muted-foreground/60" />
-                    <p className="mt-2 text-[14px] font-bold text-foreground">No activity yet</p>
-                    <p className="text-[12.5px] text-muted-foreground">Your event activity will appear here once you book a date or create an event.</p>
+                <div className="mt-3 flex flex-col items-center rounded-xl border px-4 py-4 text-center">
+                    <Clock className="h-7 w-7 text-muted-foreground/60" />
+                    <p className="mt-1.5 text-[13.5px] font-bold text-foreground">No activity yet</p>
+                    <p className="text-[12px] text-muted-foreground">Your event activity will appear here once you book a date or create an event.</p>
                 </div>
             ) : (
                 <ul className="mt-4 flex flex-col gap-2">
