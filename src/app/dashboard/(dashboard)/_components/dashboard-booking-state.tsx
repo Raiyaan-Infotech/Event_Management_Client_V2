@@ -151,14 +151,14 @@ function InitialState({ booking, more, onDetails, activity }: { booking: Booking
                     <Illustration icon={CalendarCheck2} done />
                     <p className="mt-3 text-[19px] font-bold text-foreground">Event Date Allotted — Create Your Event Now</p>
                     <p className="mt-1 max-w-xl text-[12.5px] text-muted-foreground">Your event date is reserved, but you haven&apos;t created the event yet. Set up your event details now and publish your invitation for your guests.</p>
-                    <div className="mt-4 grid w-full grid-cols-2 gap-3 rounded-xl border px-3 py-3 text-left md:grid-cols-4">
+                    <div className="mt-3 grid w-full grid-cols-2 gap-3 rounded-xl border px-3 py-2.5 text-left md:grid-cols-4">
                         <Fact icon={CalendarDays} label="Event Date" value={bookingDates(booking)} />
                         <Fact icon={Layers} label="Booking Type" value={booking.booking_type} />
                         <Fact icon={Star} label="Selected Plan" value={booking.plan.name} />
                         <Fact icon={ShieldCheck} label="Slot Status" value={<ReservedChip />} />
                     </div>
                     <p className="mt-3 flex items-center gap-1.5 text-[12.5px] text-muted-foreground"><Info className="h-3.5 w-3.5" />You can create the event anytime before the event date.</p>
-                    <div className="mt-4 flex flex-wrap justify-center gap-3">
+                    <div className="mt-3 flex flex-wrap justify-center gap-3">
                         <Button asChild className="h-9 px-8 font-semibold"><Link href={createHref(booking)}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
                         <Button variant="outline" className="h-9 px-8 font-semibold" onClick={() => onDetails(booking)}><Play className="mr-1.5 h-4 w-4" />View Booking Details</Button>
                     </div>
@@ -173,7 +173,7 @@ function InitialState({ booking, more, onDetails, activity }: { booking: Booking
                 />
             </div>
             {more.map((b) => <PendingSetup key={b.id} booking={b} onDetails={onDetails} />)}
-            <p className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-3.5 text-[13px]">
+            <p className="flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 px-5 py-2.5 text-[12.5px]">
                 <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
                 <span className="border-l border-primary/20 pl-4"><b className="text-primary">Your booking slot is secured.</b> <span className="text-muted-foreground">The event will remain in pending setup until you create it.</span></span>
             </p>
@@ -190,8 +190,8 @@ function PendingSetup({ booking, onDetails }: { booking: Booking; onDetails: (b:
             <div className="flex items-start gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><CalendarDays className="h-5 w-5" /></span>
                 <div>
-                    <p className="text-[17px] font-bold text-foreground">Pending Setup: Create Your New Event</p>
-                    <p className="text-[13px] text-muted-foreground">You have a booked date with no event created yet. Set up your event now to start invitations and RSVP.</p>
+                    <p className="text-[16px] font-bold text-foreground">Pending Setup: Create Your New Event</p>
+                    <p className="text-[12.5px] text-muted-foreground">You have a booked date with no event created yet. Set up your event now to start invitations and RSVP.</p>
                 </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg bg-card/70 p-3">
@@ -204,8 +204,8 @@ function PendingSetup({ booking, onDetails }: { booking: Booking; onDetails: (b:
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[12.5px] font-semibold text-emerald-700"><Lock className="h-3.5 w-3.5" />Slot Reserved</span>
                     </div>
                     <div className="flex flex-wrap gap-3">
-                        <Button asChild className="h-10 min-w-56 font-semibold"><Link href={createHref(booking)}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
-                        <Button variant="outline" className="h-10 min-w-48 font-semibold" onClick={() => onDetails(booking)}><Play className="mr-1.5 h-4 w-4" />View Booking</Button>
+                        <Button asChild className="h-9 min-w-56 font-semibold"><Link href={createHref(booking)}><CalendarPlus className="mr-1.5 h-4 w-4" />Create Event Now</Link></Button>
+                        <Button variant="outline" className="h-9 min-w-48 font-semibold" onClick={() => onDetails(booking)}><Play className="mr-1.5 h-4 w-4" />View Booking</Button>
                     </div>
                 </div>
             </div>
@@ -279,15 +279,15 @@ function RecentActivity({ items }: { items: Booking[] }) {
                     <p className="text-[12px] text-muted-foreground">Your event activity will appear here once you book a date or create an event.</p>
                 </div>
             ) : (
-                <ul className="mt-4 flex flex-col gap-2">
+                <ul className="mt-3 flex flex-col gap-2">
                     {items.slice(0, 5).map((b) => (
-                        <li key={b.id} className="flex flex-wrap items-center gap-4 rounded-xl border px-4 py-3">
+                        <li key={b.id} className="flex flex-wrap items-center gap-4 rounded-xl border px-4 py-2.5">
                             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><CalendarDays className="h-5 w-5" /></span>
                             <div className="min-w-[200px] flex-1">
-                                <p className="text-[14px] font-bold text-foreground">{b.status === "used" ? "Event created from booked date" : "Event date booked successfully"}</p>
+                                <p className="text-[13.5px] font-bold text-foreground">{b.status === "used" ? "Event created from booked date" : "Event date booked successfully"}</p>
                                 <p className="text-[12px] text-muted-foreground">{atText(b.used_at ?? b.booked_at)}</p>
                             </div>
-                            <p className="max-w-md text-[12.5px] text-muted-foreground md:border-l md:pl-4">
+                            <p className="max-w-md text-[12px] text-muted-foreground md:border-l md:pl-4">
                                 {b.status === "used" ? `Your event for ${dayText(b.start_date)} has been created.` : "No event has been created yet. Create your event to set up the details and publish the invitation."}
                             </p>
                         </li>
